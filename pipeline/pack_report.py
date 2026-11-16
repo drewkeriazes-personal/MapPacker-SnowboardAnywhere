@@ -450,8 +450,9 @@ class Report:
             spec = load_json(p)
             g = spec.get("game", {})
             if "x" in g:
-                # FEAT-175: a spot propose_spots.py made has no Street View link until Drew adds one
-                paired = any(v.get("streetview") for v in spec.get("views", []))
+                # FEAT-175: a spot propose_spots.py made has no Street View link until Drew adds one;
+                # DATA-026: a view from a photo (gmaps2game.py <photo>) counts as a pair too
+                paired = any(v.get("streetview") or v.get("photo") for v in spec.get("views", []))
                 self.spots.append({"spot": os.path.basename(os.path.dirname(p)), "paired": paired,
                                    "treesPerHa": round(trees_per_ha(self.trees, self.stand_pts, float(g["x"]), float(g["y"])))})
 
@@ -725,8 +726,8 @@ class Report:
             paired = sum(1 for sp in self.spots if sp["paired"])
             proposed = len(self.spots) - paired
             self.line("19", "Compare spots against photos", PASS if paired else WARN if proposed else FAIL,
-                      f"{paired} spots with Street View in docs/compare/{self.slug}" +
-                      (f", {proposed} proposed waiting for a Street View link (propose_spots.py)" if proposed else ""), mvp=False)
+                      f"{paired} spots with a Street View or photo in docs/compare/{self.slug}" +
+                      (f", {proposed} proposed waiting for a Street View link or photo (propose_spots.py)" if proposed else ""), mvp=False)
         else:
             why = f"no SnowboardAnywhere checkout at {self.game} (--game-repo or SBA_GAME_REPO)"
             self.line("19", "Compare spots against photos", SKIP, why, mvp=False)
