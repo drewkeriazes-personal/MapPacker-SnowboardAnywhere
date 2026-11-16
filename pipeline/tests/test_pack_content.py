@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pack_content as P  # noqa: E402
+from canopy_spots import run_half_width  # noqa: E402
 
 GATEWAY = {"id": "back-bowls-gateway", "kind": "gateway", "name": "The Legendary Back Bowls", "x": -718.0, "y": 495.9,
            "heading": 162, "span": 7.1, "clearance": 3.55, "text": "THE LEGENDARY BACK BOWLS", "source": "photo",
@@ -154,3 +155,39 @@ def test_the_real_vail_and_breckenridge_content_applies(tmp_path):
         _dump(str(pack / "meta.json"), {"slug": slug, "build": "b", "start": dict(RUN_START)})
         out = P.apply(str(pack), log=lambda s: None)
         assert out["start"] == {"vail": "landmark", "breckenridge": "placed"}[slug]
+
+
+# BUG-132: a hand start off every run is called out when the content goes in, not first at the report's line 10
+RIDGE = {"name": "Ridge", "difficulty": "expert", "points": [[0, 0, 100], [100, 0, 90]]}
+
+
+def _features(pack, runs):
+    _dump(os.path.join(pack, "features.json"), {"runs": runs, "lifts": []})
+
+
+def test_a_hand_start_off_every_run_is_called_out(env):
+    resorts, pack = env
+    _features(pack, [RIDGE])
+    _dump(os.path.join(resorts, "demo", "start.json"), {"x": 50, "y": 40, "heading": 90})
+    said = []
+    out = P.apply(pack, resorts=resorts, log=said.append)
+    half = run_half_width(RIDGE)
+    assert out["startOffRun"] == pytest.approx(40 - half, abs=0.1)
+    assert any("off the nearest run (Ridge)" in s and "start.json" in s for s in said)
+    assert meta(pack)["start"]["x"] == 50      # reported, not moved: where a hand start goes is a person's call
+
+
+def test_a_hand_start_on_a_run_says_nothing(env):
+    resorts, pack = env
+    _features(pack, [RIDGE])
+    _dump(os.path.join(resorts, "demo", "start.json"), {"x": 50, "y": 2, "heading": 90})
+    said = []
+    out = P.apply(pack, resorts=resorts, log=said.append)
+    assert "startOffRun" not in out and not any("off the nearest run" in s for s in said)
+
+
+def test_a_build_start_is_not_checked_here(env):
+    resorts, pack = env
+    _features(pack, [RIDGE])                     # RUN_START is far off it: gen_content.py and line 10 own that one
+    assert "startOffRun" not in P.apply(pack, resorts=resorts, log=lambda s: None)
+

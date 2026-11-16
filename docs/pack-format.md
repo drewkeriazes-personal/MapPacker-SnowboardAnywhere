@@ -310,7 +310,8 @@ The pipeline resolves the default start, so the game reads only `meta.start`: a 
 15 m uphill of it, facing through it; `source: "landmark"`, `landmark: <id>`, `label: "Starts at <name>"`), else
 `resorts/<slug>/start.json` (`{x, y, heading in degrees, label, source, note}`; `source: "placed"`), else the start
 `gen_content.py` or `build_pack.py` wrote. While a hand start covers that one it is kept in `meta.baseStart`, so a
-rerun resolves from it again. Both keys are optional; a game that does not read `meta.landmarks` ignores it: no
+rerun resolves from it again. A hand start off every run in `features.json` (the test `pack_report.py` line 10
+makes) is reported by `pack_content.py` and left where it is: it is moved in its file (BUG-132). Both keys are optional; a game that does not read `meta.landmarks` ignores it: no
 format bump.
 
 ## features.json
