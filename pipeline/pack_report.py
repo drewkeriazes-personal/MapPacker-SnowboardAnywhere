@@ -612,11 +612,18 @@ class Report:
         self.line("8", "Far terrain: cover levels pack, mid, far", FAIL if miss else PASS,
                   f"missing {', '.join(miss)}" if miss else "three levels")
         ft = n.get("farTrees", 0)
-        self.line("8b", "Far tree ring (lidar crowns round the resort)", PASS if ft else FAIL,
-                  f"{ft / 1e6:.2f} M crowns in {len(meta['instances'].get('farTreeCells', []))} cells" if ft else
+        src = meta["instances"].get("farTreeSource")
+        detail = f"{ft / 1e6:.2f} M crowns in {len(meta['instances'].get('farTreeCells', []))} cells"
+        if src == "eth":
+            # FEAT-257: generated on the ETH canopy height and WorldCover tree cover, so the tier stays what it is
+            detail += " generated on the ETH canopy height and WorldCover tree cover, not lidar (FEAT-257)"
+        elif src:
+            detail += f" from {src}"
+        self.line("8b", "Far tree ring (crowns round the resort)", PASS if ft else FAIL,
+                  detail if ft else
                   ("none: set lidar.far, ept_select.py, fetch, far_trees.py (BUG-081)" if self.lidar else
-                   "none: no lidar for a far ring at this tier, so the ridges round the resort keep the land cover "
-                   "alone (FEAT-225)"))
+                   "none: far_trees.py builds it from the ETH canopy height and WorldCover tree cover without lidar "
+                   "(FEAT-257); rebuild, or fetch the land cover (landcover.enabled)"))
 
         # 9 features
         f = self.features

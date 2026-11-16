@@ -107,6 +107,7 @@ CAL_FLAT = 0.05         # height gradient below which a cell faces nowhere (aspe
 # level's forest by a lookup fitted the same way (CAL_*) where the pack's own crowns and its forest overlap. The
 # share is read as t = share / RING_T_FULL (Vail's closed timber draws about 0.3 to 0.4). The ring's own forest
 # also joins the pack level as what the land cover is calibrated to, so the fit sees the ridges round the resort.
+# FEAT-257: not a ring generated from the land cover itself (no lidar, instances.farTreeSource), which keeps it.
 RING_T_FULL = 0.4
 ATTRIBUTION = [
     "Land cover: ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
@@ -441,6 +442,10 @@ def ring_forest(pack_dir, meta, res, min_x, max_y, w, h, south, pack_truth, name
     inst = meta.get("instances") or {}
     box_l = inst.get("farTreeBox")
     if not inst.get("farTreeCells") or not box_l or pack_truth is None:
+        return None
+    if inst.get("farTreeSource"):
+        # FEAT-257: a ring generated from the ETH canopy height on WorldCover tree cover (no lidar) has nothing to add
+        # to the land cover it was drawn from, and the pack's own trees are stems, not crowns, to fit the lookup on
         return None
     from scipy import ndimage
     p, inside = pack_truth

@@ -21,7 +21,7 @@ pack/<slug>/
   cover/<level>.png         RGBA forest cover for the terrain at a distance, one image per level (optional)
   trees/<tx>_<ty>.bin       tree instances per 1 km cell (the detected crowns)
   stands/<tx>_<ty>.png      stand density per 4 m cell, one RGB image per 1 km tree cell (optional, FEAT-074)
-  farTrees/<tx>_<ty>.bin    the lidar crowns on the ridges round the resort, outside the bounds (optional, BUG-081)
+  farTrees/<tx>_<ty>.bin    the crowns on the ridges round the resort, outside the bounds (optional, BUG-081, FEAT-257)
   rocks/<tx>_<ty>.bin       rock instances per 1 km cell
   features.json             lifts, runs, buildings, roads, water, peaks, labels
   report.json, report.md    the DATA-022 scorecard from pipeline/pack_report.py (optional, not read by the game)
@@ -133,8 +133,8 @@ stored in 1/32 steps. WorldCover calls a 10 m pixel tree cover from about 10% ca
 (stems counted, FEAT-074) it reads 0.75 where the lidar forest is 0.71, and 0.65 against 0.57 on south faces.
 The share hands over to the pack level at its edge without a step. The build log prints the fit by aspect.
 
-In the far tree ring (`farTrees/`, below) R of `mid` and `far` comes from the lidar crowns instead of the land
-cover: the drawn crowns' share of each cell (the pack's and the ring's, averaged over 16 m) mapped onto the pack
+In a lidar far tree ring (`farTrees/`, below) R of `mid` and `far` comes from the lidar crowns instead of the land
+cover (a ring generated without lidar, FEAT-257, keeps the land cover it was drawn from): the drawn crowns' share of each cell (the pack's and the ring's, averaged over 16 m) mapped onto the pack
 level's R by the same kind of lookup, fitted where the pack's own crowns and its R overlap (so a ring crown counts
 for the stems a pack stand would have), with G from the crowns' heights. It fades to the calibrated land cover
 over `blend` m inside the ring's outer edge (`instances.farTreeBox`).
@@ -221,14 +221,22 @@ negative or reach `cellsX` / `cellsY` and over; a grid edge cell can have both f
 there: canopy is lidar height over 2.5 m off cliffs (45 degrees), no snags, and species from `species.py`'s
 no-LANDFIRE rules for the pack's region (FEAT-233: bare hardwood and hemlock in the east). Ground heights follow the lidar ground where it has returns and the `mid` height set elsewhere.
 
+Without lidar (Silver and Bronze, FEAT-257) the ring is generated on what the stands are built from, the ETH
+10 m canopy height on WorldCover tree cover, 5 km past the resort box: 4,000 crowns per km2 of canopy (3 m or
+taller, off cliffs over 45 degrees) on a jittered grid, each 0.95 of the canopy height, plus or minus 20 %, on the
+`mid` heights, and species by the same rules. The lidar rings hold 3,200 (Boston Mills) to 5,000 (Breckenridge)
+crowns per km2 under closed canopy, at 0.93 to 0.98 of the ETH height. Same records; `farTreeSource` says so.
+
 | meta `instances` field | |
 |---|---|
 | `treeRing` | ring cells past the grid on each side |
 | `farTreeCells` | the `farTrees/` cells that have a file, `"tx_ty"` |
 | `farTreeCount` | crowns in all of them |
 | `farTreeBox` | the ring's outer edge, `[minX, minY, maxX, maxY]` local metres |
+| `farTreeSource` | `"eth"`: generated on the ETH canopy height, not lidar (FEAT-257); absent for the lidar ring. The game does not read it |
 
 Vail (5 km ring, 2026-11-11): 1.31 M crowns in 363 cells, 31 MB, from 1,485 more lidar nodes (1.9 GB raw).
+Atzmannig (Bronze, generated, 2026-11-16): 0.33 M crowns in 176 cells, 8 MB, 54 % of the ring box canopy.
 
 ## Stands (optional, FEAT-074)
 

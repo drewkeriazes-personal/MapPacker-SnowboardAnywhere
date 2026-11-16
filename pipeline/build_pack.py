@@ -11,8 +11,8 @@ Steps
   5. NAIP: 4-band 1 m -> NDVI, brightness -> canopy / aspen / rock / scree / meadow classes
   FEAT-225 Silver and Bronze (tiers.py, tier_sources.py), read from the config: `dem.source` "Mapterhorn" builds
   steps 1 and 2 from Mapterhorn tiles at the plan's zooms; no `lidar` makes step 4's canopy height model the ETH
-  10 m canopy height on WorldCover tree cover, with no crowns (the trees are all stands, step 8) and no far tree
-  ring; no `naip` makes step 5's masks from the WorldCover classes. `meta.json` records `tier` and `sources`.
+  10 m canopy height on WorldCover tree cover, with no crowns (the trees are all stands, step 8) and a far tree
+  ring generated on it (FEAT-257); no `naip` makes step 5's masks from the WorldCover classes. `meta.json` records `tier` and `sources`.
   6. OSM: pistes, lifts (+pylons, stations), buildings, roads, water, peaks -> features.json
      (a run's name is its piste:name, else its name; a different name is kept as altName, FEAT-296)
   7. Masks (2 m): rock, scree, groomed piste corridors, canopy cover; piste direction for the groomers
@@ -1531,15 +1531,15 @@ write_meta(out, meta)
 
 # ------------------------------------------------------------------ 9b. the far tree ring (BUG-081)
 # the lidar crowns on the ridges round the resort (far_trees.py), before the cover, whose land cover levels take
-# their forest from them; needs lidar.far in the config and its nodes in raw/<slug>/ept_far/ (ept_select.py)
-if (cfg.get("lidar") or {}).get("far") and glob.glob(os.path.join(raw, "ept_far", "*.laz")):
+# their forest from them; needs lidar.far in the config and its nodes in raw/<slug>/ept_far/ (ept_select.py).
+# FEAT-257: without lidar, crowns generated on the ETH canopy height and WorldCover tree cover the stands use.
+if (cfg.get("lidar") or {}).get("far") and glob.glob(os.path.join(raw, "ept_far", "*.laz")) or not LIDAR:
     log("far tree ring")
     import far_trees
     far_trees.main([slug, raw, out])
     meta = json.load(open(os.path.join(out, "meta.json"), encoding="utf-8"))
 else:
-    log("  no far tree ring (lidar.far and raw/<slug>/ept_far/): the ridges round the resort keep the land cover alone"
-        + ("" if LIDAR else " (no lidar here, FEAT-225)"))
+    log("  no far tree ring (lidar.far and raw/<slug>/ept_far/): the ridges round the resort keep the land cover alone")
 
 # ------------------------------------------------------------------ 10. forest cover levels for the far terrain (FEAT-153)
 log("cover")

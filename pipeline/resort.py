@@ -1093,7 +1093,7 @@ def plan(stub, hosts, walk_nodes=True, log=print):
     facts["layers"]["trees"] = "gold" if lidar_cover >= COVERED else "silver"
     if not picked:
         facts["notes"].append("no EPT lidar over the box: the trees are stands from the ETH canopy height and "
-                              "WorldCover (Silver trees), no crowns and no far tree ring")
+                              "WorldCover (Silver trees), no crowns, the far tree ring generated on them (FEAT-257)")
     else:
         far_depth, far_spacing = ept_depth(hosts.ept(lidar["ept"] + "ept.json"), cy, FAR_SPACING_M)
         far_depth = min(far_depth, lidar["max_depth_resort"])
@@ -1253,7 +1253,7 @@ def plan_md(cfg, facts, walked=True):
                  f"{facts.get('far_spacing', 0):.1f} m | {fn if fn is not None else '?'} | "
                  f"{mb(facts['far_points'] * BYTES['ept_pt']) if fn is not None else '?'} | |")
     if not facts["lidar"]:
-        L.append(f"| Trees | stands from the ETH canopy height and WorldCover (no lidar: no crowns, no far tree ring) | "
+        L.append(f"| Trees | stands from the ETH canopy height and WorldCover (no lidar: no crowns, far tree ring generated on them) | "
                  f"2020, 2021 | 10 m | | (land cover) | {facts['layers']['trees']} |")
     nf = facts["naip"]
     if cfg.get("naip"):
