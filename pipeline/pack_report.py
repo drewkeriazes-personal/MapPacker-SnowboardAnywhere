@@ -300,6 +300,24 @@ def point_in_polygon(x, y, pts):
     return inside
 
 
+def nearest_run(runs, x, y):
+    """(metres off the nearest run, its name) for a point: 0 inside an area run, else the distance from a line
+    run's corridor (centre line less its half width; negative inside it); (inf, None) with no runs. Line 10 and
+    pack_content.py's check of a hand start (BUG-132) both use it."""
+    best, name = math.inf, None
+    for r in runs:
+        if len(r.get("points") or []) < 2:
+            continue
+        if r.get("area"):
+            if point_in_polygon(x, y, r["points"]):
+                best, name = 0.0, r.get("name")
+            continue
+        d = distance_to_polyline(x, y, r["points"]) - run_half_width(r)
+        if d < best:
+            best, name = d, r.get("name")
+    return best, name
+
+
 def gate(lines):
     """(playable, ids of the MVP lines that hold it back)"""
     bad = [ln["id"] for ln in lines if ln["mvp"] and ln["status"] in (FAIL, SKIP)]
@@ -806,17 +824,7 @@ class Report:
             px = sample(self.mask, self.meta["mask"], x, y)
             if px is not None and (px[0] >= 128 or px[1] >= 128):
                 probs.append("on rock or scree")
-        best, name = math.inf, None
-        for r in self.runs:
-            if len(r["points"]) < 2:
-                continue
-            if r.get("area"):
-                if point_in_polygon(x, y, r["points"]):
-                    best, name = 0.0, r.get("name")
-                continue
-            d = distance_to_polyline(x, y, r["points"]) - run_half_width(r)
-            if d < best:
-                best, name = d, r.get("name")
+        best, name = nearest_run(self.runs, x, y)
         if best > 0:
             probs.append(f"{best:.0f} m off the nearest run" + (f" ({name})" if name else ""))
         if len(self.trees):

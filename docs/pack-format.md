@@ -313,6 +313,9 @@ The pipeline resolves the default start, so the game reads only `meta.start`: a 
 rerun resolves from it again. Both keys are optional; a game that does not read `meta.landmarks` ignores it: no
 format bump.
 
+A hand start off every run in `features.json` (the test `pack_report.py` line 10 makes) is reported by
+`pack_content.py` and left where it is: it is moved in its file (BUG-132).
+
 ## features.json
 
 ```
