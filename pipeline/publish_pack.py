@@ -46,7 +46,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from packwriter import FORMAT_VERSION, pipeline_commit  # noqa: E402
 from pack_lint import lint  # noqa: E402
 from releases import INDEX, list_releases, own_release, parse_tag, release_tag, write_index  # noqa: E402
-import pack_content  # noqa: E402
 import paths  # noqa: E402
 
 RESORTS_REPO = "drewkeriazes-personal/MapPacker-SnowboardAnywhere"
@@ -436,6 +435,7 @@ def main(argv=None) -> None:
         cfg = json.load(open(cfg_path, encoding="utf-8")) if os.path.isfile(cfg_path) else {}
         if cfg.get("source_only"):
             raise SystemExit(f"{slug} is a relocate source (source_only, FEAT-268), not a pack: it is not published")
+        import pack_content     # here, not at the top: it pulls in shapely, which render-budgets' content_key import lacks
         hand = pack_content.missing(meta, slug)     # BUG-156: a hand rebuild that skipped the content stage
         if hand:
             raise SystemExit(f"refusing to publish: {hand}: python pipeline/pack_content.py {pack_dir}, "
