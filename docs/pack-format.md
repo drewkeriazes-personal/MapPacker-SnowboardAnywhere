@@ -168,15 +168,18 @@ height, summed, over the cell area (metres: the drawn crown cover times its mean
 crowns (`trees/`, at the radius the game draws them, as `cover.py`) and the stand's generated stems in expectation
 (`stands/`, chance times crown area, each counted by the share of its 0.75 to 1 times stand height draw over 10 m), so a
 pack without lidar (FEAT-225), whose trees are all stems, gets a grid too. `v` is blurred (Gaussian, 15 m) and mapped
-linearly from 1 m (score 0) to 8 m (score 1), clamped. Both references are fixed physical amounts rather than the
-pack's own maximum, so a score means the same forest in every pack: 8 m is half the ground under the crowns of 16 m
-trees, closed timber (Vail's spruce-fir draws 0.4 to 0.75 cover at 18 to 25 m, 10 to 15 m, and saturates); 1 m is a
-tall tree every 20 m or so, the scattered trees of a bowl or a run's edge, which reads as open. Krummholz, young
+linearly from 1.5 m (score 0) to 6 m (score 1), clamped. Both references are fixed physical amounts rather than the
+pack's own maximum, so a score means the same forest in every pack (a per-pack maximum would stretch a resort of thin
+stands to 1): 6 m is 40 % of the ground under the crowns of 15 m trees, a dense glade you can still ride between
+(Vail's timber draws 0.4 to 0.75 cover at 18 to 25 m and saturates); 1.5 m is 10 % under 15 m crowns, about where
+WorldCover starts calling a pixel tree cover, the scattered trees of a bowl or a run's edge, which reads as open.
+On Vail 8 m instead put Steep and Deep at 0.71, and 5 m lifted the bowls' tree islands and the groomers' edges. Krummholz, young
 stands and the snow ghosts at the treeline (under 10 m) make no canopy however dense they are.
 
-Vail (2026-11-17 pack, sampled along the OSM lines every 10 m, median / 10th / 90th percentile): Steep and Deep
-0.70 / 0.04 / 1.00, Riva Glade 0.40; Inner and Outer Mongolia Bowl 0.00, Sun Up Bowl 0.08 (0.53 at the 90th, its tree
-islands); the groomers Born Free, Simba and Lodgepole 0.00. 1160 x 1170, about 0.5 MB. Add it to a built pack without a
+Vail (2026-11-17, sampled along the OSM lines every 10 m, median and 90th percentile): Steep and Deep 0.96 / 1.00,
+Riva Glade 0.49 / 1.00; Inner and Outer Mongolia Bowl 0.00 / 0.00, Sun Up Bowl 0.05 / 0.64 (its tree islands), China Bowl
+to Two Elk 0.10 / 0.46; the groomers Born Free 0.00 / 0.04, Simba and Lodgepole 0.00 / 0.00, all groomed runs 0.00 / 0.50
+(narrow trails through timber, Riva Ridge Lower, read their edges). 1160 x 1170 px, 0.45 MB. Add it to a built pack without a
 rebuild: `python pipeline/canopy.py packs/<slug>` (`--at x,y ...` prints the score at local points).
 
 ## Instances

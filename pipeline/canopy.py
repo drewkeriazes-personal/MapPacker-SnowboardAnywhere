@@ -14,9 +14,10 @@ the detected crowns (trees/*.bin, at the radius the game draws them) plus the st
 (stands/, chance x crown area; a stem counts by the share of its 0.75..1 x stand height draw over MIN_H), blurred
 over BLUR_M and mapped linearly from V_OPEN (0) to V_CLOSED (1), clamped. The references are fixed physical
 amounts, not the pack's own maximum, so the same score means the same forest in every pack:
-  V_CLOSED  8 m: half the ground under the crowns of 16 m trees, closed timber (Vail's spruce-fir draws 0.4 to
-            0.75 cover at 18 to 25 m, 10 to 15 m, so it saturates; the Steep and Deep glade reads 0.6 to 1)
-  V_OPEN    1 m: a tree every 20 m or so, scattered bowl and run-edge trees, reads as open
+  V_CLOSED  6 m: 40% of the ground under the crowns of 15 m trees, a dense glade you can still ride between (Vail's
+            timber draws 0.4 to 0.75 cover at 18 to 25 m, 7 to 19 m, so it saturates; Steep and Deep reads about 1)
+  V_OPEN    1.5 m: 10% of the ground under 15 m crowns (about where WorldCover starts calling a pixel tree cover),
+            the scattered trees of a bowl or a run's edge, reads as open
 """
 import json, math, os, sys
 import numpy as np
@@ -26,8 +27,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 RES = 10.0          # m per cell
 MIN_H = 10.0        # m: shorter trees (krummholz, young stands, the snow ghosts at the treeline) make no room overhead
-V_OPEN = 1.0        # m of crown cover x height that still reads as open terrain (score 0)
-V_CLOSED = 8.0      # m that reads as closed tall forest (score 1)
+V_OPEN = 1.5        # m of crown cover x height that still reads as open terrain (score 0): 0.1 cover at 15 m
+V_CLOSED = 6.0      # m that reads as a closed room of tall trees (score 1): 0.4 cover at 15 m
 BLUR_M = 15.0       # Gaussian sigma (m) over the cells, so a glade's edge fades over 20 to 30 m
 FILE = "canopy.png"
 STEM_LO = 0.75      # the game draws a generated stem 0.75..1 x the stand height (stands.STEM_H is the mean)

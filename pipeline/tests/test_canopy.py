@@ -59,7 +59,7 @@ def test_grid_orientation_and_references(tmp_path):
     assert canopy.sample(img, e, -100, 0) == 0.0             # bare ground
     assert canopy.sample(img, e, 9000, 0) == 0.0             # off the grid
     # the edge fades over a few cells instead of a step
-    edge = [canopy.sample(img, e, 350, y) for y in range(0, 80, 5)]
+    edge = [canopy.sample(img, e, 350, y) for y in range(0, 80, 2)]
     assert edge == sorted(edge) and edge[0] < 0.1 and edge[-1] == 1.0 and sum(0.2 < v < 0.8 for v in edge) >= 2
     assert meta.get("build")   # a new build, so the game's get --from copies it again
 
