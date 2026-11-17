@@ -553,10 +553,11 @@ def validate(lines, planner):
     if pts and sum(len(a) for a in pts) > 10:
         P = np.concatenate(pts); O = np.concatenate(owner)
         kd = cKDTree(P)
-        d, j = kd.query(P, k=12)
+        d, j = kd.query(P, k=min(12, len(P)))
         near = np.full(len(P), np.inf)
         for col in range(1, d.shape[1]):
-            other = (O[j[:, col]] != O) if col < d.shape[1] else False
+            have = j[:, col] < len(P)
+            other = have & (O[np.minimum(j[:, col], len(P) - 1)] != O)
             near = np.where(np.isinf(near) & other & np.isfinite(d[:, col]), d[:, col], near)
         f = np.isfinite(near) & (near < 40)
         if f.any():
