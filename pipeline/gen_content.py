@@ -29,8 +29,8 @@ rendered from this build stays valid:
   (an `index.json` without `generated`) is left alone; a rerun that picks the same shots keeps the still and the
   takes `auto_attract.mjs` added, one that picks new shots drops them.
 
-Hand content wins: `pack_content.py` (FEAT-243, the next step of `build_resort.py`'s content stage) puts the
-resort's landmarks and a placed start from `resorts/<slug>/` over this start, and a hand-made menu over these shots;
+Hand content wins: `pack_content.py` (FEAT-243, the next step of `build_resort.py`'s content stage, and of this
+script run by hand unless `--no-hand`, BUG-156) puts the resort's landmarks and a placed start from `resorts/<slug>/` over this start, and a hand-made menu over these shots;
 the game still prefers its own hand-made menu in `game/public/attract/<slug>/` (Vail, Breckenridge) until its tools
 save into `resorts/<slug>/attract/`.
 """
@@ -651,6 +651,8 @@ def main(argv=None):
     ap.add_argument("--config", help="the resort config (default resorts/<slug>/<slug>.json), for start_run")
     ap.add_argument("--shots", type=int, default=SHOTS)
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
+    ap.add_argument("--no-hand", action="store_true",
+                    help="leave out the hand content of resorts/<slug>/ (build_resort.py applies it itself)")
     a = ap.parse_args(argv)
     if not os.path.isfile(os.path.join(a.pack_dir, "meta.json")):
         ap.error(f"no meta.json in {a.pack_dir}")
@@ -660,6 +662,12 @@ def main(argv=None):
         slug = load_json(os.path.join(a.pack_dir, "meta.json")).get("slug")
         config = paths.config_path(slug) if slug else None
     generate(a.pack_dir, config, a.shots, a.dry_run)
+    if not (a.dry_run or a.no_hand):
+        # BUG-156: a generated start and menu alone drop the resort's landmarks and placed start; the resort folder
+        # is the config's (resorts/<slug>/<slug>.json), else this checkout's resorts/
+        import pack_content
+        resorts = os.path.dirname(os.path.dirname(os.path.abspath(config))) if config and os.path.isfile(config) else None
+        pack_content.apply(a.pack_dir, resorts=resorts)
     return 0
 
 

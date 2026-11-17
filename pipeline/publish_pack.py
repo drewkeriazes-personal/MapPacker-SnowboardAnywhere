@@ -13,7 +13,9 @@ Runs from any checkout or worktree (needs `gh` signed in with push access to thi
 main (FEAT-272). Steps:
   1. refuse a pack whose meta.json `formatVersion` is not this pipeline's FORMAT_VERSION (rebuild it on main), and
      one whose build stamp (meta.json `pipeline`) is missing, `+dirty` or not on origin/main (stamp_problem)
-  2. refuse a pack pack_lint.py finds problems in (the publish-check job would reject its zip), dry run included;
+  2. refuse a pack pack_lint.py finds problems in (the publish-check job would reject its zip), dry run included,
+     and a resort pack without the hand content of `resorts/<slug>/` (pack_content.missing, BUG-156: landmarks,
+     a placed start);
      zip the pack, stored (PNG tiles do not compress), fixed timestamps so the same pack gives the same sha256;
      refuse a zip over 1.9 GiB (GitHub's limit per release asset is 2 GiB)
   3. `gh release create <slug>/v<N> --draft` in this repo with the zip, meta.json and the report if there is one
@@ -433,6 +435,11 @@ def main(argv=None) -> None:
         cfg = json.load(open(cfg_path, encoding="utf-8")) if os.path.isfile(cfg_path) else {}
         if cfg.get("source_only"):
             raise SystemExit(f"{slug} is a relocate source (source_only, FEAT-268), not a pack: it is not published")
+        import pack_content     # here, not at the top: it pulls in shapely, which render-budgets' content_key import lacks
+        hand = pack_content.missing(meta, slug)     # BUG-156: a hand rebuild that skipped the content stage
+        if hand:
+            raise SystemExit(f"refusing to publish: {hand}: python pipeline/pack_content.py {pack_dir}, "
+                             f"or python pipeline/build_resort.py {slug} --force content")
         report = a.report or (os.path.join(pack_dir, "report.md") if os.path.isfile(os.path.join(pack_dir, "report.md")) else None)
     print(f"status {a.status} ({why})")
 

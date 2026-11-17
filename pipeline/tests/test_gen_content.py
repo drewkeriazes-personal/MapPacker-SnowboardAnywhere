@@ -135,3 +135,29 @@ def test_no_shots_leaves_a_hand_made_attract(tmp_path, monkeypatch):
     monkeypatch.setattr(gc, "choose_shots", lambda *a, **k: [])
     gc.generate(str(pack), log=lambda s: None)
     assert (pack / "attract" / "index.json").exists()
+
+
+def _resort_with_gateway(tmp_path):
+    cfg = tmp_path / "resorts" / "demo" / "demo.json"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text("{}", encoding="utf-8")
+    (cfg.parent / "landmarks.json").write_text(json.dumps(
+        [{"id": "gate", "kind": "gateway", "name": "The Gate", "x": 100, "y": 200, "heading": 180, "start": True}]),
+        encoding="utf-8")
+    return str(cfg)
+
+
+def test_run_by_hand_it_keeps_the_resorts_hand_content(tmp_path):
+    """BUG-156: build_pack.py then gen_content.py by hand (no build_resort.py) dropped Vail's gateway and its start"""
+    pack = make_pack(tmp_path / "packs")
+    gc.main([str(pack), "--config", _resort_with_gateway(tmp_path)])
+    m = meta_of(pack)
+    assert [lm["id"] for lm in m["landmarks"]] == ["gate"]
+    assert m["start"]["source"] == "landmark" and m["baseStart"]["source"] == "generated"
+
+
+def test_no_hand_leaves_it_to_build_resort(tmp_path):
+    pack = make_pack(tmp_path / "packs")
+    gc.main([str(pack), "--config", _resort_with_gateway(tmp_path), "--no-hand"])
+    m = meta_of(pack)
+    assert "landmarks" not in m and m["start"]["source"] == "generated"
