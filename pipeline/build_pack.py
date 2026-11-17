@@ -1548,5 +1548,11 @@ meta["cover"] = build_cover(out, raw, cfg, log=log)
 if any(lv["name"] in ("mid", "far") for lv in meta["cover"]["levels"]):   # DATA-019 land cover
     from cover import ATTRIBUTION as COVER_ATTRIBUTION
     meta["attribution"] = meta["attribution"] + [a for a in COVER_ATTRIBUTION if a not in meta["attribution"]]
+
+# ------------------------------------------------------------------ 11. canopy density grid (FEAT-331)
+# how thick and tall the drawn canopy is per 10 m, for the game's glade darkness (FEAT-330); from the trees and stands
+log("canopy")
+from canopy import build_canopy
+meta["canopy"] = build_canopy(out, meta, log=log)
 write_meta(out, meta)
 log("done")

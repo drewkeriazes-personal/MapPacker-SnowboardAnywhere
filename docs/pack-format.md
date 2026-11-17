@@ -19,6 +19,7 @@ pack/<slug>/
   ao/<tx>_<ty>.png          2 m greyscale sky visibility (baked AO), same grid as mask (optional)
   dir/<tx>_<ty>.png         2 m greyscale piste direction (groomed run axis), same grid as mask (optional)
   cover/<level>.png         RGBA forest cover for the terrain at a distance, one image per level (optional)
+  canopy.png                10 m greyscale canopy score over the pack bounds (optional, FEAT-331)
   trees/<tx>_<ty>.bin       tree instances per 1 km cell (the detected crowns)
   stands/<tx>_<ty>.png      stand density per 4 m cell, one RGB image per 1 km tree cell (optional, FEAT-074)
   farTrees/<tx>_<ty>.bin    the crowns on the ridges round the resort, outside the bounds (optional, BUG-081, FEAT-257)
@@ -144,6 +145,39 @@ narrower than a far chunk's vertex spacing still shows as a white cut; chunks co
 four channels per vertex (forest, rock, and the canopy lift past the instanced trees). Finer levels fade
 in over `blend` metres inside their edges; outside every level the terrain keeps the procedural
 treeline. Add it to a built pack without a rebuild: `python pipeline/cover.py <slug> <raw_dir> packs/<slug>`.
+
+## Canopy grid (optional, FEAT-331)
+
+`canopy.png` at the pack root (`pipeline/canopy.py`): how thick and tall the canopy over the rider is, for the game's
+glade darkness (SnowboardAnywhere FEAT-330, SnowboardAnywhere#757). An 8-bit greyscale PNG, pixel value / 255 = the
+canopy score 0..1, one pixel per `res` (10) m cell over the pack bounds, described by `meta.canopy`:
+
+```
+"canopy": { "res": 10, "minX": -5800.0, "minY": -5850.0, "w": 1160, "h": 1170, "file": "canopy.png" }
+```
+
+`minX`, `minY` are local metres, the frame of `cover.levels[]`; `w`, `h` are pixel counts, `ceil(bounds size / res)`.
+Rows and columns run as the cover level images: row 0 is the north edge, column 0 the west edge, so pixel (col, row)
+covers x `minX + col * res` .. `+ res` and y `minY + (h - 1 - row) * res` .. `+ res`; the grid's rectangle is
+`[minX, minY, minX + w * res, minY + h * res]` (CoverSet's `rect`). A pixel's value is for its cell's centre; a reader
+interpolates between centres. The key and the file are optional and additive (no `formatVersion` bump): a pack
+without `canopy` has no canopy anywhere (score 0), and a game from before FEAT-330 ignores both.
+
+The score, per cell, from the trees the game draws that are taller than 10 m: `v` = their crown area times their
+height, summed, over the cell area (metres: the drawn crown cover times its mean height). The trees are the detected
+crowns (`trees/`, at the radius the game draws them, as `cover.py`) and the stand's generated stems in expectation
+(`stands/`, chance times crown area, each counted by the share of its 0.75 to 1 times stand height draw over 10 m), so a
+pack without lidar (FEAT-225), whose trees are all stems, gets a grid too. `v` is blurred (Gaussian, 15 m) and mapped
+linearly from 1 m (score 0) to 8 m (score 1), clamped. Both references are fixed physical amounts rather than the
+pack's own maximum, so a score means the same forest in every pack: 8 m is half the ground under the crowns of 16 m
+trees, closed timber (Vail's spruce-fir draws 0.4 to 0.75 cover at 18 to 25 m, 10 to 15 m, and saturates); 1 m is a
+tall tree every 20 m or so, the scattered trees of a bowl or a run's edge, which reads as open. Krummholz, young
+stands and the snow ghosts at the treeline (under 10 m) make no canopy however dense they are.
+
+Vail (2026-11-17 pack, sampled along the OSM lines every 10 m, median / 10th / 90th percentile): Steep and Deep
+0.70 / 0.04 / 1.00, Riva Glade 0.40; Inner and Outer Mongolia Bowl 0.00, Sun Up Bowl 0.08 (0.53 at the 90th, its tree
+islands); the groomers Born Free, Simba and Lodgepole 0.00. 1160 x 1170, about 0.5 MB. Add it to a built pack without a
+rebuild: `python pipeline/canopy.py packs/<slug>` (`--at x,y ...` prints the score at local points).
 
 ## Instances
 
@@ -361,6 +395,7 @@ A hand start off every run in `features.json` (the test `pack_report.py` line 10
   "cover": { "heightMax": 40, "blend": 500,                 // optional, FEAT-153
              "levels": [{ "name": "pack", "res": 4, "minX", "minY", "w", "h", "file": "cover/pack.png", "stands": "cover/pack-stands.png", "crowns": true },
                         { "name": "mid", "res": 16, ... }, { "name": "far", "res": 100, ... }] },
+  "canopy": { "res": 10, "minX", "minY", "w", "h", "file": "canopy.png" },   // optional, FEAT-331 (Canopy grid); absent = 0
   "instances": { "cellSize": 1000, "minX", "minY", "cellsX", "cellsY", "treeCount", "rockCount", "treeCells", "rockCells",
                  "shrubCount", "shrubCells",                // shrub fields optional, DATA-020
                  "crownWidths": { "open": 0.16, "cover": [0.1, 0.5], "jitter": 0.35, "widen": [0, 3, 5, 9],
@@ -423,7 +458,8 @@ FEAT-233 (`treeSpecies` 3, ids 8 bare hardwood and 9 eastern hemlock, the option
 every client since DATA-020 sends a species id past its table to 0 (`speciesFor`), so an older game loads a new pack and
 draws the new ids as spruce, the conifer forest those packs showed before; western packs hold no new id at all.
 
-Not a bump: the `coarse` height set (FEAT-229) is optional and a game before it ignores it.
+Not a bump: the `coarse` height set (FEAT-229) is optional and a game before it ignores it. Nor the `canopy` grid
+(FEAT-331): optional, read as score 0 when absent, ignored by a game before FEAT-330.
 
 ## Contract
 
@@ -444,6 +480,7 @@ Lines are as of 2026-11-11 (the game at `51efba2`); search for the name if they 
 | `packs/index.json` `{"packs", "names"}` | `pipeline/packwriter.py:100` `index_packs` | `game/tools/get_pack.mjs:59` `writePackIndex` (rewrites it after an install); `game/src/resorts.ts:14` `PackIndex` | `tests/test_publish_pack.py` round trip through `get_pack.mjs` (needs the game checkout and node) |
 | `meta.landmarks` (the `Landmark` shape) and `meta.start` `source` / `label` (FEAT-243) | `pipeline/pack_content.py` `read_landmarks`, `resolve_start` (from `resorts/<slug>/landmarks.json`, `start.json`) | `game/src/world/Landmarks.ts` `Landmark`, `game/src/pack/types.ts` `PackMeta.landmarks`, `start.label` (from SnowboardAnywhere's FEAT-243 PR) | `tests/test_pack_content.py` (the writer's side only) |
 | `catalog.json` | `pipeline/publish_pack.py:141` `catalog_entry`, `:156` `update_catalog` | `game/tools/get_pack.mjs:19` `CATALOG_URL`, `:75` `getPack`; `game/src/ui/ResortPicker.ts:42` | `tests/test_publish_pack.py` round trip |
+| `meta.canopy` and `canopy.png` (FEAT-331): the key's fields, 8-bit greyscale value / 255 = score, row 0 = north, absent = 0 | `pipeline/canopy.py` `build_canopy` (`RES`, `FILE`), `grid` | the game's FEAT-330 canopy reader (SnowboardAnywhere#757) | `tests/test_canopy.py` (the writer's side only) |
 | `terrain.coarse` (FEAT-229) | `pipeline/coarse_set.py`, `pipeline/build_pack.py` stage 1 | `game/src/pack/Pack.ts` `coarse`, `skipFine`; `game/src/terrain/Terrain.ts` `update` | not checked across repos |
 | Terrarium heights | `pipeline/packwriter.py:17` `encode_terrarium` | `game/src/pack/HeightSet.ts:88` | not checked across repos |
 
