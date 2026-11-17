@@ -5,7 +5,7 @@ description: Keep every open PR in MapPacker and the game repo mergeable while D
 
 # PR shepherd (pointer, FEAT-327)
 
-The skill lives in the game repo, so there is one copy for both repos: `.claude/skills/pr-shepherd/` in drewkeriazes/SnowboardAnywhere (FEAT-324; FEAT-326 made it cover this repo too). It watches and fixes PRs in both repos whichever one you start from.
+The skill lives in the game repo, so there is one copy for both repos: `.claude/skills/pr-shepherd/` in drewkeriazes-personal/SnowboardAnywhere (FEAT-324; FEAT-326 made it cover this repo too). It watches and fixes PRs in both repos whichever one you start from.
 
 1. Find it in the sibling game clone: `C:\Users\Drew\git\SnowboardAnywhere\.claude\skills\pr-shepherd\SKILL.md` (the main checkout, found at `../SnowboardAnywhere` next to this one; `SBA_GAME_REPO` overrides).
 2. If that checkout hasn't pulled it yet (no `repos.sh` next to it), don't pull there: other sessions keep uncommitted work in it. Export `main`'s copy into your scratchpad instead and use that folder:

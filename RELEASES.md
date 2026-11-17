@@ -4,92 +4,92 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Aspen Snowmass
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/aspen-snowmass/v1) (latest) 120 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/aspen-snowmass/v1) (latest) 120 MB, 2026-11-14
 
 ## Beaver Creek Resort (Arrowhead Mountain)
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v1) (latest) 181 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v1) (latest) 181 MB, 2026-11-14
 
 ## Big Sky
 
-- [v3](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v3) (latest) 252 MB, 2026-11-14
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v2) 252 MB, 2026-11-12
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v1) 224 MB, 2026-11-11
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v3) (latest) 252 MB, 2026-11-14
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v2) 252 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v1) 224 MB, 2026-11-11
 
 ## Boston Mills / Brandywine
 
-- [v3](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/boston-mills/v3) (latest) 60 MB, 2026-11-12
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/boston-mills/v2) 60 MB, 2026-11-12
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/boston-mills/v3) (latest) 60 MB, 2026-11-12
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/boston-mills/v2) 60 MB, 2026-11-12
 
 ## Breckenridge
 
-- [v4](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v4) (latest) 224 MB, 2026-11-14
-- [v3](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v3) 224 MB, 2026-11-14
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v2) 223 MB, 2026-11-12
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v1) 179 MB, 2026-11-11
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v4) (latest) 224 MB, 2026-11-14
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v3) 224 MB, 2026-11-14
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v2) 223 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/breckenridge/v1) 179 MB, 2026-11-11
 
 ## Copper Mountain
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v1) (latest) 126 MB, 2026-11-13
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v1) (latest) 126 MB, 2026-11-13
 
 ## Crystal Mountain
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/crystal-mountain/v1) (latest) 95 MB, 2026-11-13
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/crystal-mountain/v1) (latest) 95 MB, 2026-11-13
 
 ## Deer Valley
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v1) (latest) 193 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v1) (latest) 193 MB, 2026-11-14
 
 ## Heavenly Mountain
 
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v2) (latest) 151 MB, 2026-11-14
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v1) 150 MB, 2026-11-13
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v2) (latest) 151 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v1) 150 MB, 2026-11-13
 
 ## Jackson Hole Mountain
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/jackson-hole-mountain/v1) (latest) 92 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/jackson-hole-mountain/v1) (latest) 92 MB, 2026-11-14
 
 ## Keystone
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/keystone/v1) (latest) 165 MB, 2026-11-13
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/keystone/v1) (latest) 165 MB, 2026-11-13
 
 ## Killington
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/killington/v1) (latest) 130 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/killington/v1) (latest) 130 MB, 2026-11-14
 
 ## Mont Tremblant Resort, Station Mont Tremblant
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/mont-tremblant-resort-station-mont-tremblant/v1) (latest) 105 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mont-tremblant-resort-station-mont-tremblant/v1) (latest) 105 MB, 2026-11-14
 
 ## Mount Bohemia
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v1) (latest) 37 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v1) (latest) 37 MB, 2026-11-14
 
 ## Ohio Hills (custom mashup)
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/ohio-hills/v1) (latest) 41 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/ohio-hills/v1) (latest) 41 MB, 2026-11-12
 
 ## Park City Mountain
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v1) (latest) 245 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v1) (latest) 245 MB, 2026-11-12
 
 ## Snowbird
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v1) (latest) 122 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v1) (latest) 122 MB, 2026-11-14
 
 ## Vail
 
-- [v7](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v7) (latest) 288 MB, 2026-11-14
-- [v6](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v6) 286 MB, 2026-11-14
-- [v5](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v5) 285 MB, 2026-11-13
-- [v4](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v4) 287 MB, 2026-11-12
-- [v3](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v3) 272 MB, 2026-11-12
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v2) 271 MB, 2026-11-12
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/vail/v1) 236 MB, 2026-11-11
+- [v7](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v7) (latest) 288 MB, 2026-11-14
+- [v6](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v6) 286 MB, 2026-11-14
+- [v5](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v5) 285 MB, 2026-11-13
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v4) 287 MB, 2026-11-12
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v3) 272 MB, 2026-11-12
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v2) 271 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v1) 236 MB, 2026-11-11
 
 ## Whistler Blackcomb
 
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/whistler-blackcomb/v1) (latest) 197 MB, 2026-11-14
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/whistler-blackcomb/v1) (latest) 197 MB, 2026-11-14
 
 ## Test packs
 
@@ -97,7 +97,7 @@ Not in the resort picker: the game's CI downloads them (FEAT-241).
 
 ### Synthetic test mountain
 
-- [v4](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/synth/v4) (latest for pack format 1) 48 MB, 2026-11-13
-- [v3](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/synth/v3) 46 MB, 2026-11-12
-- [v2](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/synth/v2) 46 MB, 2026-11-12
-- [v1](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/tag/synth/v1) 45 MB, 2026-11-12
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v4) (latest for pack format 1) 48 MB, 2026-11-13
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v3) 46 MB, 2026-11-12
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v2) 46 MB, 2026-11-12
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v1) 45 MB, 2026-11-12

@@ -1,5 +1,5 @@
 # Puts every new MapPacker issue on the SnowboardAnywhere board (project 2).
-# FEAT-226, drewkeriazes/SnowboardAnywhere#527. The board's one Auto-add
+# FEAT-226, drewkeriazes-personal/SnowboardAnywhere#527. The board's one Auto-add
 # workflow (Free plan) serves the game repo, so this repo uses the Action.
 # ADD_TO_PROJECT_PAT: classic token, `project` scope only, expires 2027-11-11.
 # Renewal steps: docs/BOARD.md in the game repo.

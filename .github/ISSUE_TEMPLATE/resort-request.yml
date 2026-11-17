@@ -9,7 +9,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        A request becomes one run of the build-pack workflow, which needs the resort's name and the OpenStreetMap id of its ski area. Check [RELEASES.md](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/blob/main/RELEASES.md) first: a resort already there is a rebuild, so ask with a pack bug instead if something in it looks wrong.
+        A request becomes one run of the build-pack workflow, which needs the resort's name and the OpenStreetMap id of its ski area. Check [RELEASES.md](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/blob/main/RELEASES.md) first: a resort already there is a rebuild, so ask with a pack bug instead if something in it looks wrong.
 
         **Two-area resorts** (Boston Mills with Brandywine) are built one area at a time for now: a new resort is built alone, and a pack over both areas needs a hand config. Ask for one area here and name the other under "Other areas to merge".
   - type: input

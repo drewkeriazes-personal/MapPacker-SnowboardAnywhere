@@ -1,7 +1,7 @@
 # Pipeline scripts
 
 Every script in `pipeline/`, what it reads and writes and its options. Moved from the game's
-[`docs/developer-guide.md`](https://github.com/drewkeriazes/SnowboardAnywhere/blob/main/docs/developer-guide.md) in FEAT-242 (SnowboardAnywhere#561), with paths for the
+[`docs/developer-guide.md`](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/developer-guide.md) in FEAT-242 (SnowboardAnywhere#561), with paths for the
 resort folders (FEAT-244). How to build a resort end to end: the README > Build a resort; the rules for working here: `CLAUDE.md`.
 
 Flow: `resort.py resolve` and `plan` -> `resorts/<slug>/<slug>.json` -> `gen_manifest.py` -> `manifests/<slug>.json` -> `fetch.ps1` -> `raw/<slug>/` -> `build_pack.py` -> `packs/<slug>/`.
@@ -45,4 +45,4 @@ Flow: `resort.py resolve` and `plan` -> `resorts/<slug>/<slug>.json` -> `gen_man
 - `treeline.py` (DATA-021) the resort's treeline from its own canopy by elevation (where the canopy share falls under half its peak), written to `meta.json` as `treeline`; the build also shifts the species' elevation bands (tuned on Vail's 3,480 m) by the difference, and the client puts its procedural treeline, open valley floor and snow-ghost band there (the game's `game/src/pack/treeline.ts`). Where the box is forest from the bottom to the top (Boston Mills) it writes `treeline: null` (FEAT-234, `forested_to_top`): no snow-ghost band and no elevation opening in the client. No forest belt to measure writes nothing, which keeps Colorado's. On the raw on disk (2026-11-12) the derivation gives Vail 3,550 m, Breckenridge 3,525 m and Big Sky 2,700 m; the Vail and Breckenridge packs on disk predate DATA-021 and carry none yet.
 - `osm_filter.py` (DATA-021) drops private runs and lifts (the config's `exclude` areas and `access=private` tags) from `osm/ski.json` before the build reads it.
 
-The data hosts (USGS, Planetary Computer, Overpass, Mapterhorn) are not reachable from cloud sandboxes; fetching runs on Drew's PC. Before touching raw data read the game's [`docs/data/vail-raw-data-inventory.md`](https://github.com/drewkeriazes/SnowboardAnywhere/blob/main/docs/data/vail-raw-data-inventory.md) (written when the pipeline lived there). Pack layout: [pack-format.md](pack-format.md).
+The data hosts (USGS, Planetary Computer, Overpass, Mapterhorn) are not reachable from cloud sandboxes; fetching runs on Drew's PC. Before touching raw data read the game's [`docs/data/vail-raw-data-inventory.md`](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/data/vail-raw-data-inventory.md) (written when the pipeline lived there). Pack layout: [pack-format.md](pack-format.md).

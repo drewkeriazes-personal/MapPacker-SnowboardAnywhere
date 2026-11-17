@@ -20,7 +20,7 @@
     "pipeline": "50b0207",
     "bytes": 119710949,
     "sha256": "e6bef4ae3787898c1a83075cdcce795b0a15c626a9ebde934019dba1251275f9",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/aspen-snowmass/v1/aspen-snowmass.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/aspen-snowmass/v1/aspen-snowmass.zip",
     "content": "d6fd572ad78e4dc4"
    },
    "report": "reports/aspen-snowmass.md"
@@ -44,7 +44,7 @@
     "pipeline": "30c6fb1",
     "bytes": 181345275,
     "sha256": "709da81e8196b74f6a463f59b3618c0a155ef68a51fc701883e09105decb1688",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/beaver-creek-resort-arrowhead-mountain/v1/beaver-creek-resort-arrowhead-mountain.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/beaver-creek-resort-arrowhead-mountain/v1/beaver-creek-resort-arrowhead-mountain.zip",
     "content": "dd3e42362fc68892"
    },
    "report": "reports/beaver-creek-resort-arrowhead-mountain.md"
@@ -68,7 +68,7 @@
     "pipeline": "8255205",
     "bytes": 251996778,
     "sha256": "17319743a723d1726ea9e21a5008e4c76ba7b7a60bd78cfadcb3076dbea043af",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/bigsky/v3/bigsky.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/bigsky/v3/bigsky.zip",
     "content": "041a0acf762febae"
    },
    "report": "reports/bigsky.md"
@@ -92,7 +92,7 @@
     "pipeline": "c2cc1e6",
     "bytes": 60243804,
     "sha256": "ea2a1694c8b3a05c6d4e9505bc627cbf08d8d71295254456bcdfc8d03c1642d3",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/boston-mills/v3/boston-mills.zip"
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/boston-mills/v3/boston-mills.zip"
    },
    "report": "reports/boston-mills.md"
   },
@@ -115,7 +115,7 @@
     "pipeline": "473ba6f",
     "bytes": 224314628,
     "sha256": "b372a91369645bd1a24cc591cce8209a1332798c71ba6b213d42919b3447c83a",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/breckenridge/v4/breckenridge.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/breckenridge/v4/breckenridge.zip",
     "content": "0aa38de11785c773"
    },
    "report": "reports/breckenridge.md"
@@ -139,7 +139,7 @@
     "pipeline": "fa4c657",
     "bytes": 126038464,
     "sha256": "1b2535b21cfb85081808dcf1806601082ebb85cd43623d257d3b634fac901c93",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/copper-mountain/v1/copper-mountain.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/copper-mountain/v1/copper-mountain.zip",
     "content": "8579721b311d17c8"
    },
    "report": "reports/copper-mountain.md"
@@ -163,7 +163,7 @@
     "pipeline": "7a8c055",
     "bytes": 94626951,
     "sha256": "55461ef8d9221cb2c77efce18dcb42d022addb7ccd0a25a57a5dee10ee5e0375",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/crystal-mountain/v1/crystal-mountain.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/crystal-mountain/v1/crystal-mountain.zip",
     "content": "b24a7a97adbf5e55"
    },
    "report": "reports/crystal-mountain.md"
@@ -187,7 +187,7 @@
     "pipeline": "30c6fb1",
     "bytes": 192600571,
     "sha256": "43b90805181a528b5367ffeb5e1b7d02246d2ced87f0df9d3740f7857923aa04",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/deer-valley/v1/deer-valley.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/deer-valley/v1/deer-valley.zip",
     "content": "0e7fc49ef96a6150"
    },
    "report": "reports/deer-valley.md"
@@ -211,7 +211,7 @@
     "pipeline": "b991867",
     "bytes": 151058239,
     "sha256": "2da55239eebb0d5cf0265b5012b548b1ac481680d0bcff98514e1c62095e6899",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/heavenly/v2/heavenly.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/heavenly/v2/heavenly.zip",
     "content": "7a3cf8df8f97f586"
    },
    "report": "reports/heavenly.md"
@@ -235,7 +235,7 @@
     "pipeline": "50b0207",
     "bytes": 92352302,
     "sha256": "24a1f54d5e5f2748a66cac5edb2dd249fd4e2bd36ffcc8358a4d59651af3e29c",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/jackson-hole-mountain/v1/jackson-hole-mountain.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/jackson-hole-mountain/v1/jackson-hole-mountain.zip",
     "content": "ccb21a51f5e12cea"
    },
    "report": "reports/jackson-hole-mountain.md"
@@ -259,7 +259,7 @@
     "pipeline": "839bf62",
     "bytes": 164969714,
     "sha256": "e35c29314da1a3f74a3e7d7f3e3f3a059435bbef95199e6d1822213ca7986204",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/keystone/v1/keystone.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/keystone/v1/keystone.zip",
     "content": "1de0ed117114e377"
    },
    "report": "reports/keystone.md"
@@ -283,7 +283,7 @@
     "pipeline": "25f28a7",
     "bytes": 129666251,
     "sha256": "d20c0c743fa13fcb76398e2054e9c56e90106e2524a1e3734bfd0c6fb184e9b2",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/killington/v1/killington.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/killington/v1/killington.zip",
     "content": "3405d4c874f95f64"
    },
    "report": "reports/killington.md"
@@ -307,7 +307,7 @@
     "pipeline": "71570e8",
     "bytes": 105481561,
     "sha256": "e91ed442909963ce4e743560159975ef54a7d8e0c182555db8eed9eb6e140193",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/mont-tremblant-resort-station-mont-tremblant/v1/mont-tremblant-resort-station-mont-tremblant.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mont-tremblant-resort-station-mont-tremblant/v1/mont-tremblant-resort-station-mont-tremblant.zip",
     "content": "19576d737eaf045f"
    },
    "report": "reports/mont-tremblant-resort-station-mont-tremblant.md"
@@ -331,7 +331,7 @@
     "pipeline": "fea5f82",
     "bytes": 37000261,
     "sha256": "f48dde5146fc8086ce7adac192fb3a528980c67650520e9885c57f1e6b78fb8d",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/mount-bohemia/v1/mount-bohemia.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mount-bohemia/v1/mount-bohemia.zip",
     "content": "4da99d26f53268f7"
    },
    "report": "reports/mount-bohemia.md"
@@ -401,7 +401,7 @@
     "pipeline": "2dbc3d3",
     "bytes": 122247443,
     "sha256": "5ca4d0295b0fae6135b282aaa87e63e88404e4bd5bdb4cf862e3db3596df86ab",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/snowbird/v1/snowbird.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/snowbird/v1/snowbird.zip",
     "content": "a5ce510d7eb162a0"
    },
    "report": "reports/snowbird.md"
@@ -425,7 +425,7 @@
     "pipeline": "7e36e31",
     "bytes": 288486892,
     "sha256": "c99c91e6180c2f042845ce0b05397bd4b834acc93e46eb8477ef8ef5e9052dd4",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/vail/v7/vail.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/vail/v7/vail.zip",
     "content": "8bf93f42d5821e5d"
    },
    "report": "reports/vail.md"
@@ -449,7 +449,7 @@
     "pipeline": "e0e0036",
     "bytes": 197175739,
     "sha256": "ae65b2a5d9e156d4e38f68bb8b7336a089b84a55357b4eb9c748d3f8218d6fb4",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/whistler-blackcomb/v1/whistler-blackcomb.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/whistler-blackcomb/v1/whistler-blackcomb.zip",
     "content": "5d03769d81589752"
    },
    "report": "reports/whistler-blackcomb.md"
@@ -475,7 +475,7 @@
     "pipeline": "2f81885",
     "bytes": 48068643,
     "sha256": "65c5007c6cfe31f8942ee44ae181a50bd7d9fcd2dc4440bf32c4a0a0312e5cc4",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/synth/v4/synth.zip",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/synth/v4/synth.zip",
     "content": "ebee8c66156ee201"
    },
    "report": null

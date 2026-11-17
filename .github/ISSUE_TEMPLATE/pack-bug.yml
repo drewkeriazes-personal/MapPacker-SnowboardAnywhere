@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        For what the pack draws or holds: trees standing in a lift line or on a groomer, a run or lift missing or in the wrong place, odd terrain, the wrong snow or forest. Riding, controls, menus and cameras are game bugs: [report those in SnowboardAnywhere](https://github.com/drewkeriazes/SnowboardAnywhere/issues/new).
+        For what the pack draws or holds: trees standing in a lift line or on a groomer, a run or lift missing or in the wrong place, odd terrain, the wrong snow or forest. Riding, controls, menus and cameras are game bugs: [report those in SnowboardAnywhere](https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/new).
   - type: input
     id: slug
     attributes:
@@ -21,7 +21,7 @@ body:
     id: version
     attributes:
       label: Pack version
-      description: The release tag, `<slug>/v<N>` (`vail/v4`). [RELEASES.md](https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/blob/main/RELEASES.md) lists every version; a pack you downloaded recently is the one marked latest. Not sure? Give the `build` value from `packs/<slug>/meta.json`.
+      description: The release tag, `<slug>/v<N>` (`vail/v4`). [RELEASES.md](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/blob/main/RELEASES.md) lists every version; a pack you downloaded recently is the one marked latest. Not sure? Give the `build` value from `packs/<slug>/meta.json`.
       placeholder: vail/v4
     validations:
       required: true

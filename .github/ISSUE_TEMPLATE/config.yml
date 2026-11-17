@@ -2,5 +2,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Gameplay bug or idea (SnowboardAnywhere)
-    url: https://github.com/drewkeriazes/SnowboardAnywhere/issues/new
+    url: https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/new
     about: Riding, controls, menus, cameras, sound and anything else the game does go to the game repo.

@@ -1,6 +1,6 @@
 # Moving the pipeline to MapPacker (EPIC-16)
 
-**MapPacker builds the packs; SnowboardAnywhere just plays them.** Epic: #9. This reverses EPIC-15 rule 3 (drewkeriazes/SnowboardAnywhere#516: "game and all pipeline code stay in the game repo") now that the build is one command (`resort.py add`, FEAT-224) and the format is versioned (`formatVersion`, FEAT-222).
+**MapPacker builds the packs; SnowboardAnywhere just plays them.** Epic: #9. This reverses EPIC-15 rule 3 (drewkeriazes-personal/SnowboardAnywhere#516: "game and all pipeline code stay in the game repo") now that the build is one command (`resort.py add`, FEAT-224) and the format is versioned (`formatVersion`, FEAT-222).
 
 Researched 2026-11-11 against SnowboardAnywhere `main` at `2a0b12f`.
 

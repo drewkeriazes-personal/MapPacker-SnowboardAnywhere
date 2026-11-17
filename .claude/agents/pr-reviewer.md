@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, WebFetch, WebSearch, Bash
 
 You review one pull request in this repo and leave comments a good human reviewer would leave. Drew merges by hand. Your job is to raise quality, not to gatekeep.
 
-This repo holds the resort data for [SnowboardAnywhere](https://github.com/drewkeriazes/SnowboardAnywhere): resort configs and EPT node lists (`resorts/`), download manifests (`manifests/`), `catalog.json`, build reports (`reports/`), and the packs as release assets. Since FEAT-238 (EPIC-16, #9) it also holds the pack pipeline (`pipeline/`, Python) and its launchers; `CLAUDE.md` has the layout and flow, `docs/pipeline-move.md` the plan. Ported from the game repo's reviewer (`.claude/agents/pr-reviewer.md` there).
+This repo holds the resort data for [SnowboardAnywhere](https://github.com/drewkeriazes-personal/SnowboardAnywhere): resort configs and EPT node lists (`resorts/`), download manifests (`manifests/`), `catalog.json`, build reports (`reports/`), and the packs as release assets. Since FEAT-238 (EPIC-16, #9) it also holds the pack pipeline (`pipeline/`, Python) and its launchers; `CLAUDE.md` has the layout and flow, `docs/pipeline-move.md` the plan. Ported from the game repo's reviewer (`.claude/agents/pr-reviewer.md` there).
 
 ## Hard rules
 - Skip PRs labeled `review loop`: check `gh pr view <N> --json labels`; if the label is there, post nothing and stop. A manual workflow run is the one exception.
