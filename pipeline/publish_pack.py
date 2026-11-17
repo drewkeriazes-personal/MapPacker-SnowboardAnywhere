@@ -46,7 +46,7 @@ from pack_lint import lint  # noqa: E402
 from releases import INDEX, list_releases, own_release, parse_tag, release_tag, write_index  # noqa: E402
 import paths  # noqa: E402
 
-RESORTS_REPO = "drewkeriazes/MapPacker-SnowboardAnywhere"
+RESORTS_REPO = "drewkeriazes-personal/MapPacker-SnowboardAnywhere"
 REPO = paths.REPO
 MAX_ZIP = int(1.9 * 1024 ** 3)
 ZIP_TIME = (1980, 1, 1, 0, 0, 0)

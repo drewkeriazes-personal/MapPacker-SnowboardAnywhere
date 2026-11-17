@@ -312,4 +312,4 @@ def test_a_resort_request_asks_for_every_build_pack_input_in_its_shape():
 def test_a_pack_bug_asks_for_the_release_tag_and_points_gameplay_at_the_game():
     assert re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*/v[1-9][0-9]*", form_fields(FORMS[1])["version"]["attributes"]["placeholder"])
     links = load(".github/ISSUE_TEMPLATE/config.yml")["contact_links"]
-    assert any(link["url"].startswith("https://github.com/drewkeriazes/SnowboardAnywhere/") for link in links)
+    assert any(link["url"].startswith("https://github.com/drewkeriazes-personal/SnowboardAnywhere/") for link in links)

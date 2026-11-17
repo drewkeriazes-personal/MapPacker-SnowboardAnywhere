@@ -21,7 +21,7 @@ RESORTS = os.path.join(REPO, "resorts")
 MANIFESTS = os.path.join(REPO, "manifests")
 PACKS = os.path.join(REPO, "packs")
 GAME_NAME = "SnowboardAnywhere"
-GAME_REPO_URL = "https://github.com/drewkeriazes/SnowboardAnywhere"
+GAME_REPO_URL = "https://github.com/drewkeriazes-personal/SnowboardAnywhere"
 
 
 def resort_dir(slug, resorts=None) -> str:

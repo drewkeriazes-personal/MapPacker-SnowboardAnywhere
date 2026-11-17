@@ -1597,7 +1597,7 @@ def cmd_compare(a, hosts):
 ADD_STAGES = ["resolve", "plan", "fetch", "build", "report", "ride", "publish"]
 # resort.py add's fetch, build and report stages are these ranges of build_resort.py's stages
 BUILD_RANGES = {"fetch": ("nodes", "grooming"), "build": ("build", "index"), "report": ("report", "report")}
-RESORTS_REPO = "drewkeriazes/MapPacker-SnowboardAnywhere"
+RESORTS_REPO = "drewkeriazes-personal/MapPacker-SnowboardAnywhere"
 
 
 def gate_lines(pack_dir):

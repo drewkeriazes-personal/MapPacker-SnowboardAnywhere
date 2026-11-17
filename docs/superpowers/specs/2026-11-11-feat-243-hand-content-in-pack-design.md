@@ -234,7 +234,7 @@ As the card says, after FEAT-241 (SnowboardAnywhere#570) and FEAT-242 (#571): th
 game's `main` once they merge (from #571's branch if they are still open), so it has no `pipeline/` copy to
 keep in step and its CI downloads the synthetic pack for its own `PACK_FORMAT` from the catalog's `test` list.
 
-1. Game PR (branch per the game's BOARD.md, `Fixes drewkeriazes/MapPacker-SnowboardAnywhere#13`): the reader,
+1. Game PR (branch per the game's BOARD.md, `Fixes drewkeriazes-personal/MapPacker-SnowboardAnywhere#13`): the reader,
    the picker, the tools' new save path, `PACK_FORMAT = 2`, tests. It keeps loading format 1 packs.
 2. MapPacker PR (`issue-13-pack-content`): the moved files, `pack_content.py`, the `content` stage, the report,
    the spec, `FORMAT_VERSION = 2`, `synth_pack.py` on format 2, tests. `test_contract.py` passes against the
