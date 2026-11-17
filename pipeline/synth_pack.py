@@ -258,6 +258,9 @@ meta["instances"]["rockCount"] = write_instances(out, "rocks", rocks, CELL, FX0,
 # those come from land cover data.
 import cover
 meta["cover"] = {"heightMax": cover.HEIGHT_MAX, "blend": cover.BLEND_M, "levels": [cover.pack_level(out, meta, runs)]}
+# FEAT-331: the canopy density grid, so the game's glade darkness (FEAT-330) has one to read in CI too
+import canopy
+meta["canopy"] = canopy.build_canopy(out, meta)
 
 meta["start"] = {"x": 650.0, "y": -1300.0, "heading": 0.0}
 meta["sun"] = {"azimuth": 150, "elevation": 35}
