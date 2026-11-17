@@ -181,7 +181,7 @@ jobs:
               echo '```'
             done
             report=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-              --jq '.[] | select((.user.login == "github-actions[bot]" or .user.login == "${{ github.repository_owner }}") and (.body | startswith("<!-- ci-"))) | .body' | head -c 20000)
+              --jq '.[] | select((.user.login == "github-actions[bot]" or .user.login == "drewkeriazes") and (.body | startswith("<!-- ci-"))) | .body' | head -c 20000)
             if [ -n "$report" ]; then echo; echo "$report"; fi
           } > checks-summary.md
           cat checks-summary.md
