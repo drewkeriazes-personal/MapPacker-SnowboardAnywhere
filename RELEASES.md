@@ -79,7 +79,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Vail
 
-- [v7](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v7) (latest) 288 MB, 2026-11-14
+- [v8](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v8) (latest) 289 MB, 2026-11-17
+- [v7](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v7) 288 MB, 2026-11-14
 - [v6](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v6) 286 MB, 2026-11-14
 - [v5](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v5) 285 MB, 2026-11-13
 - [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/vail/v4) 287 MB, 2026-11-12
