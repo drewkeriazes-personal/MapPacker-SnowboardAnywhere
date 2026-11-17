@@ -1,6 +1,6 @@
 # Pack report: Vail (`vail`)
 
-Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14T04:33:39Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17T21:27:11Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -23,19 +23,19 @@ Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14
 | 6 | Surface: mask, AO, directions, moguls, rocks | ✅ | rock 1.1% (reference 1.1%), canopy 66% |
 | 7 | Trees and shrubs with species | ✅ | 0.52 M crowns + 3.85 M stems = 32.2 k per km2 (82% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
-| 8b | Far tree ring (lidar crowns round the resort) | ✅ | 1.31 M crowns in 363 cells |
-| 9 | features.json | ✅ | 33 lifts, 356 runs, 2000 buildings, 1408 roads, 42 water, 1321 peaks, 116 labels |
+| 8b | Far tree ring (crowns round the resort) | ✅ | 1.31 M crowns in 363 cells |
+| 9 | features.json | ✅ | 33 lifts, 354 runs, 2000 buildings, 1406 roads, 42 water, 1315 peaks, 74 labels |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | Starts at The Legendary Back Bowls (landmark, resorts/vail/landmarks.json), on Timberline Catwalk |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 184 runs of 300 m and 60 m drop or more |
 | 13 | Attribution for every data set | ✅ | 9 lines |
-| 14 | Validated | ⚠️ | 4 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
+| 14 | Validated | ⚠️ | 4 advanced+ runs never over 15 deg; 18 compare spots measured; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ✅ | 52% of runs with a grooming record, 41 reports in raw |
-| 16 | Place names | ✅ | GNIS CO; 1321 peaks, 116 town labels |
-| 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
+| 15 | Grooming history | ✅ | 51% of runs with a grooming record, 42 reports in raw |
+| 16 | Place names | ✅ | GNIS gnis.json; 1315 peaks, 74 town labels |
+| 17 | Main menu shot and ghosts | ✅ | hand-made, game/public/attract/vail/ |
 | 18 | Landmark | ✅ | 1 in the pack (The Legendary Back Bowls) |
-| 19 | Compare spots against photos | ➖ | no SnowboardAnywhere checkout at /home/runner/work/MapPacker-SnowboardAnywhere/SnowboardAnywhere (--game-repo or SBA_GAME_REPO) |
+| 19 | Compare spots against photos | ✅ | 15 spots with a Street View or photo in docs/compare/vail, 3 proposed waiting for a Street View link or photo (propose_spots.py) |
 | 20 | Values derived for the resort, not copied from Vail | ✅ | treeline 3550 m measured; canopy.grow_ndvi 0.15; canopy.leaf_ndvi 0.45; canopy.veg_ndvi 0.3; rock.bare_ndvi 0.3; rock.dark 60.0; rock.grey_sat 0.2; rock.ndvi 0.18; treeline 3550 |
 | 21 | Published figures | ✅ | 6 figures match (Wikipedia: Vail Ski Resort; vail.com terrain status, 2026-04-01; table below) |
 
@@ -44,21 +44,21 @@ Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14
 | Measure | This pack | Reference |
 |---|---:|---:|
 | Area, km2 | 135.7 |  |
-| Trees (crowns + stems) per km2 | 32,172 | 39,201 |
+| Trees (crowns + stems) per km2 | 32,177 | 39,201 |
 | Rock share | 1.1% | 1.1% |
 | Canopy share | 66% | 66% |
 | Canopy on run centre lines | 3.7% | 3.7% |
 | Groomed share | 3.1% |  |
-| Crowns per km within 5 m of lift lines | 13.3 |  |
+| Crowns per km within 5 m of lift lines | 12.9 |  |
 | Stems per km within 5 m of lift lines | 0.0 |  |
-| Runs with a grooming record | 52% |  |
+| Runs with a grooming record | 51% |  |
 | Runs groomed in OSM | 52% |  |
 | Far ring crowns | 1,307,506 |  |
-| Mean mogulScore by difficulty | advanced 0.47, easy 0.0, expert 0.88, intermediate 0.05 | |
+| Mean mogulScore by difficulty | advanced 0.47, easy 0.0, expert 0.88, intermediate 0.06 | |
 
 **Advanced or harder runs never over 15 deg:** Windows Road (advanced, 5 deg), Resolution (advanced, 8 deg), Windows Road (advanced, 12 deg), Ptarmigan Ridge (advanced, 14 deg)
 
-**Lifts with the most crowns on the line:** Orient Express Lift (107), Riva Bahn Express Lift (57), Skyline Express Lift (43), High Noon Express Lift (38), Northwoods Express Lift (37)
+**Lifts with the most crowns on the line:** Orient Express Lift (103), Skyline Express Lift (45), Riva Bahn Express Lift (43), High Noon Express Lift (38), Northwoods Express Lift (36)
 
 ## Published figures (gathered 2026-11-13 by published.py)
 
@@ -68,7 +68,7 @@ Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14
 | Base | 2,475 m (8,120 ft) | Wikipedia: Vail Ski Resort | 2,454 m (8,051 ft) | ✅ | lowest of the lift stations, -21 m |
 | Vertical | 1,052 m (3,451 ft) | Wikipedia: Vail Ski Resort | 1,072 m (3,517 ft) | ✅ | +20 m (+2%) |
 | Lifts | 31 | Wikipedia: Vail Ski Resort | 33 | ✅ | every lift (23 chairs and gondolas) |
-| Runs | 195 | Wikipedia: Vail Ski Resort | 216 | ✅ | 216 run names over 356 segments, 65 unnamed; 111% of the published count; of the 277 trails on vail.com terrain status, 2026-04-01, 246 have an OSM run and 31 have none (the OSM to-do below: not mapped in OSM, or named differently); 9 OSM names are not on the list |
+| Runs | 195 | Wikipedia: Vail Ski Resort | 216 | ✅ | 216 run names over 354 segments, 65 unnamed; 111% of the published count; of the 277 trails on vail.com terrain status, 2026-04-01, 246 have an OSM run and 31 have none (the OSM to-do below: not mapped in OSM, or named differently); 9 OSM names are not on the list |
 | Skiable area | 21.5 km2 (5,318 acres) | Wikipedia: Vail Ski Resort | 17.6 km2 (4,356 acres) | ✅ | run lines widened 50 m each side, plus the area runs, 0.82 times the published |
 
 **OSM to-do: published trails with no OSM run** (31 of 277 on vail.com terrain status, 2026-04-01). Map each one in OpenStreetMap (or fix its name there) and the next build has it; the link opens the editor where the trail's area's other runs are.
@@ -101,7 +101,7 @@ Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14
 | Rip's Ride Teaching Area | Golden Peak | easy | [edit](https://www.openstreetmap.org/edit#map=16/39.62856/-106.36203) |
 | Spring Catwalk | Lionshead | easy | [edit](https://www.openstreetmap.org/edit#map=16/39.62913/-106.38620) |
 | Swingsville Ridge | Mid-Vail | easy | [edit](https://www.openstreetmap.org/edit#map=16/39.62176/-106.36891) |
-| The Divide Ridge | Blue Sky Basin | advanced | [edit](https://www.openstreetmap.org/edit#map=16/39.57473/-106.32699) |
+| The Divide Ridge | Blue Sky Basin | advanced | [edit](https://www.openstreetmap.org/edit#map=16/39.57468/-106.32692) |
 | Timberline Face - East | North East Bowl | intermediate | [edit](https://www.openstreetmap.org/edit#map=16/39.61159/-106.34606) |
 | Timberline Face - South | North East Bowl | intermediate | [edit](https://www.openstreetmap.org/edit#map=16/39.61159/-106.34606) |
 | Tin Pants Connector | North East Bowl | easy | [edit](https://www.openstreetmap.org/edit#map=16/39.61159/-106.34606) |
@@ -111,33 +111,56 @@ Build `20261114T043305Z-5c2cb0`, pipeline `7e36e31`, format 1. Report 2026-11-14
 
 | Band, m | Area, km2 | Crowns | Stems | Per km2 |
 |---|---:|---:|---:|---:|
-| 2400 | 6.34 | 11,812 | 61,156 | 11,508 |
-| 2500 | 10.0 | 24,562 | 157,223 | 18,185 |
-| 2600 | 8.35 | 28,540 | 173,559 | 24,195 |
-| 2700 | 10.03 | 41,517 | 271,476 | 31,214 |
-| 2800 | 11.94 | 53,340 | 376,102 | 35,978 |
-| 2900 | 13.43 | 59,398 | 445,602 | 37,606 |
-| 3000 | 15.39 | 64,063 | 504,232 | 36,922 |
-| 3100 | 18.2 | 71,544 | 581,135 | 35,861 |
-| 3200 | 17.8 | 72,094 | 569,277 | 36,040 |
-| 3300 | 15.26 | 61,041 | 452,220 | 33,630 |
-| 3400 | 7.54 | 29,037 | 221,368 | 33,193 |
-| 3500 | 1.39 | 4,274 | 31,829 | 25,932 |
+| 2400 | 6.34 | 11,812 | 61,021 | 11,487 |
+| 2500 | 10.0 | 24,562 | 157,224 | 18,185 |
+| 2600 | 8.35 | 28,540 | 173,574 | 24,197 |
+| 2700 | 10.03 | 41,517 | 271,104 | 31,177 |
+| 2800 | 11.94 | 53,340 | 376,099 | 35,978 |
+| 2900 | 13.43 | 59,397 | 446,048 | 37,640 |
+| 3000 | 15.39 | 64,063 | 504,440 | 36,936 |
+| 3100 | 18.2 | 71,544 | 581,298 | 35,870 |
+| 3200 | 17.8 | 72,094 | 568,860 | 36,017 |
+| 3300 | 15.26 | 61,041 | 452,684 | 33,661 |
+| 3400 | 7.54 | 29,037 | 221,443 | 33,203 |
+| 3500 | 1.39 | 4,274 | 32,059 | 26,096 |
+
+## Compare spots: trees per hectare within 100 m
+
+| Spot | Trees per ha |
+|---|---:|
+| back-bowls-campbells | 5 |
+| back-bowls-sign | 22 |
+| back-bowls-yonder | 0 |
+| blue-sky-belles-camp | 243 |
+| blue-sky-hornsilver | 209 |
+| blue-sky-in-the-wuides | 33 |
+| blue-sky-petes-express | 236 |
+| blue-sky-the-divide | 280 |
+| born-free | 114 |
+| china-bowl-north-rim | 0 |
+| china-bowl-poppyfields | 0 |
+| eagles-nest-deck | 19 |
+| mid-vail-wildwood | 110 |
+| mongolia-bowl | 2 |
+| prima-browns-face | 223 |
+| sleepy-time-road | 2 |
+| the-slot-corner | 1 |
+| the-slot-lower | 1 |
 
 ## Layers
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 529 | 143.3 | 2026-11-14 |
-| mid heights | yes | 25 | 12.0 | 2026-11-14 |
-| far heights | yes | 16 | 2.8 | 2026-11-14 |
-| mask | yes | 144 | 12.2 | 2026-11-14 |
-| AO | yes | 144 | 9.3 | 2026-11-14 |
-| piste directions | yes | 144 | 0.5 | 2026-11-14 |
-| moguls | yes | 144 | 0.3 | 2026-11-14 |
-| cover | yes | 4 | 23.2 | 2026-11-14 |
-| trees (crowns) | yes | 144 | 12.5 | 2026-11-14 |
-| stands (stems) | yes | 144 | 22.0 | 2026-11-14 |
-| far tree ring | yes | 363 | 31.4 | 2026-11-14 |
-| shrubs | yes | 144 | 1.1 | 2026-11-14 |
-| rocks | yes | 140 | 0.7 | 2026-11-14 |
+| fine heights | yes | 529 | 143.3 | 2026-11-17 |
+| mid heights | yes | 25 | 12.0 | 2026-11-17 |
+| far heights | yes | 16 | 2.8 | 2026-11-17 |
+| mask | yes | 144 | 11.8 | 2026-11-17 |
+| AO | yes | 144 | 9.3 | 2026-11-17 |
+| piste directions | yes | 144 | 0.5 | 2026-11-17 |
+| moguls | yes | 144 | 0.4 | 2026-11-17 |
+| cover | yes | 4 | 22.9 | 2026-11-17 |
+| trees (crowns) | yes | 144 | 12.5 | 2026-11-17 |
+| stands (stems) | yes | 144 | 22.0 | 2026-11-17 |
+| far tree ring | yes | 363 | 31.4 | 2026-11-17 |
+| shrubs | yes | 144 | 1.1 | 2026-11-17 |
+| rocks | yes | 141 | 0.7 | 2026-11-17 |
