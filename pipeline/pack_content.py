@@ -12,7 +12,9 @@ The game knows nothing about a resort that its pack does not carry. What a perso
   `START_BACK_M` uphill of it, facing through it, label `Starts at <name>`, `source: "landmark"`), else
   `resorts/<slug>/start.json` (`{x, y, heading, label, source, note}`, heading in degrees clockwise from north;
   `source: "placed"`), else the start the build or gen_content.py wrote. That one is kept in `meta.baseStart` while
-  a hand start covers it, so a rerun (or a dropped landmark) resolves from it again.
+  a hand start covers it, so a rerun (or a dropped landmark) resolves from it again. A hand start off every run in
+  the pack's `features.json` (pack_report.py's `nearest_run`, the test line 10 makes) is said here, with how far,
+  and left where it is (BUG-132): moving it is a person's call, in its file.
 - **the main menu** (`resorts/<slug>/attract/`, the layout gen_content.py writes into a pack: `index.json` is the
   resort's entry, plus `shots.json`, the stills and the takes it lists): replaces the pack's `attract/` (a generated
   one included), only the listed files, and `meta.attract = {"generated": false}`. The copied `index.json` gets
@@ -33,6 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: E402
+from pack_report import nearest_run  # noqa: E402
 from packwriter import write_meta  # noqa: E402
 
 START_BACK_M = 15.0          # the rider spawns this far uphill of a start landmark (the game's old landmarkStart)
@@ -151,11 +154,28 @@ def apply(pack_dir, slug=None, resorts=None, log=print):
             "(gen_content.py makes a generated one: build_resort.py --force content)")
     write_meta(pack_dir, meta, stamp=False)      # same build: a still rendered from it stays valid
     out = {"slug": slug, "landmarks": len(landmarks), "start": kind, "attract": copied or 0}
+    off = start_off_run(pack_dir, start) if kind != "build" else None
+    if off:
+        out["startOffRun"] = round(off[0], 1)
     said = {"landmark": "a landmark", "placed": "start.json", "build": "the build"}[kind]
     log(f"{slug}: {out['landmarks']} landmarks, start from {said}"
         + (f" ({start.get('label')})" if kind != "build" and start.get("label") else "")
         + (f", hand-made menu ({copied} files)" if copied else "") + f"; build {meta.get('build')} kept")
+    if off:
+        home = f"resorts/{slug}/" + ("landmarks.json" if kind == "landmark" else "start.json")
+        log(f"  the start is {off[0]:.0f} m off the nearest run" + (f" ({off[1]})" if off[1] else "")
+            + f": pack_report.py line 10 fails it; move it onto a run in {home}")
     return out
+
+
+def start_off_run(pack_dir, start):
+    """(metres, run name) when the start is off every run in the pack's features.json, else None (on a run, or
+    no runs to tell by)"""
+    fp = os.path.join(pack_dir, "features.json")
+    if not start or not os.path.isfile(fp):
+        return None
+    d, name = nearest_run(_load(fp).get("runs") or [], float(start["x"]), float(start["y"]))
+    return (d, name) if 0 < d < math.inf else None
 
 
 def main(argv=None):
