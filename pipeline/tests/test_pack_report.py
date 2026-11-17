@@ -268,3 +268,17 @@ def test_line_21_published_figures(tmp_path):
     assert "## Published figures" in md and "| Summit | 2,590 m (8,497 ft) |" in md
     assert "OSM to-do" in md and "| Back Bowl |  |  |  |" in md            # a version 1 list: no area, no link
     assert rep.to_json()["published"]["trails"]["unmatched"] == ["Back Bowl", "Ridge"]
+
+
+def test_far_ring_from_the_canopy_height_passes_8b(tmp_path):
+    # FEAT-257: a ring generated on the ETH canopy height passes 8b and says what it is made of
+    pack = make_pack(tmp_path / "packs", cover=True)
+    meta = json.loads((pack / "meta.json").read_text(encoding="utf-8"))
+    meta["instances"].update({"farTreeCount": 1234, "farTreeCells": ["-1_0", "1_0"], "farTreeSource": "eth"})
+    write_meta(str(pack), meta)
+    ln = line(pr.build_report(str(pack), repo=str(tmp_path)), "8b")
+    assert ln["status"] == pr.PASS and "ETH canopy height" in ln["detail"] and "not lidar" in ln["detail"]
+    del meta["instances"]["farTreeSource"]                       # the lidar ring: no source field, no note
+    write_meta(str(pack), meta)
+    ln = line(pr.build_report(str(pack), repo=str(tmp_path)), "8b")
+    assert ln["status"] == pr.PASS and "ETH" not in ln["detail"]

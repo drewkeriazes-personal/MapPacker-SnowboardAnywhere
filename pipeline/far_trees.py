@@ -12,7 +12,14 @@ Inputs: `raw/<slug>/ept/*.laz` and `raw/<slug>/ept_far/*.laz` (the ring's nodes,
 selected by ept_select.py) and the pack's `mid` height set (the ground the client draws out there). There is no
 NAIP or LANDFIRE beyond the pack, so canopy is lidar height alone, there are no snags and species follow
 species.py's no-LANDFIRE rules for the pack's region (elevation, aspect, crests; FEAT-233). Run it on a built pack, then cover.py (its mid level
-takes the ring's forest from these trees). Takes a few minutes and about 3 GB of memory for Vail's 5 km ring."""
+takes the ring's forest from these trees). Takes a few minutes and about 3 GB of memory for Vail's 5 km ring.
+
+FEAT-257: a pack without lidar (Silver and Bronze, no `lidar` in the config) gets its ring from what its stands are
+built from instead, the ETH 10 m canopy height on WorldCover tree cover (`raw/<slug>/landcover/`, tier_sources.py),
+CANOPY_PAD_M past the resort box. There are no crowns to find in that smooth model, so the crowns are generated: one
+candidate per RING_DENSITY on a jittered grid, kept where the canopy height model has canopy (TREE_MIN_H) off cliffs,
+at RING_H_K of its height. `instances.farTreeSource` is "eth" for such a ring (absent for the lidar ring), and the
+cover keeps the land cover forest there (the crowns were drawn from it). A pack with lidar is unchanged."""
 import glob, json, math, os, sys, time
 import numpy as np
 from scipy import ndimage
@@ -44,6 +51,15 @@ def z0_for(meta):
     return math.floor((lo - Z0_BELOW) / 100.0) * 100.0
 BLOCK = 1000        # CHM cells per detection block side
 MARGIN = 8          # cells of overlap round a block
+
+# FEAT-257: the ring without lidar. The lidar rings hold 3,209 (Boston Mills, hardwood), 4,802 (Vail) and 5,000
+# (Breckenridge) crowns per km2 where the ETH model has closed canopy (90% or more of a 20 m cell at 3 m or taller;
+# the published packs, 2026-11-16), at 0.95, 0.98 and 0.93 of its height; the generated ring takes the middle.
+CANOPY_PAD_M = 5000.0   # as resort.FAR_PAD_M, the lidar ring's
+RING_DENSITY = 4000.0   # crowns per km2 of canopy
+RING_H_K = 0.95         # crown height / the ETH canopy height model's (tier_sources.canopy_height)
+RING_H_SPREAD = 0.2     # each crown's height is RING_H_K x (1 +- this), uniform
+SOURCE_ETH = "eth"      # instances.farTreeSource of a ring generated from the ETH canopy height
 
 
 def log(*a):
@@ -105,15 +121,35 @@ def fill_ground(lidar_g, base):
     return np.where(np.isfinite(base), base + off, np.nan).astype(np.float32)
 
 
+def drawn_ground(pack, meta, X0, Y1, WG, HG):
+    """the pack's mid heights (the ground the client draws out there) bilinear at the RG cell centres of the grid
+    whose north-west corner is (X0, Y1), row 0 = north; None without a mid height set"""
+    from cover import read_height_set
+    hs = read_height_set(pack, meta, "mid")
+    if hs is None:
+        return None
+    big, hres, hx0, hy1 = hs
+    gx = X0 + (np.arange(WG) + 0.5) * RG; gy = Y1 - (np.arange(HG) + 0.5) * RG
+    # bilinear in the drawn mid heights (cell centres)
+    fc = (gx - hx0) / hres - 0.5; fr = (hy1 - gy) / hres - 0.5
+    return ndimage.map_coordinates(big, np.meshgrid(fr, fc, indexing="ij"), order=1, mode="nearest").astype(np.float32)
+
+
 def main(argv):
     if len(argv) < 3:
         print(__doc__); return 2
     slug, raw, pack = argv[0], argv[1], argv[2]
     cfg = json.load(open(paths.config_path(slug), encoding="utf-8"))
+    if not cfg.get("lidar"):
+        return canopy_ring(raw, pack, cfg)           # FEAT-257: Silver and Bronze
     if not cfg["lidar"].get("far"):
         log("no lidar.far in the resort config: no far tree ring"); return 1
-    meta_p = os.path.join(pack, "meta.json")
-    meta = json.load(open(meta_p, encoding="utf-8"))
+    return lidar_ring(raw, pack, cfg)
+
+
+def lidar_ring(raw, pack, cfg):
+    """BUG-081: the ring's crowns from the lidar, as the pack's (the module doc)"""
+    meta = json.load(open(os.path.join(pack, "meta.json"), encoding="utf-8"))
     inst, b = meta["instances"], meta["bounds"]
     ox, oy = cfg["origin"]
     box = far_box(cfg)
@@ -180,17 +216,9 @@ def main(argv):
     log(f"  {n_pts / 1e6:.0f} M points, CHM cells with a return {np.mean(dsm > 0) * 100:.1f}%")
 
     # ---------------------------------------------------------------- ground
-    sys.path.insert(0, HERE)
-    from cover import read_height_set
-    hs = read_height_set(pack, meta, "mid")
-    if hs is None:
+    base = drawn_ground(pack, meta, X0, Y1, WG, HG)
+    if base is None:
         log("the pack has no mid height set"); return 1
-    big, hres, hx0, hy1 = hs
-    gx = X0 + (np.arange(WG) + 0.5) * RG; gy = Y1 - (np.arange(HG) + 0.5) * RG
-    # bilinear in the drawn mid heights (cell centres)
-    fc = (gx - hx0) / hres - 0.5; fr = (hy1 - gy) / hres - 0.5
-    base = ndimage.map_coordinates(big, np.meshgrid(fr, fc, indexing="ij"), order=1, mode="nearest").astype(np.float32)
-    del big
     lg = np.where(gnd < 65535, gnd.astype(np.float32) / DM + z0, np.nan).astype(np.float32)
     log(f"  ground cells with a lidar return {np.isfinite(lg).mean() * 100:.1f}%, "
         f"median lidar - drawn ground {np.nanmedian(lg - base):+.2f} m")
@@ -235,9 +263,89 @@ def main(argv):
     log(f"  crowns outside the pack {len(tx)} ({len(tx) / max(1e-9, ((X1 - X0) * (Y1 - Y0) - (b['maxX'] - b['minX']) * (b['maxY'] - b['minY'])) / 1e6):.0f} per km2), "
         f"median height {np.median(hgt) if len(hgt) else 0:.1f} m")
 
+    return write_ring(pack, meta, ring, box_l, tx, ty, tz, hgt, ground, rows // 2, cols // 2)
+
+
+def canopy_box(cfg):
+    """FEAT-257: the outer box (config crs) of the ring without lidar, `utm_bbox` grown by CANOPY_PAD_M"""
+    x0, y0, x1, y1 = cfg["utm_bbox"]
+    return [x0 - CANOPY_PAD_M, y0 - CANOPY_PAD_M, x1 + CANOPY_PAD_M, y1 + CANOPY_PAD_M]
+
+
+def ring_candidates(X0, Y0, X1, Y1, density, rng):
+    """one point per 1 / density m2, jittered over its square of a grid on the box (local metres): crowns spaced like
+    the lidar's (a dominant crown every 15 to 16 m in closed timber) rather than clumped like independent draws"""
+    s = math.sqrt(1e6 / density)
+    nx, ny = int(math.ceil((X1 - X0) / s)), int(math.ceil((Y1 - Y0) / s))
+    gx, gy = np.meshgrid(np.arange(nx), np.arange(ny))
+    x = X0 + (gx.ravel() + rng.uniform(0, 1, nx * ny)) * s
+    y = Y0 + (gy.ravel() + rng.uniform(0, 1, nx * ny)) * s
+    ok = (x < X1) & (y < Y1)
+    return x[ok], y[ok]
+
+
+def canopy_crowns(chm, ground, slope, X0, Y1, bounds, rng, density=RING_DENSITY):
+    """FEAT-257: crowns (x, y, z, height, row, col) generated on the ETH canopy height model `chm` (RG grid whose
+    north-west corner is (X0, Y1), row 0 = north): the jittered candidates on canopy (TREE_MIN_H or taller) off
+    cliffs, outside the pack `bounds`, at RING_H_K of the canopy height, each +- RING_H_SPREAD"""
+    from tier_sources import TREE_MIN_H
+    H, W = chm.shape
+    x, y = ring_candidates(X0, Y1 - H * RG, X0 + W * RG, Y1, density, rng)
+    jit = rng.uniform(-1, 1, len(x))
+    col = np.clip(np.floor((x - X0) / RG).astype(np.int64), 0, W - 1)
+    row = np.clip(np.floor((Y1 - y) / RG).astype(np.int64), 0, H - 1)
+    h = chm[row, col]
+    z = ground[row, col]
+    keep = (h >= TREE_MIN_H) & (slope[row, col] < CLIFF_SLOPE) & np.isfinite(z)
+    keep &= (x < bounds["minX"]) | (x >= bounds["maxX"]) | (y < bounds["minY"]) | (y >= bounds["maxY"])
+    hgt = (h * RING_H_K * (1 + RING_H_SPREAD * jit)).astype(np.float32)
+    k = np.flatnonzero(keep)
+    return x[k], y[k], z[k].astype(np.float32), hgt[k], row[k], col[k]
+
+
+def canopy_ring(raw, pack, cfg):
+    """FEAT-257: the ring of a pack without lidar, from the ETH canopy height on WorldCover tree cover (module doc)"""
+    import tier_sources as ts
+    meta = json.load(open(os.path.join(pack, "meta.json"), encoding="utf-8"))
+    inst, b = meta["instances"], meta["bounds"]
+    ox, oy = cfg["origin"]
+    box = canopy_box(cfg)
+    box_l = (box[0] - ox, box[1] - oy, box[2] - ox, box[3] - oy)
+    ring = ring_grid(inst, b, box_l)[0]
+    X0, Y0 = math.floor(box_l[0] / RG) * RG, math.floor(box_l[1] / RG) * RG
+    X1, Y1 = math.ceil(box_l[2] / RG) * RG, math.ceil(box_l[3] / RG) * RG
+    WG, HG = int((X1 - X0) / RG), int((Y1 - Y0) / RG)
+    log(f"far tree ring {CANOPY_PAD_M:g} m from the ETH canopy height (no lidar, FEAT-257): box {X0:.0f}..{X1:.0f} x "
+        f"{Y0:.0f}..{Y1:.0f}, {ring} cells past the pack's tree grid, {WG} x {HG} at {RG:g} m")
+    ground = drawn_ground(pack, meta, X0, Y1, WG, HG)
+    if ground is None:
+        log("the pack has no mid height set"); return 1
+    to_ll = Transformer.from_crs(cfg["crs"], "EPSG:4326", always_xy=True)
+    try:
+        wc, eth = ts.landcover_grid(raw, to_ll, X0 + ox, Y1 + oy, RG, WG, HG)
+    except SystemExit as e:
+        log(f"  {e}: no far tree ring"); return 1
+    chm = ts.canopy_height(eth, wc, RG)
+    del wc, eth
+    gyy, gxx = np.gradient(np.nan_to_num(ground, nan=0.0), RG)
+    slope = np.degrees(np.arctan(np.hypot(gxx, gyy))).astype(np.float32)
+    del gyy, gxx
+    tx, ty, tz, hgt, gr, gc = canopy_crowns(chm, ground, slope, X0, Y1, b, np.random.default_rng(3))
+    out_km2 = max(1e-9, ((X1 - X0) * (Y1 - Y0) - (b["maxX"] - b["minX"]) * (b["maxY"] - b["minY"])) / 1e6)
+    log(f"  canopy (ETH {ts.TREE_MIN_H:g} m or taller on WorldCover tree cover) {np.mean(chm >= ts.TREE_MIN_H) * 100:.1f}% "
+        f"of the box; crowns outside the pack {len(tx)} ({len(tx) / out_km2:.0f} per km2), "
+        f"median height {np.median(hgt) if len(hgt) else 0:.1f} m")
+    del chm, slope
+    return write_ring(pack, meta, ring, box_l, tx, ty, tz, hgt, ground, gr, gc, source=SOURCE_ETH)
+
+
+def write_ring(pack, meta, ring, box_l, tx, ty, tz, hgt, ground, gr, gc, source=None):
+    """the ring's species and crown radii, then farTrees/ and meta.json: crowns at local (tx, ty), ground tz, height
+    hgt; `ground` the RG grid they stand on, (gr, gc) their cells in it; `source` instances.farTreeSource (None:
+    the lidar ring, which has no such field)"""
+    inst = meta["instances"]
     # ---------------------------------------------------------------- species (no LANDFIRE, no NAIP out here)
     north, east, tpi_s, tpi_l = spc.terrain_fields(np.nan_to_num(ground, nan=float(np.nanmean(ground))), RG)
-    gr, gc = rows // 2, cols // 2
     northeast = (north[gr, gc] + east[gr, gc]) / math.sqrt(2)
     ridge = (tpi_s[gr, gc] > 1.5) & (tpi_l[gr, gc] > 15)
     del north, east, tpi_s, tpi_l
@@ -268,6 +376,10 @@ def main(argv):
     inst["farTreeCount"] = int(len(recs))
     inst["farTreeCells"] = names
     inst["farTreeBox"] = [float(v) for v in box_l]   # the ring's outer edge (local metres), for cover.py
+    if source:
+        inst["farTreeSource"] = source
+    else:
+        inst.pop("farTreeSource", None)
     from packwriter import write_meta
     write_meta(pack, meta)
     sz = sum(os.path.getsize(os.path.join(pack, "farTrees", f"{nm}.bin")) for nm in names)

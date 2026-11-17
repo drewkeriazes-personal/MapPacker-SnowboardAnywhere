@@ -236,7 +236,7 @@ def test_report_shows_the_tier_and_judges_by_it(tmp_path):
     rep.check()
     assert "no tree instances" not in line(rep, "7")["detail"] and "no lidar" in line(rep, "7")["detail"]
     assert line(rep, "4")["status"] == pr.WARN and "outside the US" in line(rep, "4")["detail"]
-    assert line(rep, "8b")["status"] == pr.FAIL and "no lidar" in line(rep, "8b")["detail"]
+    assert line(rep, "8b")["status"] == pr.FAIL and "without lidar (FEAT-257)" in line(rep, "8b")["detail"]
     assert line(rep, "13")["status"] == pr.PASS, line(rep, "13")["detail"]
     j = rep.to_json()
     assert j["tier"] == "bronze" and j["sources"]["surface"]["source"] == "WorldCover 10 m"

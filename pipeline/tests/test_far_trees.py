@@ -77,3 +77,57 @@ def test_height_floor_follows_the_pack():
     assert ft.z0_for({"zRange": [2300.0, 3700.0]}) == 1300.0
     lo = ft.z0_for({"zRange": [100.0, 400.0]})
     assert lo + 65534 / ft.DM > 5000                # 6.5 km of range above the floor: any summit in view fits
+
+
+# ---------------------------------------------------------------- FEAT-257: the ring without lidar
+
+def test_canopy_box_grows_the_utm_box_as_the_lidar_ring():
+    import resort
+    assert ft.CANOPY_PAD_M == resort.FAR_PAD_M
+    cfg = {"utm_bbox": [100, 200, 300, 400]}
+    p = ft.CANOPY_PAD_M
+    assert ft.canopy_box(cfg) == [100 - p, 200 - p, 300 + p, 400 + p]
+
+
+def test_ring_candidates_are_spaced_at_the_density():
+    x, y = ft.ring_candidates(0.0, 0.0, 2000.0, 1000.0, ft.RING_DENSITY, np.random.default_rng(0))
+    assert abs(len(x) - 2 * ft.RING_DENSITY) < 0.03 * 2 * ft.RING_DENSITY
+    assert x.min() >= 0 and x.max() < 2000 and y.min() >= 0 and y.max() < 1000
+    # a jittered grid: one point per square, so no 100 m square is far off the mean (independent draws would clump)
+    n, _, _ = np.histogram2d(x, y, bins=(20, 10), range=((0, 2000), (0, 1000)))
+    assert n.min() >= 0.8 * n.mean() and n.max() <= 1.2 * n.mean()
+
+
+def test_canopy_crowns_on_canopy_outside_the_pack_off_cliffs():
+    # 2 x 2 km at 4 m, north-west corner (-1000, 1000): canopy 20 m tall over the west half, a cliff in the
+    # south-west quarter, the pack the middle 400 m
+    n = 500
+    chm = np.zeros((n, n), np.float32); chm[:, : n // 2] = 20.0
+    ground = np.full((n, n), 1500.0, np.float32)
+    slope = np.zeros((n, n), np.float32); slope[n // 2:, : n // 2] = 60.0
+    bounds = {"minX": -200, "minY": -200, "maxX": 200, "maxY": 200}
+    x, y, z, h, r, c = ft.canopy_crowns(chm, ground, slope, -1000.0, 1000.0, bounds, np.random.default_rng(0))
+    assert (x < 0).all() and (y > 0).all()                       # on canopy, off the cliff
+    inside = (x >= -200) & (x < 200) & (y >= -200) & (y < 200)
+    assert not inside.any()
+    # the north-west quarter less its share of the pack: 1 km2 - 0.04 km2
+    assert abs(len(x) - 0.96 * ft.RING_DENSITY) < 0.05 * ft.RING_DENSITY
+    lo, hi = 20 * ft.RING_H_K * (1 - ft.RING_H_SPREAD), 20 * ft.RING_H_K * (1 + ft.RING_H_SPREAD)
+    assert h.min() >= lo - 1e-3 and h.max() <= hi + 1e-3 and abs(h.mean() - 20 * ft.RING_H_K) < 0.1
+    assert (z == 1500).all() and (chm[r, c] == 20).all()
+
+
+def test_canopy_crowns_skip_low_canopy_and_no_ground():
+    chm = np.full((100, 100), 2.0, np.float32)                  # under TREE_MIN_H: scrub, no crowns
+    chm[:, 50:] = 15.0
+    ground = np.full((100, 100), 800.0, np.float32); ground[:50, 50:] = np.nan
+    slope = np.zeros_like(chm)
+    far = {"minX": 1e6, "minY": 1e6, "maxX": 1e6 + 1, "maxY": 1e6 + 1}
+    x, y, z, h, r, c = ft.canopy_crowns(chm, ground, slope, 0.0, 400.0, far, np.random.default_rng(0))
+    assert len(x) and (x >= 200).all() and (y < 200).all() and np.isfinite(z).all()
+
+
+def test_the_cover_keeps_the_land_cover_in_a_generated_ring():
+    meta = {"instances": {"farTreeCells": ["-1_0"], "farTreeBox": [-10, -10, 10, 10], "farTreeSource": ft.SOURCE_ETH}}
+    truth = (np.zeros((4, 4), np.float32), np.ones((4, 4), bool))
+    assert cover.ring_forest("nowhere", meta, 16.0, 0, 64, 4, 4, np.zeros((4, 4)), truth, "mid") is None
