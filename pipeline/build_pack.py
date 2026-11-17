@@ -29,7 +29,7 @@ from pyproj import Transformer
 from packwriter import (FORMAT_VERSION, write_height_set, write_mask_set, write_instances, write_meta, write_features, decode_terrarium)
 from piste_dir import piste_direction
 from terrain_ao import sky_visibility
-from moguls import run_mogul_score, slope_window, paint_field, paint_polygon
+from moguls import run_mogul_score, slope_window, paint_field, paint_polygon, corridor_extent, soften_mask
 from canopy_spots import run_half_width   # run corridor half widths, shared with the BUG-028 canopy measure
 import species as spc
 import paths
@@ -1161,8 +1161,9 @@ log(f"  ao mean {ao.mean():.3f}, p5 {np.percentile(ao, 5):.3f}")
 ao_meta = write_mask_set(out, (np.clip(ao, 0, 1) * 255 + 0.5).astype(np.uint8), R2, X0 - OX, Y0 - OY, kind="ao")
 del ao
 
-# mogul amplitude (FEAT-059): each scoring run's corridor, fading over the outer 3 m, times the slope
-# window; none under canopy, on groomed corduroy, built-up ground or rock. 0..1 m in the greyscale set.
+# mogul amplitude (FEAT-059): each scoring run's corridor, fading in over FIELD_FADE (BUG-065), times the slope
+# window; none under canopy, on groomed corduroy, built-up ground or rock (canopy and buildings ramp it down over
+# MASK_SOFT). 0..1 m in the greyscale set.
 log("  moguls")
 mog = np.zeros((H2, W2), np.float32)
 for run in runs:
@@ -1173,9 +1174,9 @@ for run in runs:
     if run.get("area"):
         paint_polygon(mog, pts, sc, R2, X0 - OX, Y1 - OY)
     else:
-        hw = run_half_width(run)
-        paint_field(mog, pts, hw - 2, sc, R2, X0 - OX, Y1 - OY)
-mog *= slope_window(slope2) * (~canopy).astype(np.float32) * (1 - np.clip(groomed, 0, 1)) * (~built_any).astype(np.float32) * (1 - rock_w) * (1 - scree_w)
+        half, edge = corridor_extent(run_half_width(run))
+        paint_field(mog, pts, half, sc, R2, X0 - OX, Y1 - OY, edge=edge, smooth=True)
+mog *= slope_window(slope2) * soften_mask(~canopy & ~built_any, R2) * (1 - np.clip(groomed, 0, 1)) * (1 - rock_w) * (1 - scree_w)
 mog = np.clip(mog, 0, 1)
 cells = mog > 0.05
 log(f"  mogul fields {cells.sum() * R2 * R2 / 1e4:.1f} ha, mean amplitude {mog[cells].mean() if cells.any() else 0:.2f} m")
