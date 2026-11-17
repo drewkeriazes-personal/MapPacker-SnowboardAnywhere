@@ -20,6 +20,7 @@ pack/<slug>/
   dir/<tx>_<ty>.png         2 m greyscale piste direction (groomed run axis), same grid as mask (optional)
   cover/<level>.png         RGBA forest cover for the terrain at a distance, one image per level (optional)
   canopy.png                10 m greyscale canopy score over the pack bounds (optional, FEAT-331)
+  treeLines.json            the glade tree lines traced from the terrain (optional, FEAT-334)
   trees/<tx>_<ty>.bin       tree instances per 1 km cell (the detected crowns)
   stands/<tx>_<ty>.png      stand density per 4 m cell, one RGB image per 1 km tree cell (optional, FEAT-074)
   farTrees/<tx>_<ty>.bin    the crowns on the ridges round the resort, outside the bounds (optional, BUG-081, FEAT-257)
@@ -182,6 +183,45 @@ Riva Glade 0.49 / 1.00; Inner and Outer Mongolia Bowl 0.00 / 0.00, Sun Up Bowl 0
 to Two Elk 0.10 / 0.46; the groomers Born Free 0.00 / 0.04, Simba and Lodgepole 0.00 / 0.00, all groomed runs 0.00 / 0.50
 (narrow trails through timber, Riva Ridge Lower, read their edges). 1160 x 1170 px, 0.45 MB. Add it to a built pack without a
 rebuild: `python pipeline/canopy.py packs/<slug>` (`--at x,y ...` prints the score at local points).
+
+## Tree lines (optional, FEAT-334)
+
+`treeLines.json` at the pack root (`pipeline/tree_lines.py`): the worn lines riders cut down through the trees beside the
+black and gladed runs, for the game's trenches, mogul lines, tracked snow, stems on the banks and glade trim
+(SnowboardAnywhere FEAT-333, `game/src/pack/treeLines.ts`). The game loads them in place of its own plan from the runs
+and fetches no tree cells for them (they are already clear of the detected trunks). Described by `meta.treeLines`:
+
+```
+"treeLines": { "file": "treeLines.json", "lines": 2383, "km": 319.3,
+               "checks": { "km": 319.3, "trunksInCorridor": 0, "stalls": 169, "spacing": { "median": 10.7, "inBand": 0.4 } } }
+```
+
+```
+{ "version": 1, "step": 3.0, "lines": [ { "p": [x, y, halfWidth, strength, x, y, halfWidth, strength, ...], "open": 70.0 }, ... ] }
+```
+
+Each line is its points every `step` m in local metres, each with the corridor's half-width (m, 0.5 to about 2.2) and
+strength (0..1: how worn, which sets the trench's depth and the mogul amplitude; 0 at a line's ends). `open` (optional) is
+how many metres from the line's start the game's forest gate does not apply (an entrance leaving the cat track). `lines`
+and `km` are for the log; `checks` is the build's own validation (`trunksInCorridor` is 0 by construction; `stalls`
+counts stretches flatter than 9 degrees for over 30 m; `spacing` is the distance from a line to its nearest neighbour,
+median and share in 3 to 10 m), which the game does not read. The key and the file are optional and additive (no
+`formatVersion` bump): a pack without them gets the game's plan from the runs, and a game from before FEAT-334 ignores both.
+
+How they are traced, per run that gets lines (gladed, or advanced, expert, freeride, extreme), on a 2 m grid over the
+run's box plus 160 m: a cost field from the fine heights (smoothed over 3 m for the fall line) and the detected trunks
+(closer than 1.7 m is impassable, out to 4 m costs more), where a step costs its length times its angle off the fall
+line, times more on the flat (under 9 degrees) and near a run's edge, plus a cost per metre climbed; the runs are walls
+(a gladed run is trees) except the exits, the run's last 80 m and any run lower than its foot. One backward Dijkstra from
+the exits, then riders: seeds 28 m apart beside a tree run (45 m beside an advanced one), 12 to 130 m off it on both sides
+over its upper 85 %, plus three entrances across a tree run's top edge, walk down the field highest first and join a
+line already ridden when they come within 2 m of it (8 m on the flat, where nobody breaks trail), so lines merge in
+gullies and funnel at the runouts, and a line's strength grows with the riders on it (0.6 for one, 1 from four).
+Then each line is resampled every 3 m, smoothed, its turns held to a 15 m radius, squeezed past any trunk nearer than its
+rim (half-width plus 1.1 m) and broken for a step where even 0.5 m does not pass, and left out more than 30 m from any
+trunk (no forest). Vail (2026-11-17): 2,383 lines, 319 km, 2.9 MB, about 50 s; beside Steep and Deep up to 9 lines
+within 120 m of the run on its steep middle, 6 at the Lower Pete's Bowl runout with the strongest gathered into one or two.
+Add them to a built pack without a rebuild: `python pipeline/tree_lines.py packs/<slug>` (`--only <run name>` for one run).
 
 ## Instances
 
@@ -400,6 +440,8 @@ A hand start off every run in `features.json` (the test `pack_report.py` line 10
              "levels": [{ "name": "pack", "res": 4, "minX", "minY", "w", "h", "file": "cover/pack.png", "stands": "cover/pack-stands.png", "crowns": true },
                         { "name": "mid", "res": 16, ... }, { "name": "far", "res": 100, ... }] },
   "canopy": { "res": 10, "minX", "minY", "w", "h", "file": "canopy.png" },   // optional, FEAT-331 (Canopy grid); absent = 0
+  "treeLines": { "file": "treeLines.json", "lines": 2383, "km": 319.3, "checks": { ... } },   // optional, FEAT-334 (Tree lines);
+                                                          // absent = the game plans them from the runs
   "instances": { "cellSize": 1000, "minX", "minY", "cellsX", "cellsY", "treeCount", "rockCount", "treeCells", "rockCells",
                  "shrubCount", "shrubCells",                // shrub fields optional, DATA-020
                  "crownWidths": { "open": 0.16, "cover": [0.1, 0.5], "jitter": 0.35, "widen": [0, 3, 5, 9],

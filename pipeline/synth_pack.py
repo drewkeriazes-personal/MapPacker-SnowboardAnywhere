@@ -261,6 +261,11 @@ meta["cover"] = {"heightMax": cover.HEIGHT_MAX, "blend": cover.BLEND_M, "levels"
 # FEAT-331: the canopy density grid, so the game's glade darkness (FEAT-330) has one to read in CI too
 import canopy
 meta["canopy"] = canopy.build_canopy(out, meta)
+# FEAT-334: the glade tree lines beside Fall Line and Chute, so the game's CI loads baked lines too
+import tree_lines
+tl_meta = tree_lines.build_tree_lines(out, meta, features)
+if tl_meta:
+    meta["treeLines"] = tl_meta
 
 meta["start"] = {"x": 650.0, "y": -1300.0, "heading": 0.0}
 meta["sun"] = {"azimuth": 150, "elevation": 35}

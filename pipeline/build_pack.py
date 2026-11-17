@@ -1555,5 +1555,14 @@ if any(lv["name"] in ("mid", "far") for lv in meta["cover"]["levels"]):   # DATA
 log("canopy")
 from canopy import build_canopy
 meta["canopy"] = build_canopy(out, meta, log=log)
+
+# ------------------------------------------------------------------ 12. glade tree lines (FEAT-334)
+# the lines riders wear through the trees beside the black and gladed runs, traced on a cost field over the pack's
+# ground and detected trunks (tree_lines.py); the game loads them in place of its own plan from the runs (FEAT-333)
+log("tree lines")
+from tree_lines import build_tree_lines
+tl_meta = build_tree_lines(out, meta, {"runs": runs}, log=log)
+if tl_meta:
+    meta["treeLines"] = tl_meta
 write_meta(out, meta)
 log("done")
