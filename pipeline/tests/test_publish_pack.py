@@ -202,6 +202,21 @@ def test_dry_run_prints_the_branch_and_calls_no_gh_and_no_fetch(tmp_path, monkey
 
 
 @pytest.mark.parametrize("dry", [False, True])
+def test_a_pack_without_its_resorts_landmarks_is_refused(tmp_path, monkeypatch, dry):
+    """BUG-156: Vail built by hand without the content stage lost the Back Bowls gateway; it must not ship"""
+    import paths
+    calls = fake_gh_and_git(monkeypatch)
+    resorts = tmp_path / "resorts"
+    (resorts / "demo").mkdir(parents=True)
+    write_json(str(resorts / "demo" / "landmarks.json"),
+               [{"id": "gate", "kind": "gateway", "name": "The Gate", "x": 1, "y": 2, "heading": 0, "start": True}])
+    monkeypatch.setattr(paths, "RESORTS", str(resorts))
+    with pytest.raises(SystemExit, match=r"meta.landmarks \(0\).*pack_content.py"):
+        publish_pack.main([str(tiny_pack_with_stamp(tmp_path)), "--status", "preview"] + (["--dry-run"] if dry else []))
+    assert not any(c[:2] in (["gh", "release"], ["git", "push"]) for c in calls)
+
+
+@pytest.mark.parametrize("dry", [False, True])
 def test_a_pack_the_lint_rejects_is_refused_before_the_zip_and_any_release(tmp_path, monkeypatch, dry):
     calls = fake_gh_and_git(monkeypatch)
     pack = tiny_pack_with_stamp(tmp_path)

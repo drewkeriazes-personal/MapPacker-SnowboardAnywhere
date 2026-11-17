@@ -23,8 +23,10 @@ The game knows nothing about a resort that its pack does not carry. What a perso
 
 `write_meta(..., stamp=False)`: `meta.build` does not change, so a menu still rendered from this build stays valid.
 The format does not change either: every key here is optional and a game that does not read it ignores it.
-`build_resort.py`'s `content` stage runs it after gen_content.py; on its own it puts the content into a pack
-built or published earlier.
+`build_resort.py`'s `content` stage runs it after gen_content.py, and gen_content.py run by hand runs it too
+(BUG-156: a hand rebuild into packs/vail lost the Back Bowls gateway and its start); on its own it puts the
+content into a pack built or published earlier. `missing()` says when a pack lacks the hand content its resort
+has, and publish_pack.py refuses such a pack.
 """
 import argparse
 import json
@@ -166,6 +168,21 @@ def apply(pack_dir, slug=None, resorts=None, log=print):
         log(f"  the start is {off[0]:.0f} m off the nearest run" + (f" ({off[1]})" if off[1] else "")
             + f": pack_report.py line 10 fails it; move it onto a run in {home}")
     return out
+
+
+def missing(meta, slug=None, resorts=None):
+    """BUG-156: why the pack (its meta.json) lacks the hand content its resort folder has, or None: the landmarks
+    differ from resorts/<slug>/landmarks.json, or the folder gives a hand start the pack does not use"""
+    slug = slug or meta.get("slug")
+    want, have = read_landmarks(slug, resorts), meta.get("landmarks") or []
+    if want != have:
+        return (f"{slug}'s meta.landmarks ({len(have)}) is not resorts/{slug}/landmarks.json ({len(want)})"
+                if want else f"{slug}'s pack has {len(have)} landmarks, resorts/{slug}/ has none")
+    _, kind = resolve_start(None, want, read_placed(slug, resorts))
+    got = (meta.get("start") or {}).get("source")
+    if kind != "build" and got != kind:
+        return f"{slug}'s start is {got or 'missing'}, resorts/{slug}/ places one ({kind})"
+    return None
 
 
 def start_off_run(pack_dir, start):

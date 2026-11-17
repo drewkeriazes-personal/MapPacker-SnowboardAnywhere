@@ -485,7 +485,7 @@ def content_present(r):
 
 
 def content_run(r, ctx):
-    if ctx.run([sys.executable, os.path.join(HERE, "gen_content.py"), r.out, "--config", r.cfg_path]):
+    if ctx.run([sys.executable, os.path.join(HERE, "gen_content.py"), r.out, "--config", r.cfg_path, "--no-hand"]):
         raise Failed("gen_content.py failed: the log above says where")
     # FEAT-243: then the hand content (landmarks, a placed start, a hand-made menu), which wins over the generated
     import pack_content       # in process: a copy of a few small files

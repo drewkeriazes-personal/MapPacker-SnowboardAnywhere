@@ -191,3 +191,38 @@ def test_a_build_start_is_not_checked_here(env):
     _features(pack, [RIDGE])                     # RUN_START is far off it: gen_content.py and line 10 own that one
     assert "startOffRun" not in P.apply(pack, resorts=resorts, log=lambda s: None)
 
+
+
+def test_missing_names_a_pack_without_the_resorts_landmarks(env):
+    """BUG-156: a hand rebuild that skipped this step lost Vail's gateway and its start; publish_pack.py refuses it"""
+    resorts, pack = env
+    _dump(os.path.join(resorts, "demo", "landmarks.json"), [GATEWAY])
+    why = P.missing(meta(pack), resorts=resorts)
+    assert why and "meta.landmarks (0)" in why and "landmarks.json (1)" in why
+    P.apply(pack, resorts=resorts, log=lambda s: None)
+    assert P.missing(meta(pack), resorts=resorts) is None
+
+
+def test_missing_names_a_pack_that_lost_the_landmark_start(env):
+    resorts, pack = env
+    _dump(os.path.join(resorts, "demo", "landmarks.json"), [GATEWAY])
+    m = meta(pack)
+    m["landmarks"] = P.read_landmarks("demo", resorts)          # the landmarks, but the generated start
+    m["start"]["source"] = "generated"
+    assert P.missing(m, resorts=resorts) == "demo's start is generated, resorts/demo/ places one (landmark)"
+
+
+def test_missing_names_landmarks_the_resort_no_longer_has(env):
+    resorts, pack = env
+    m = meta(pack)
+    assert P.missing(m, resorts=resorts) is None                 # no hand content either side
+    m["landmarks"] = [GATEWAY]
+    assert "has 1 landmarks, resorts/demo/ has none" in P.missing(m, resorts=resorts)
+
+
+def test_missing_names_a_placed_start_the_pack_does_not_use(env):
+    resorts, pack = env
+    _dump(os.path.join(resorts, "demo", "start.json"), {"x": 1, "y": 2, "heading": 90})
+    assert "(placed)" in P.missing(meta(pack), resorts=resorts)
+    P.apply(pack, resorts=resorts, log=lambda s: None)
+    assert P.missing(meta(pack), resorts=resorts) is None
