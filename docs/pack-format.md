@@ -84,9 +84,10 @@ Padding and everything else is 0. Packs built before DATA-002 lack it; add it wi
 
 Greyscale PNG on the mask grid: mogul field strength 0..255 = 0..1 from `pipeline/moguls.py` (read as metres
 of amplitude before FEAT-147; the client now sizes the bumps from the slope, see below). Each run's
-`mogulScore` is painted along its corridor (fading over the outer 3 m, where real bumps shrink; closed
-`area` runs are filled), times a slope window (none below 15 degrees, full 20 to 35, none above 40),
-and removed under canopy, on groomed corduroy, built-up ground and rock. Padding outside the data is 0.
+`mogulScore` is painted along its corridor (BUG-065: 2 m past the run's half width, fading in over 9 m with a
+smoothstep, where real bumps shrink; closed `area` runs are filled), times a slope window (none below 15 degrees,
+full 20 to 35, none above 40), and removed under canopy, on groomed corduroy, built-up ground and rock (the
+canopy and buildings ramp it down over 6 m rather than cutting it). Padding outside the data is 0.
 The client turns the strength into bumps cut by rider lines down the fall line (`game/src/terrain/Moguls.ts`,
 FEAT-147: 4 to 7 m apart along a line, about 0.55 m per unit strength at 16 degrees up to 1.38 m at 32 degrees
 and steeper, each bump +-30%, at most 1.8 m; the pattern changes every 80 m) in both the physics height and
