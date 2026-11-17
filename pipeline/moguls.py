@@ -79,10 +79,36 @@ def run_mogul_score(run: dict, slope_hi: float, aspect_mean: float | None, groom
     return float(min(1.0, max(0.0, g * d * s * a * t)))
 
 
+# BUG-065: a field comes in over FIELD_FADE metres (a smoothstep), painted FIELD_SPILL past the run's half width, so
+# riding into it is gradual (Milt's Face went from flat snow to 0.6 m bumps in about 2 m), and the trees and buildings
+# that cut it ramp it down over MASK_SOFT metres instead of stopping it dead
+FIELD_FADE = 9.0
+FIELD_SPILL = 2.0
+MASK_SOFT = 6.0
+
+
+def corridor_extent(run_half_width: float) -> tuple[float, float]:
+    """(half width painted, fade width) for a run corridor of `run_half_width` metres: FIELD_SPILL past it, fading
+    over FIELD_FADE or 3/4 of the painted half width on a narrow run, so its middle still reaches full amplitude."""
+    half = run_half_width + FIELD_SPILL
+    return half, min(FIELD_FADE, 0.75 * half)
+
+
+def soften_mask(keep: np.ndarray, res: float, soft: float = MASK_SOFT) -> np.ndarray:
+    """0..1 float mask from a boolean one: 0 where `keep` is False, rising (smoothstep) to 1 about `soft` metres in
+    from its edge. A box filter `2 * soft` wide reads 0.5 on a straight edge and 1 `soft` metres in."""
+    from scipy import ndimage
+    k = keep.astype(np.float32)
+    n = max(3, int(round(2 * soft / res)) | 1)
+    near = ndimage.uniform_filter(k, size=n, mode="nearest")
+    return (k * _smoothstep(0.5, 1.0, near)).astype(np.float32)
+
+
 def paint_field(target: np.ndarray, pts, half_width: float, value: float, res: float, x0: float, y1: float,
-                edge: float = 3.0) -> None:
+                edge: float = 3.0, smooth: bool = False) -> None:
     """Paint `value` along a polyline corridor into a raster (row 0 = north, x0 west edge, y1 north edge),
-    fading to 0 over the outer `edge` metres, keeping the max with what is already there."""
+    fading to 0 over the outer `edge` metres (linearly, or a smoothstep with `smooth`), keeping the max with
+    what is already there."""
     H, W = target.shape
     hw = max(1, int(math.ceil(half_width / res)))
     for (ax, ay), (bx, by) in zip(pts[:-1], pts[1:]):
@@ -101,7 +127,10 @@ def paint_field(target: np.ndarray, pts, half_width: float, value: float, res: f
                 continue
             rr, cc = np.ogrid[r0:r1, c0:c1]
             dist = np.hypot((rr + 0.5 - r) * res, (cc + 0.5 - c) * res)
-            w = np.clip((half_width - dist) / max(edge, 1e-6), 0.0, 1.0) * value
+            w = np.clip((half_width - dist) / max(edge, 1e-6), 0.0, 1.0)
+            if smooth:
+                w = w * w * (3 - 2 * w)
+            w = w * value
             target[r0:r1, c0:c1] = np.maximum(target[r0:r1, c0:c1], w.astype(target.dtype))
 
 
