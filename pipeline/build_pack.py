@@ -1533,7 +1533,7 @@ write_meta(out, meta)
 # the lidar crowns on the ridges round the resort (far_trees.py), before the cover, whose land cover levels take
 # their forest from them; needs lidar.far in the config and its nodes in raw/<slug>/ept_far/ (ept_select.py).
 # FEAT-257: without lidar, crowns generated on the ETH canopy height and WorldCover tree cover the stands use.
-if ((cfg.get("lidar") or {}).get("far") and glob.glob(os.path.join(raw, "ept_far", "*.laz"))) or not LIDAR:
+if not LIDAR or ((cfg.get("lidar") or {}).get("far") and glob.glob(os.path.join(raw, "ept_far", "*.laz"))):
     log("far tree ring")
     import far_trees
     far_trees.main([slug, raw, out])
