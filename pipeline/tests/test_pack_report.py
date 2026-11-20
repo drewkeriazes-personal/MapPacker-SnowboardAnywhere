@@ -282,3 +282,38 @@ def test_far_ring_from_the_canopy_height_passes_8b(tmp_path):
     write_meta(str(pack), meta)
     ln = line(pr.build_report(str(pack), repo=str(tmp_path)), "8b")
     assert ln["status"] == pr.PASS and "ETH" not in ln["detail"]
+
+
+def test_groomed_runs_off_the_mask_and_few_groomers_are_flagged(tmp_path):
+    """BUG-115: a groomed run the mask leaves ungroomed fails line 14, few groomed greens and blues warn line 15"""
+    pack = make_pack(tmp_path / "packs")
+    rep = pr.build_report(str(pack), repo=str(tmp_path))
+    assert rep.numbers["groomedRunsOnMask"] == 1.0 and rep.numbers["mainRunsGroomed"] == 1.0
+    assert "groomed mask" not in line(rep, "14")["detail"]
+    assert "100% of the green and blue run length groomed" in line(rep, "15")["detail"]
+
+    feats = json.load(open(pack / "features.json", encoding="utf-8"))
+    def blue(name, x, length):
+        pts = [[x, y, ground(x, y)] for y in np.linspace(HALF - 10, HALF - 10 - length, 30)]   # off the painted strip
+        return {"name": name, "difficulty": "intermediate", "groomed": True, "gladed": False, "area": False,
+                "points": pts, "mogulScore": 0.0}
+    feats["runs"].append(blue("Cashier", -200.0, 190.0))            # 190 m against Main's 580 m: 75% on the mask
+    write_features(str(pack), feats)
+    rep = pr.build_report(str(pack), repo=str(tmp_path))
+    assert rep.numbers["groomedRunsOnMask"] == pytest.approx(0.75, abs=0.02)
+    assert line(rep, "14")["status"] == pr.WARN and "groomed mask on only 75%" in line(rep, "14")["detail"]
+    feats["runs"].append(blue("Swinger", -150.0, 580.0))            # now under half: the pack fails line 14
+    write_features(str(pack), feats)
+    rep = pr.build_report(str(pack), repo=str(tmp_path))
+    assert rep.numbers["groomedRunsOnMask"] < pr.GROOMED_ON_MASK_FAIL and line(rep, "14")["status"] == pr.FAIL
+
+    feats["runs"] = feats["runs"][:1] + [dict(blue(f"Blue {i}", -250.0 + 20 * i, 580.0), groomed=False) for i in range(4)]
+    write_features(str(pack), feats)
+    rep = pr.build_report(str(pack), repo=str(tmp_path))
+    assert rep.numbers["groomedRunsOnMask"] == 1.0                      # only Main is groomed now, and it is painted
+    assert rep.numbers["mainRunsGroomed"] == pytest.approx(0.2, abs=0.01)
+    assert line(rep, "15")["status"] == pr.FAIL                        # no grooming record at all
+    feats["runs"][0]["groomNights"] = 3
+    write_features(str(pack), feats)
+    l15 = line(pr.build_report(str(pack), repo=str(tmp_path)), "15")
+    assert l15["status"] == pr.WARN and "few groomers" in l15["detail"]
