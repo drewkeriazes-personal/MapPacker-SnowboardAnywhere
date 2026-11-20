@@ -14,10 +14,11 @@ compare spots (`docs/compare/<slug>/`, line 19) and a hand-made menu in `game/pu
 else reads the pack's `attract/`). The landmarks, the start and the picker (lines 10, 11, 18) are the pack's own
 (FEAT-243: pack_content.py). Without the game line 19 says so and skips. About a minute on Vail. The numbers it measures, besides the checklist:
 - surface: rock share (mask R at least half), canopy share, canopy left on run centre lines (trail cuts should
-  be near 0), groomed share;
+  be near 0), groomed share, the groomed mask along the groomed runs (BUG-115: line 14 fails under 50%);
 - trees: crowns + stems per km2 over the bounds and per 100 m elevation band, crowns and stems on lift lines,
   trees per hectare within 100 m of each compare spot (DATA-022 item 14's measure);
-- runs: the steepest 30 m pitch of each run against its OSM difficulty (The Slot kind of outlier);
+- runs: the steepest 30 m pitch of each run against its OSM difficulty (The Slot kind of outlier), the share of
+  the green and blue run length groomed (line 15 warns under 40%);
 - the start: on snow, on a run, clear of trees;
 - published figures (line 21, a warn at most): summit, base and vertical from the lift stations, the lift count,
   the distinct run names and the run footprint against the resort's own, and its trail list against the OSM names.
@@ -64,6 +65,15 @@ START_STAND_MAX = 0.25    # a stem chance over this round the start is in the wa
 TREE_RATIO_WARN = (0.5, 2.0)   # trees per km2 against the reference outside this: worth a look
 ROCK_RATIO_WARN = 3.0          # rock share over this times the reference: worth a look
 RUN_CANOPY_WARN = 0.15         # canopy left on run centre lines over this: trail cuts missing
+# BUG-115: the groomed mask (B) along the centre lines of the runs features.json calls groomed; a mask that
+# misses them rides the groomers as ungroomed snow. Vail and Breckenridge v4 read about 99%.
+GROOMED_ON_MASK_FAIL = 0.5
+GROOMED_ON_MASK_WARN = 0.8
+# BUG-115: share of the green and blue run length that is groomed. Resorts with nightly grooming reports read
+# 60 to 92% (Park City, Breckenridge, Vail); OSM tags alone leave 4 to 19% (Big Sky, Copper, the old
+# Breckenridge pack whose Cashier and Swinger rode as ungroomed), so the groomer search finds next to none.
+MAIN_GROOMED_WARN = 0.4
+DIFFICULTY_MAIN = {"novice", "easy", "intermediate"}
 AERIAL = {"chair_lift", "gondola", "cable_car", "mixed_lift", "drag_lift", "t-bar", "j-bar", "platter", "rope_tow"}
 DIFFICULTY_EASY = {"novice", "easy"}
 DIFFICULTY_HARD = {"advanced", "expert", "extreme", "freeride"}
@@ -192,6 +202,32 @@ def resample(pts, spacing):
         return p[:1]
     s = np.append(np.arange(0, d[-1], spacing), d[-1])
     return np.stack([np.interp(s, d, p[:, i]) for i in range(p.shape[1])], 1)
+
+
+def groomed_on_mask(runs, mask, m, bounds, spacing=4.0):
+    """BUG-115: share of the points every `spacing` m along the groomed runs' centre lines (inside the bounds)
+    where the mask's groomed channel is at least half; None without a groomed line in the pack"""
+    pts = [resample(r["points"], spacing) for r in runs
+           if r.get("groomed") and not r.get("area") and len(r["points"]) > 1]
+    if not pts:
+        return None
+    p = np.concatenate(pts)
+    p = p[(p[:, 0] >= bounds["minX"]) & (p[:, 0] < bounds["maxX"]) & (p[:, 1] >= bounds["minY"]) & (p[:, 1] < bounds["maxY"])]
+    if not len(p):
+        return None
+    return float((sample(mask[..., 2], m, p[:, 0], p[:, 1]) >= 128).mean())
+
+
+def main_runs_groomed(runs):
+    """BUG-115: share of the green and blue run length (centre lines, not glades) that is groomed; None without one"""
+    total = groomed = 0.0
+    for r in runs:
+        if r.get("area") or r.get("gladed") or r.get("difficulty") not in DIFFICULTY_MAIN:
+            continue
+        L = polyline_length(r["points"])
+        total += L
+        groomed += L if r.get("groomed") else 0.0
+    return groomed / total if total else None
 
 
 def steepest_pitch(pts, window=PITCH_M):
@@ -399,6 +435,9 @@ class Report:
                     p = np.concatenate(pts)
                     a = sample(self.mask[..., 3], m, p[:, 0], p[:, 1])
                     self.numbers["runCanopy"] = round(float(a.mean() / 255), 4)
+                on = groomed_on_mask(self.runs, self.mask, m, b)
+                if on is not None:
+                    self.numbers["groomedRunsOnMask"] = round(on, 3)
 
         # trees
         self.trees = read_instances(self.pack, "trees")
@@ -457,6 +496,9 @@ class Report:
             self.numbers["runs"] = len(self.runs)
             self.numbers["runsGroomReported"] = round(sum(1 for r in self.runs if r.get("groomNights")) / len(self.runs), 3)
             self.numbers["runsOsmGroomed"] = round(sum(1 for r in self.runs if r.get("groomed")) / len(self.runs), 3)
+            mg = main_runs_groomed(self.runs)
+            if mg is not None:
+                self.numbers["mainRunsGroomed"] = round(mg, 3)
             mog = {}
             for r in self.runs:
                 if "mogulScore" in r:
@@ -717,6 +759,10 @@ class Report:
             notes.append(f"{len(self.outliers['easyButSteep'])} easy runs with a {EASY_PITCH_MAX:.0f}+ deg pitch")
         if self.outliers.get("hardButFlat"):
             notes.append(f"{len(self.outliers['hardButFlat'])} advanced+ runs never over {HARD_PITCH_MIN:.0f} deg")
+        gm = n.get("groomedRunsOnMask")
+        if gm is not None and gm < GROOMED_ON_MASK_WARN:
+            (probs if gm < GROOMED_ON_MASK_FAIL else notes).append(
+                f"groomed mask on only {gm:.0%} of the groomed runs' centre lines (they ride as ungroomed snow)")
         if n.get("liftLineCrownsPerKm", 0) > 20:
             notes.append(f"{n['liftLineCrownsPerKm']:.0f} crowns per km within {LIFT_CLEAR_M:.0f} m of lift lines")
         if self.spots:
@@ -727,8 +773,13 @@ class Report:
         # polish
         g = n.get("runsGroomReported", 0)
         graw = len(glob.glob(os.path.join(raw, "grooming", "*.json"))) if raw else None
-        self.line("15", "Grooming history", PASS if g else FAIL,
-                  f"{g:.0%} of runs with a grooming record" + ("" if graw is None else f", {graw} reports in raw"), mvp=False)
+        mg = n.get("mainRunsGroomed")
+        few = mg is not None and mg < MAIN_GROOMED_WARN
+        self.line("15", "Grooming history", FAIL if not g else WARN if few else PASS,
+                  f"{g:.0%} of runs with a grooming record" + ("" if graw is None else f", {graw} reports in raw") +
+                  ("" if mg is None else f"; {mg:.0%} of the green and blue run length groomed") +
+                  (" (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256)" if few else ""),
+                  mvp=False)
         if raw:
             # FEAT-235: GNIS for the resort's states (names/DomesticNames_<ST>_Text.zip, or Vail's gnis.json) and
             # the names in features.json
@@ -916,6 +967,8 @@ class Report:
                 ("Stems per km within 5 m of lift lines", n.get("liftLineStemsPerKm"), None, "{}"),
                 ("Runs with a grooming record", n.get("runsGroomReported"), None, "{:.0%}"),
                 ("Runs groomed in OSM", n.get("runsOsmGroomed"), None, "{:.0%}"),
+                ("Green and blue run length groomed", n.get("mainRunsGroomed"), None, "{:.0%}"),
+                ("Groomed mask on groomed run centre lines", n.get("groomedRunsOnMask"), None, "{:.0%}"),
                 ("Far ring crowns", n.get("farTrees"), None, "{:,}")]
         for label, v, r, fmt in rows:
             if v is not None:
