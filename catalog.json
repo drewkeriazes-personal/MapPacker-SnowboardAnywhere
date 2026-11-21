@@ -355,7 +355,7 @@
     "pipeline": "7923e19",
     "bytes": 41095778,
     "sha256": "6266a81bf7b80b8a311eac3b8b288b8b66b6b88a0f46620d8cc6a545693db794",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/ohio-hills-v1/ohio-hills.zip"
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/ohio-hills/v1/ohio-hills.zip"
    },
    "report": "reports/ohio-hills.md"
   },
@@ -378,7 +378,7 @@
     "pipeline": "039b9a7",
     "bytes": 245318703,
     "sha256": "1267bf1260c8b41903091ddcfcf6a60ad397ac37b887c3979af7de32d93fa096",
-    "url": "https://github.com/drewkeriazes/MapPacker-SnowboardAnywhere/releases/download/park-city-mountain-v1/park-city-mountain.zip"
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/park-city-mountain/v1/park-city-mountain.zip"
    },
    "report": "reports/park-city-mountain.md"
   },
