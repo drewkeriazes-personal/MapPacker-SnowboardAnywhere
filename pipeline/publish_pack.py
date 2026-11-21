@@ -276,7 +276,8 @@ def publish_branch(slug: str, version: int) -> str:
 
 
 REBUILD_LIST = ("New resort: after this merges, `python tools/ci/rebuild_choices.py --write` in a PR of its own adds "
-                "it to Build pack's rebuild list (FEAT-297; a publish PR can't change a workflow file)")
+                "it to Build pack's rebuild list (FEAT-297; a publish PR can't change a workflow file). Until then the "
+                "`rebuild-list` check fails on main and every PR (BUG-166)")
 
 
 def pr_body(entry: dict, *, why: str, release_url: str, started_by: str, run_url: str | None,

@@ -197,6 +197,19 @@ def test_build_pack_rebuild_list_names_only_packs_that_can_be_rebuilt():
     assert load(BUILD)["run-name"] == "Build pack ${{ inputs.slug || inputs.rebuild }}"   # the game reads the slug off it
 
 
+def test_the_rebuild_list_check_runs_everywhere_and_only_warns_on_a_publish_pr():
+    """BUG-166: main and every PR fail on a stale rebuild list, but a publish PR passes (with a warning) so
+    publish-merge still merges a new resort, whose PR can't change the workflow"""
+    wf = load(".github/workflows/checks.yml")
+    job = wf["jobs"]["rebuild-list"]
+    assert "if" not in job and "needs" not in job
+    (step,) = [s for s in job["steps"] if "rebuild_choices.py" in s.get("run", "")]
+    run = step["run"]
+    assert "${{" not in run and step["env"]["HEAD_REF"] == "${{ github.head_ref }}"
+    assert "--write" not in run.splitlines()[0] and "publish/*)" in run and "::warning::" in run
+    assert run.strip().endswith("exit 1")
+
+
 def test_rebuild_choices_writes_the_list_in_place():
     sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
     import rebuild_choices as rc
