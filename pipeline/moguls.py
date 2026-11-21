@@ -85,6 +85,16 @@ def run_mogul_score(run: dict, slope_hi: float, aspect_mean: float | None, groom
 FIELD_FADE = 9.0
 FIELD_SPILL = 2.0
 MASK_SOFT = 6.0
+GROOMED_CORE = 5.0   # BUG-067: metres either side of a groomed run's centre line that stay groomed (about two cat passes)
+
+
+def groomed_keep(d_groomed: np.ndarray, d_never: np.ndarray, res: float, core: float = GROOMED_CORE) -> np.ndarray:
+    """Which cells of the groomed corridors stay groomed (BUG-030, BUG-067), from each cell's distance in cells to the
+    nearest groomed and never-groomed centre line: the cells nearer a groomed line than a never-groomed one, and
+    always the groomed run's own core strip, `core` metres either side of its line. Without the core a groomer that
+    runs beside or across a bump run (The Slot past Milt's Face and Campbell's at Vail) lost its own centre line to
+    the bump run's field: the cat grooms through, so the bumps stop at the strip's edge."""
+    return (d_groomed <= d_never) | (d_groomed * res <= core)
 
 
 def corridor_extent(run_half_width: float) -> tuple[float, float]:
