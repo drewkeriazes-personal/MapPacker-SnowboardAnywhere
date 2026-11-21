@@ -64,16 +64,25 @@ on:
         options:
           # rebuild_choices.py writes this list from catalog.json
           - '(new resort: type the slug below)'
+          - aspen-snowmass
+          - beaver-creek-resort-arrowhead-mountain
           - bigsky
           - boston-mills
           - breckenridge
           - copper-mountain
           - crystal-mountain
+          - deer-valley
           - heavenly
+          - jackson-hole-mountain
           - keystone
+          - killington
+          - mont-tremblant-resort-station-mont-tremblant
+          - mount-bohemia
           - ohio-hills
           - park-city-mountain
+          - snowbird
           - vail
+          - whistler-blackcomb
       slug:
         description: Pack slug, for a new resort (an existing one is rebuilt); not needed when a pack is picked above
         required: false
