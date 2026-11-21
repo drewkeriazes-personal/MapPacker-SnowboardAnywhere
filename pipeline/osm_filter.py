@@ -10,7 +10,10 @@ lift way when:
   - its OSM id is listed in an entry's `osm_ways` (`{"name", "osm_ways": [<id>, ...]}`): the neighbour's own runs and
     lifts by id, as `resort.py resolve --alone` writes them from OpenSkiData (FEAT-223), exact where a ring is not.
 Buildings, roads and the terrain stay: the slopes and their clearings are real, only the in-game runs and lifts go.
-`run_names` (FEAT-296) picks a run's name from its tags. Pure helpers, tested in tests/test_osm_filter.py."""
+`run_names` (FEAT-296) picks a run's name from its tags; `is_downhill` and `default_start_run` (BUG-108) keep the default
+start off Nordic, ski-touring and sled trails. Pure helpers, tested in tests/test_osm_filter.py."""
+
+import math
 
 PRIVATE = ("private", "no", "members")
 ACCESS_KEYS = ("access", "aerialway:access", "piste:access")
@@ -25,6 +28,31 @@ def run_names(tags):
     pn, n = (tags.get("piste:name") or "").strip() or None, (tags.get("name") or "").strip() or None
     first = pn or n
     return first, (n if pn and n and n != pn else None)
+
+
+def is_downhill(run):
+    """BUG-108: a run record is a downhill piste. `pisteType` is written only for the other kinds (nordic, skitour,
+    sled, snow_park), so a run without it (and every run in a pack before BUG-108) counts as downhill."""
+    return run.get("pisteType", "downhill") == "downhill"
+
+
+def default_start_run(runs, want=None):
+    """BUG-108: the run build_pack.py puts the start on. The named `want` (cfg start_run) at its highest segment, any
+    piste type; else the longest named intermediate downhill line run, else the longest green, blue or groomed
+    downhill line run. None when there is none."""
+    cands = [r for r in runs if not r.get("area") and len(r["points"]) >= 2
+             and (r["groomed"] or r["difficulty"] in ("novice", "easy", "intermediate"))]
+    named = [r for r in cands if want and r["name"] == want]
+    if named:
+        return max(named, key=lambda r: max(p[2] for p in r["points"]))
+    down = [r for r in cands if is_downhill(r)]
+    inter = [r for r in down if r["difficulty"] == "intermediate" and r["name"]] or down
+    return max(inter, key=_length) if inter else None
+
+
+def _length(r):
+    pts = r["points"]
+    return sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(len(pts) - 1))
 
 
 def is_private(tags):

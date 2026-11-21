@@ -73,3 +73,21 @@ def test_run_names_piste_name_first():
     assert of.run_names({"name": "Born Free"}) == ("Born Free", None)
     assert of.run_names({"name": "Same", "piste:name": "Same"}) == ("Same", None)
     assert of.run_names({"name": " ", "piste:name": ""}) == (None, None)
+
+
+def run(name, diff, length, x=0.0, groomed=True, **kw):
+    return {"name": name, "difficulty": diff, "groomed": groomed, "area": False,
+            "points": [[x, 0.0, 2500.0], [x, -length, 2500.0 - length / 4]], **kw}
+
+
+def test_default_start_skips_nordic():
+    """BUG-108 (Park City's 5K Nordic Loop): the longest intermediate is a Nordic trail; the start takes the downhill one"""
+    nordic = run("5K Nordic Loop", "intermediate", 5000.0, pisteType="nordic")
+    sled = run("Sled Hill", "intermediate", 3000.0, x=50.0, pisteType="sled")
+    blue = run("Bonanza", "intermediate", 900.0, x=100.0)
+    green = run("Home Run", "easy", 2000.0, x=150.0)
+    assert of.is_downhill(blue) and not of.is_downhill(nordic)
+    assert of.default_start_run([nordic, sled, blue, green]) is blue
+    assert of.default_start_run([nordic, green]) is green          # no downhill intermediate: the longest downhill run
+    assert of.default_start_run([nordic, sled]) is None
+    assert of.default_start_run([nordic, blue], want="5K Nordic Loop") is nordic   # a named start_run stays as it is

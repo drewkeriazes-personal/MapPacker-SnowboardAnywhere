@@ -809,6 +809,8 @@ for el in ski["elements"]:
         rec["altName"] = alt
     if t.get("bridge", "no") != "no":
         rec["bridge"] = True   # bare-earth DEM has no bridge; the client builds a deck
+    if t["piste:type"] != "downhill":
+        rec["pisteType"] = t["piste:type"]   # BUG-108: the default start leaves these out (osm_filter.is_downhill)
     rec["mogulTag"] = grooming == "mogul"   # FEAT-059: popped before writing
     runs.append(rec)
 log(f"  runs {len(runs)}")
@@ -1458,20 +1460,10 @@ log(f"  rocks {inst['rockCount']}")
 
 # ------------------------------------------------------------------ 9. meta
 lon_c, lat_c = to_ll.transform(OX, OY)
-# start: on a named groomed run (cfg["start_run"], default: the longest groomed intermediate), 15 m below
-# its highest point and facing down the run. A lift top station lands the rider in the trees.
-def run_length(r):
-    pts = r["points"]
-    return sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(len(pts) - 1))
-# spawn choice only (not surface data): any green or blue run, groomed or not
-cands = [r for r in runs if not r.get("area") and (r["groomed"] or r["difficulty"] in ("novice", "easy", "intermediate")) and len(r["points"]) >= 2]
-want = cfg.get("start_run")
-named = [r for r in cands if want and r["name"] == want]
-if named:
-    seg = max(named, key=lambda r: max(p[2] for p in r["points"]))
-else:
-    inter = [r for r in cands if r["difficulty"] == "intermediate" and r["name"]] or cands
-    seg = max(inter, key=run_length) if inter else None
+# start: on a named groomed run (cfg["start_run"], default: the longest intermediate downhill run, never a Nordic,
+# ski-touring or sled trail, BUG-108), 15 m below its highest point and facing down the run. A lift top station lands
+# the rider in the trees. Spawn choice only (not surface data): any green or blue run, groomed or not.
+seg = osm_filter.default_start_run(runs, cfg.get("start_run"))
 start = {"x": 0.0, "y": 0.0, "heading": 0.0}
 if seg is not None:
     pts = seg["points"]
