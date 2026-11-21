@@ -60,7 +60,7 @@ snow-depth reduction under trees.
 
 B is each groomed run's corridor (its half width either side of the OSM line), off canopy, blurred over about
 2 m. Beside a never-groomed run a corridor keeps only the cells nearer its own line (BUG-030), but always
-the 5 m either side of its line (BUG-067, `moguls.GROOMED_CORE`), so a groomer crossing or running beside a
+the 7 m either side of its line (BUG-067, `moguls.GROOMED_CORE`), so a groomer crossing or running beside a
 bump run stays smooth down its middle.
 
 R is rock the imagery saw (full weight on steep bare ground, half on grey rock on gentler slopes),

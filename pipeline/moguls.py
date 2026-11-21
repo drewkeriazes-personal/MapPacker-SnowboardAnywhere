@@ -85,7 +85,7 @@ def run_mogul_score(run: dict, slope_hi: float, aspect_mean: float | None, groom
 FIELD_FADE = 9.0
 FIELD_SPILL = 2.0
 MASK_SOFT = 6.0
-GROOMED_CORE = 5.0   # BUG-067: metres either side of a groomed run's centre line that stay groomed (about two cat passes)
+GROOMED_CORE = 7.0   # BUG-067: metres either side of a groomed run's centre line that stay groomed (two or three cat passes)
 
 
 def groomed_keep(d_groomed: np.ndarray, d_never: np.ndarray, res: float, core: float = GROOMED_CORE) -> np.ndarray:
