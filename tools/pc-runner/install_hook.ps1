@@ -31,7 +31,7 @@ if ($hookFull.StartsWith($runnerFull, [System.StringComparison]::OrdinalIgnoreCa
 $probe = $HookDir
 while ($probe -and -not (Test-Path -LiteralPath $probe)) { $probe = Split-Path -Parent $probe }
 for ($d = $probe; $d; $d = Split-Path -Parent $d) {
-    if (Test-Path -LiteralPath (Join-Path $d '.git')) { throw "HookDir $HookDir is inside the git checkout $d: pick a folder no checkout holds" }
+    if (Test-Path -LiteralPath (Join-Path $d '.git')) { throw "HookDir $HookDir is inside the git checkout ${d}: pick a folder no checkout holds" }
 }
 
 # main's maintainers, not a branch's
@@ -48,6 +48,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 Set-Content -LiteralPath (Join-Path $HookDir 'job_started.ps1') -Value $hookSrc -Encoding UTF8
 Set-Content -LiteralPath (Join-Path $HookDir 'maintainers.txt') -Value $maintainers -Encoding UTF8
+
+# Build pack's shell steps run `bash`; Git for Windows puts git.exe on PATH but not its bash unless Git\bin is added
+$bash = Get-Command bash -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $bash) {
+    Write-Warning "bash is not on PATH, so Build pack fails at its first shell step: add Git for Windows' bin folder (C:\Program Files\Git\bin) to PATH, then restart the runner"
+} elseif ($bash.Source -like "$env:SystemRoot\*") {
+    Write-Warning "bash on PATH is $($bash.Source) (WSL), not Git for Windows' bash: put C:\Program Files\Git\bin ahead of it in PATH, then restart the runner"
+}
 
 foreach ($r in $RawRoots.Split(';')) {
     if ($r.Trim() -and -not (Test-Path -LiteralPath $r.Trim())) { Write-Warning "raw root $r is not a folder" }

@@ -20,7 +20,9 @@ usual. On the PC the build job:
   resort with none on the game's `main`) are uploaded as the `compare-spots-<attempt>` artifact, to add to the
   game's `docs/compare/<slug>/` with their Street View links.
 - uses the PC's own `python` (the packages `pipeline/requirements.txt` lists are already installed; the step
-  installs only what is missing) and node, and Git for Windows' bash for the shell steps.
+  installs only what is missing) and node, and Git for Windows' bash for the shell steps. That bash must be on the runner's PATH
+  (`C:\Program Files\Git\bin`; Git's installer adds only `Git\cmd` by default), or the first shell step fails with
+  `bash: command not found`; `install_hook.ps1` warns when it isn't.
 - builds on the raw data already on the PC: `build_pack_ci.py pc-setup` picks, from the runner's `SBA_RAW_ROOTS`,
   the root that already holds most of the resort's raw layers (Vail's full set is in
   `C:\Users\Drew\Documents\snowboard-sim\raw`, the rest in `C:\Users\Drew\git\SnowboardAnywhere\raw`) and sets
