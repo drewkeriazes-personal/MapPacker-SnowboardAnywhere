@@ -29,6 +29,12 @@
 #                     docs-travel warning
 #   public-guards     no .env files, no packs, raw data or data files in git, files   always
 #                     <= 2 MB, images <= 1 MB under docs/ or reports/, gitleaks
+#   rebuild-list      Build pack's rebuild list (build-pack.yml) is the one           always
+#                     tools/ci/rebuild_choices.py gives from catalog.json (BUG-166).
+#                     Fails everywhere but a publish/ PR, which only warns: a publish
+#                     PR can't change a workflow file, so a new resort's publish
+#                     still merges, and main's run (and every PR after it) then fails
+#                     until a PR runs rebuild_choices.py --write
 #
 # Rerun: the PR's Checks tab > Re-run jobs, or Actions > Checks > Run workflow (give the PR number to get the PR
 # comment; tick stills for the before / after stills). pr-feedback.yml dispatches this workflow after it pushes,
@@ -579,3 +585,24 @@ jobs:
           tar -xzf "gitleaks_${GITLEAKS}_linux_x64.tar.gz" gitleaks
           cd "$GITHUB_WORKSPACE"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact -v --log-opts="$BASE..HEAD" .
+
+  # BUG-166: the rebuild list is static, so after a new resort publishes it is one short. A publish PR only warns (the
+  # publisher App can't change a workflow file, and a failed check would stop publish-merge), then main goes red.
+  rebuild-list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build pack's rebuild list matches catalog.json
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          python tools/ci/rebuild_choices.py && exit 0
+          fix="run python tools/ci/rebuild_choices.py --write and commit build-pack.yml in a PR of its own"
+          case "$HEAD_REF" in
+            publish/*) echo "::warning::Build pack's rebuild list differs from catalog.json. After this merges, $fix (BUG-166)"; exit 0 ;;
+          esac
+          echo "::error::Build pack's rebuild list differs from catalog.json: $fix (BUG-166)"
+          exit 1
