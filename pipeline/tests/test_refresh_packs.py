@@ -5,6 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools", "ci"))
 import refresh_packs as rp  # noqa: E402
+import release_zip as rz  # noqa: E402
 
 BASE = "origin/main"
 
@@ -104,10 +105,14 @@ def test_left_out_packs_each_get_a_reason_code(tmp_path):
         return {"generated": True, "stills": ["s"], "ghosts": []} if "menu" in url else {"generated": True,
                                                                                          "stills": [], "ghosts": []}
     rows = by_slug(rp.plan(cat, "all", BASE, resorts=str(tmp_path), git=fake_git({}), attract=attract))
-    want = {"big": "too_big", "menu": "needs_gpu_attract", "src": "no_config", "noconfig": "no_config",
+    want = {"big": "too_big", "src": "no_config", "noconfig": "no_config",
             "nourl": "no_release", "broken": "attract_unread", "synth": "test_pack"}
     assert {s: r["reason"] for s, r in rows.items() if r["action"] == "left_out"} == want
-    assert rows["plain"]["action"] == "start" and rows["plain"]["reason"] is None
+    assert rows["plain"]["action"] == "start" and rows["plain"]["reason"] is None and not rows["plain"].get("note")
+    # FEAT-345: a pack published with a menu still or takes is started; its build carries the riders over
+    assert rows["menu"]["action"] == "start" and rows["menu"]["reason"] is None and rows["menu"]["gpu_still"] is True
+    assert rows["menu"]["note"] == rp.GPU_STILL_NOTE and "still needs the PC" in rp.GPU_STILL_NOTE
+    assert "still needs the PC" in rp.table(list(rows.values()), "all", "abc1234")
     assert "30 GB" in rows["big"]["detail"]
     assert set(want.values()) <= set(rp.REASONS)
 
@@ -153,15 +158,15 @@ def range_server(data, log):
 def test_published_attract_reads_one_file_by_ranges(monkeypatch):
     data = zip_bytes({"attract/index.json": json.dumps({"generated": True, "stills": ["x"]})})
     log = []
-    monkeypatch.setattr(rp.urllib.request, "urlopen", range_server(data, log))
+    monkeypatch.setattr(rz.urllib.request, "urlopen", range_server(data, log))
     assert rp.published_attract("https://x/a.zip", len(data)) == {"generated": True, "stills": ["x"]}
     assert sum(b - a + 1 for a, b in log) < len(data) / 2, "it read the directory and one file, not the zip"
     data = zip_bytes({})
-    monkeypatch.setattr(rp.urllib.request, "urlopen", range_server(data, []))
+    monkeypatch.setattr(rz.urllib.request, "urlopen", range_server(data, []))
     assert rp.published_attract("https://x/a.zip", len(data)) is None
     with pytest.raises(OSError):
         rp.published_attract("https://x/a.zip", 0)
-    monkeypatch.setattr(rp.urllib.request, "urlopen", range_server(b"not a zip at all" * 10, []))
+    monkeypatch.setattr(rz.urllib.request, "urlopen", range_server(b"not a zip at all" * 10, []))
     with pytest.raises(OSError):
         rp.published_attract("https://x/a.zip", 160)
 

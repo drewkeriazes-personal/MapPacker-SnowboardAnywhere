@@ -10,7 +10,8 @@
     python tools/ci/build_pack_ci.py resolve    new slug: resort.py add --osm ... --stop-after plan; rebuild: skip
     python tools/ci/build_pack_ci.py fetch      build_resort.py data stages, for the raw data it builds on first
     python tools/ci/build_pack_ci.py build      build_resort.py build to index (attract and spots skip on the free
-                                                runner, which has no game; on Drew's PC they run, on the GPU)
+                                                runner, which has no game, and the published menu riders are
+                                                carried over instead, FEAT-345 below; on Drew's PC they run, on the GPU)
     python tools/ci/build_pack_ci.py report     build_resort.py report (the DATA-022 scorecard, not a gate here)
     python tools/ci/build_pack_ci.py publish    publish_pack.py: a draft release and a publish PR, or nothing when
                                                 the pack is the same as the one published (or already in a PR)
@@ -20,13 +21,24 @@ passes a typed name). The workflow hands them over as environment variables, nev
 refuses anything outside the shapes below before any other step runs. Every step appends a line to the run
 summary ($GITHUB_STEP_SUMMARY); the steps are named after the stages, so the game can read progress from the
 run's jobs (FEAT-247).
+
+The menu (FEAT-345), on the free runner only (BUILD_ON cloud; on Drew's PC the attract stage renders it): the
+runner has no game, so it can't render a menu still or ride ghost takes, and it starts with an empty packs/<slug>/. Before the build, `build` copies the published pack's generated attract/ (the still, the
+takes, the shots) into packs/<slug>/attract/ by ranged reads of the release zip (`release_zip.carry_attract`), and
+`gen_content.py write_attract` keeps it when the new shots are the same (checking each take against the new heights)
+or drops it when they are not, as on Drew's PC. No published pack, or the read fails: nothing is carried, the run
+summary says why, and the build goes on. After the build, a still the game would not show (rendered from another
+build) stays only when the pack came out the same as the published one (the same `content` key: nothing will
+publish); otherwise it is dropped, so the new version lists no still it can't show, and keeps its riders.
 """
 import argparse, json, os, re, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PIPELINE = os.path.join(ROOT, "pipeline")
+CATALOG = os.path.join(ROOT, "catalog.json")
 sys.path.insert(0, PIPELINE)
 import paths  # noqa: E402
+import release_zip  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rebuild_choices  # noqa: E402
 
@@ -296,13 +308,63 @@ def pc_setup(cfg, env, resorts_dir=None):
             "SBA_INDEX_DIR": env.get("SBA_INDEX_DIR") or os.path.join(roots[0], "_index")}, note
 
 
+def published_pack(slug, catalog_path=None):
+    """the catalog's `pack` for resort `slug` ({url, bytes, content, ...}), or None"""
+    try:
+        with open(catalog_path or CATALOG, encoding="utf-8") as f:
+            catalog = json.load(f)
+    except (OSError, ValueError):
+        return None
+    e = next((r for r in catalog.get("resorts") or [] if r.get("slug") == slug), None)
+    return (e or {}).get("pack") or None
+
+
+def carry_menu(slug, pack_dir, pack, carry=None):
+    """FEAT-345: the published menu into the fresh pack folder before the build -> a line for the run summary.
+    Never raises: a menu that can't be carried leaves the build as it was before (shots, no still, no takes)."""
+    carry = carry or release_zip.carry_attract
+    if not pack or not pack.get("url"):
+        print(f"  menu: {slug} has no published pack: nothing to carry", flush=True)
+        return "no published menu"
+    try:
+        got = carry(pack["url"], int(pack.get("bytes") or 0), pack_dir, log=lambda t: print(t, flush=True))
+    except Exception as e:      # any failure: build on without it
+        print(f"::warning::menu not carried over, building without it: {e}", flush=True)
+        return f"menu not carried ({e})"
+    print(f"  menu: {'carried' if got['carried'] else 'nothing carried'}: {got['why']}", flush=True)
+    return f"menu carried ({got['why']})" if got["carried"] else f"no menu carried ({got['why']})"
+
+
+def settle_stills(pack_dir, pack):
+    """FEAT-345: after the build, a menu still the game would not show for this build (`gen_content.stale_stills`)
+    stays only when the pack is the published one (same content key: nothing publishes, the published still stays
+    right); otherwise it goes, so no version lists a still it can't show -> a line for the run summary, or ''"""
+    import gen_content
+    try:
+        stale = gen_content.stale_stills(pack_dir)
+    except (OSError, ValueError) as e:
+        return f"stills not checked ({e})"
+    if not stale:
+        return ""
+    from publish_pack import content_key
+    key, published = content_key(pack_dir), (pack or {}).get("content")
+    if published and key == published:
+        print(f"  menu: the pack is the published one (content {key}): its still stays", flush=True)
+        return "the pack is unchanged: still kept"
+    gen_content.drop_stills(pack_dir, f"rendered from another build, and this pack is not the published one "
+                            f"(content {key}, published {published or 'with no content key'}): a GPU renders a new "
+                            f"one (build_resort.py <slug> --force attract on Drew's PC)", only=stale,
+                            log=lambda t: print(t, flush=True))
+    return "the pack changed: still dropped (riders kept), a GPU renders a new one"
+
+
 def from_env():
     return check_inputs(os.environ.get("NAME"), os.environ.get("OSM_ID"), os.environ.get("SLUG"),
                         os.environ.get("REQUESTED_BY"), rebuild=os.environ.get("REBUILD"),
                         refresh_run=os.environ.get("REFRESH_RUN"))
 
 
-def main(argv=None, runner=stream):
+def main(argv=None, runner=stream, carry=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("stage", choices=["check", "where", "pc-setup", "inputs", "resolve", "fetch", "build", "report",
                                       "publish"])
@@ -348,14 +410,22 @@ def main(argv=None, runner=stream):
         summary(f"| {a.stage} | skip: the config is committed | |")
         return 0
     t0 = time.time()
-    text = ""
+    text, notes = "", []
+    pack_dir, pack = os.path.join(paths.PACKS, cfg["slug"]), None
+    if a.stage == "build" and (os.environ.get("BUILD_ON") or "cloud").strip() == "cloud":
+        pack = published_pack(cfg["slug"])
+        notes.append(carry_menu(cfg["slug"], pack_dir, pack, carry))
     for cmd in cmds:
         code, out = run(cmd, runner)
         text += out
         if code:
             summary(f"| {a.stage} | **failed** (exit {code}) | {time.time() - t0:.0f} s |")
             return code
-    summary(f"| {a.stage} | {publish_result(text) if a.stage == 'publish' else 'done'} | {time.time() - t0:.0f} s |")
+    if pack is not None and os.path.isfile(os.path.join(pack_dir, "meta.json")):
+        notes.append(settle_stills(pack_dir, pack))
+    result = publish_result(text) if a.stage == "publish" else "done"
+    result += "".join(f"; {md(n)}" for n in notes if n)
+    summary(f"| {a.stage} | {result} | {time.time() - t0:.0f} s |")
     return 0
 
 
