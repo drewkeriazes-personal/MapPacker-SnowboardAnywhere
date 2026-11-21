@@ -8,9 +8,11 @@
 # tools/ci/refresh_packs.py reads catalog.json on main (no static list) and picks the packs whose catalog `pipeline`
 # stamp is behind main in a path their build reads (needs updating), or every pack (all). It leaves out, each with a
 # reason code in the summary and in the plan artifact: test packs (publish_pack.py --synth), packs whose
-# resorts/<slug>/runner.json says the free runner can't build them (too_big: Vail), and packs published with menu
-# stills or ghost takes (needs_gpu_attract, read from the release zip by ranged requests): a cloud build has no game
-# to render them and would drop them (FEAT-343, FEAT-344). Then it dispatches build-pack.yml on main per pack, with
+# resorts/<slug>/runner.json says the free runner can't build them (too_big: Vail), and packs whose published menu
+# (attract/, read from the release zip by ranged requests) could not be read (attract_unread). A pack published with
+# a menu still or ghost takes is started with a note: its build carries the published menu over and keeps the riders
+# when the cameras are the same, but a changed pack goes out without its still until a GPU renders one (FEAT-345,
+# FEAT-344). Then it dispatches build-pack.yml on main per pack, with
 # requested_by refresh-packs and refresh_run this run's id; each build keeps its own queue slot (BUILD_SLOTS at a
 # time, shared with hand-started builds), retries, outcome log and publish PR, and this run does not wait for them.
 # publish_pack.py publishes nothing when a rebuilt pack's content equals the published one, so a wrong pick costs

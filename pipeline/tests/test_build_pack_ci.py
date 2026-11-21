@@ -125,10 +125,11 @@ def test_a_stage_writes_a_summary_line_and_stops_on_failure(tmp_path, monkeypatc
     monkeypatch.setenv("SLUG", "vail")
     monkeypatch.setattr(ci, "from_env", lambda: ci.check_inputs("", "", "vail", "", tmp_path))
     calls = []
-    assert ci.main(["build"], runner=lambda cmd: (calls.append(cmd), (0, "ok"))[1]) == 0
+    assert ci.main(["build"], runner=lambda cmd: (calls.append(cmd), (0, "ok"))[1],
+                   carry=lambda *a, **k: {"carried": False, "why": "test"}) == 0
     assert ci.main(["report"], runner=lambda cmd: (3, "boom")) == 3
     lines = summ.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("| build | done |") and lines[1].startswith("| report | **failed** (exit 3) |")
+    assert lines[0].startswith("| build | done; no menu carried (test) |") and lines[1].startswith("| report | **failed** (exit 3) |")
     assert len(calls) == 1
 
 

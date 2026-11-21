@@ -132,8 +132,10 @@ The follow-up once #168 merges: PC runs get a slot of their own. `wait_turn.py` 
 the runs ahead of it that build in the cloud, and for a PC run only the PC runs (or none: the runner already
 serialises them); a run's place is known from its `build` job's labels (`sba-pc`) or, before that job exists, the
 probe job's `runner` output. The same follow-up routes FEAT-342's left-out packs to the PC: the refresh workflow
-starts Build pack with `-f build_on=pc` for the packs it leaves out with the reason codes `too_big` and
-`needs_gpu_attract`, instead of listing them as "build on Drew's PC".
+starts Build pack with `-f build_on=pc` for the packs it leaves out with the reason code `too_big`, instead of
+listing them as "build on Drew's PC", and could do the same for the packs it starts with `gpu_still` (FEAT-345: a
+published menu still or ghost takes; their cloud build carries the riders over, but a changed pack goes out
+without its still), so the PC renders a fresh still.
 
 ## Later: a split build (design only, not built)
 

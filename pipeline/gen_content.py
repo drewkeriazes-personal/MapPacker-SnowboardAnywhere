@@ -27,7 +27,10 @@ rendered from this build stays valid:
   The folder has the shape FEAT-243 gives the pack's `attract/`: `index.json` is one resort's manifest entry
   (`shots`, `stills`, `ghosts`, `looks`, `shotGhosts`) plus `generated: true`. A pack whose `attract/` is hand-made
   (an `index.json` without `generated`) is left alone; a rerun that picks the same shots keeps the still and the
-  takes `auto_attract.mjs` added, one that picks new shots drops them.
+  takes `auto_attract.mjs` added, one that picks new shots drops them. A kept take must still sit on this pack's
+  heights (FEAT-345: the 95th percentile of its on-ground samples within TAKE_OFF_M of the bilinear fine heights,
+  as the game samples them), else it goes; a listed still or take whose file is missing leaves index.json. A cloud
+  build copies the published attract/ in first (`release_zip.carry_attract`), so the same rules apply there.
 
 Hand content wins: `pack_content.py` (FEAT-243, the next step of `build_resort.py`'s content stage, and of this
 script run by hand unless `--no-hand`, BUG-156) puts the resort's landmarks and a placed start from `resorts/<slug>/` over this start, and a hand-made menu over these shots;
@@ -41,13 +44,15 @@ import os
 import re
 import shutil
 import sys
+import warnings
 
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pack_report import (AERIAL, START_CLEAR_M, START_STAND_MAX, distance_to_polyline, grid_top,  # noqa: E402
                          load_json, polyline_length, read_heights, read_instances, read_mask, read_stands, resample)
-from packwriter import write_meta  # noqa: E402
+from packwriter import decode_terrarium, write_meta  # noqa: E402
+from PIL import Image  # noqa: E402
 from osm_filter import is_downhill  # noqa: E402
 
 GENERATOR = "gen_content.py (FEAT-175)"
@@ -92,6 +97,12 @@ MENU_VIEW_SHARE = 0.6          # and its view score at least this share of the b
 RUN_CLOSE_M = 120.0            # a point of it further from the camera counts for RUN_CLOSE_M / distance
 STATION_NEAR_M = 90.0          # a lift station this close in the frame is a roof in the foreground
 STATION_PENALTY = 0.3
+# ghost takes kept from an earlier build (FEAT-345): a take whose on-ground samples sit off this pack's heights rides
+# a run that moved (floating or sunk; the game does not check). The 95th percentile, not the worst sample: one
+# sample off by a landing frame, a mogul or a void edge must not drop a good take, and a moved run moves them all
+TAKE_OFF_M = 0.5
+TAKE_OFF_PCT = 95.0
+TAKE_MIN_SAMPLES = 20          # fewer on-ground samples on the fine set: nothing to judge by, the take stays
 DEFAULT_CONDITIONS = {"clouds": "few", "timeOfDay": "pack", "month": 2, "newSnow": "none", "snowDay": "mid",
                       "valleyFog": False, "cloudTime": 0}
 
@@ -566,6 +577,150 @@ def read_index(pack_dir):
     return load_json(p) if os.path.isfile(p) else None
 
 
+class FineHeights:
+    """the fine height set's bilinear height at local (x, y), as the game samples it (`HeightSet.sample`: sample
+    centres at minX + (i + 0.5) * res, the mean of the samples there at a data edge; NaN off the set), decoding only
+    the tiles asked for"""
+
+    def __init__(self, pack_dir, m):
+        self.pack_dir, self.m, self.n, self.tiles = pack_dir, m, m["tileSize"], {}
+
+    def _tile(self, tx, ty):
+        if (tx, ty) not in self.tiles:
+            p = os.path.join(self.pack_dir, "fine", f"{tx}_{ty}.png")
+            ok = 0 <= tx < self.m["tilesX"] and 0 <= ty < self.m["tilesY"] and os.path.isfile(p)
+            self.tiles[(tx, ty)] = decode_terrarium(np.asarray(Image.open(p).convert("RGB"))) if ok else None
+        return self.tiles[(tx, ty)]
+
+    def _grid(self, gx, gy):
+        n = self.n
+        out = np.full(gx.shape, np.nan, np.float32)
+        tx, ty = gx // n, gy // n
+        for key in set(zip(tx.tolist(), ty.tolist())):
+            t = self._tile(*key)
+            if t is None:
+                continue
+            sel = (tx == key[0]) & (ty == key[1])
+            out[sel] = t[n - 1 - (gy[sel] - key[1] * n), gx[sel] - key[0] * n]
+        return out
+
+    def z(self, x, y):
+        m = self.m
+        fx = (np.asarray(x, np.float64) - m["minX"]) / m["res"] - 0.5
+        fy = (np.asarray(y, np.float64) - m["minY"]) / m["res"] - 0.5
+        x0, y0 = np.floor(fx).astype(np.int64), np.floor(fy).astype(np.int64)
+        ax, ay = fx - x0, fy - y0
+        h = np.stack([self._grid(x0, y0), self._grid(x0 + 1, y0), self._grid(x0, y0 + 1), self._grid(x0 + 1, y0 + 1)])
+        w = np.stack([(1 - ax) * (1 - ay), ax * (1 - ay), (1 - ax) * ay, ax * ay])
+        out = (h * w).sum(0)
+        edge = np.isnan(h).any(0)
+        if edge.any():
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)     # all four missing: NaN, off the set
+                out[edge] = np.nanmean(h[:, edge], 0)
+        return out
+
+
+def take_off_ground(take, heights):
+    """the TAKE_OFF_PCT percentile of |z - ground| (m) over a take's on-ground samples (`f & 1`) on the fine set,
+    or None when it has fewer than TAKE_MIN_SAMPLES of them"""
+    s = [p for p in take.get("samples") or [] if int(p.get("f", 0)) & 1]
+    if not s:
+        return None
+    x = np.array([p["x"] for p in s], np.float64)
+    y = np.array([p["y"] for p in s], np.float64)
+    dz = np.abs(np.array([p["z"] for p in s], np.float64) - heights.z(x, y))
+    dz = dz[np.isfinite(dz)]
+    return float(np.percentile(dz, TAKE_OFF_PCT)) if len(dz) >= TAKE_MIN_SAMPLES else None
+
+
+def save_index(pack_dir, index):
+    with open(os.path.join(pack_dir, "attract", "index.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(index, f, indent=2)
+        f.write("\n")
+
+
+def drop_ghost(index, name):
+    index["ghosts"] = [g for g in index.get("ghosts") or [] if g != name]
+    for shot, takes in list((index.get("shotGhosts") or {}).items()):
+        index["shotGhosts"][shot] = [g for g in takes if g != name]
+        if not index["shotGhosts"][shot]:
+            del index["shotGhosts"][shot]
+
+
+def stale_stills(pack_dir):
+    """the generated attract/'s stills the game would not show for this pack: rendered from another build
+    (`looks[shot].pack` is not `meta.build`, AttractShots.ts `shippedStill`)"""
+    index = read_index(pack_dir)
+    if not index or not index.get("generated"):
+        return []
+    build = load_json(os.path.join(pack_dir, "meta.json")).get("build") or ""
+    return [s for s in index.get("stills") or [] if ((index.get("looks") or {}).get(s) or {}).get("pack") != build]
+
+
+def drop_stills(pack_dir, why, only=None, log=print):
+    """FEAT-345: take the stills out of a generated attract/ (the jpgs, `stills`, their `looks`), keeping the shots
+    and the ghost takes. The game shows a still only for the build it was rendered from (`shippedStill`:
+    `looks[shot].pack` is the pack's `meta.build`), so a pack published from another build would list a still it
+    never shows. -> the stills dropped"""
+    index = read_index(pack_dir)
+    if not index or not index.get("generated") or not index.get("stills"):
+        return []
+    d = os.path.join(pack_dir, "attract")
+    stills = [s for s in index["stills"] if only is None or s in only]
+    if not stills:
+        return []
+    for s in stills:
+        p = os.path.join(d, f"{os.path.basename(s)}.jpg")
+        if os.path.isfile(p):
+            os.remove(p)
+        (index.get("looks") or {}).pop(s, None)
+    index["stills"] = [s for s in index["stills"] if s not in stills]
+    save_index(pack_dir, index)
+    log(f"  menu still(s) {', '.join(stills)} dropped: {why}")
+    return stills
+
+
+def check_kept(pack_dir, index, log=print):
+    """the still and takes an earlier build left, kept for the same shots: drop any whose file is missing, and any
+    take that rides off this pack's heights (FEAT-345, TAKE_OFF_M). Rewrites index.json when it drops one. -> changed?"""
+    d = os.path.join(pack_dir, "attract")
+    changed = False
+    for s in list(index.get("stills") or []):
+        if not os.path.isfile(os.path.join(d, f"{os.path.basename(s)}.jpg")):
+            log(f"  still {s} is listed but its jpg is missing: dropped from index.json")
+            index["stills"].remove(s)
+            (index.get("looks") or {}).pop(s, None)
+            changed = True
+    ghosts = list(index.get("ghosts") or [])
+    meta_p = os.path.join(pack_dir, "meta.json")
+    fine = (load_json(meta_p).get("terrain") or {}).get("fine") if ghosts and os.path.isfile(meta_p) else None
+    heights = FineHeights(pack_dir, fine) if fine else None
+    for g in ghosts:
+        p = os.path.join(d, os.path.basename(g))
+        why = None
+        if not os.path.isfile(p):
+            why = "its file is missing"
+        elif heights:
+            try:
+                off = take_off_ground(load_json(p), heights)
+            except (ValueError, KeyError, TypeError) as e:
+                off, why = None, f"it does not read ({e})"
+            if off is not None and off > TAKE_OFF_M:
+                why = f"it rides {off:.2f} m off this pack's heights (p{TAKE_OFF_PCT:.0f}, over {TAKE_OFF_M} m)"
+            elif off is not None:
+                log(f"  take {g}: p{TAKE_OFF_PCT:.0f} {off:.2f} m off the heights, kept")
+        if why:
+            log(f"  take {g} dropped: {why}")
+            if os.path.isfile(p):
+                os.remove(p)
+            drop_ghost(index, g)
+            changed = True
+    if changed:
+        save_index(pack_dir, index)
+    return changed
+
+
 def write_attract(pack_dir, shots, log=print):
     """attract/shots.json and attract/index.json; a hand-made folder is left alone. -> written?"""
     d = os.path.join(pack_dir, "attract")
@@ -578,6 +733,7 @@ def write_attract(pack_dir, shots, log=print):
     old_shots = load_json(sp) if os.path.isfile(sp) else None
     if old is not None and old_shots == shots:
         log("  the same shots as before: the still and ghost takes stay")
+        check_kept(pack_dir, old, log=log)
         return True
     # new shots: the stills and takes rendered for the old ones go (they belong to the old cameras)
     for f in (old or {}).get("ghosts", []) + [f"{s}.jpg" for s in (old or {}).get("stills", [])]:

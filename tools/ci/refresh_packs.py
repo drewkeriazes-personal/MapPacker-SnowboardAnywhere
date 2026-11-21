@@ -19,11 +19,14 @@ Left out, each with a reason code (the JSON plan's `reason`, so FEAT-344 can rou
   no_config          no resorts/<slug>/<slug>.json, or a source_only one: Build pack can't rebuild it
   too_big            resorts/<slug>/runner.json says the free runner can't build it ({"cloud": false,
                      "reason": "too_big", "why": "..."}): built on Drew's PC
-  needs_gpu_attract  the published pack's attract/index.json is generated and has menu stills or ghost takes,
-                     which need the game on a GPU (FEAT-343); a cloud rebuild would drop them
   attract_unread     the published pack's attract/ could not be read (the release zip, by ranged reads of its
                      directory and that one file): left out rather than risk dropping a menu
   no_release         the catalog entry has no pack url
+
+Started with a note: a pack published with a generated menu still or ghost takes (made by the game on a GPU,
+FEAT-343). Its cloud build carries the published menu over (FEAT-345, `pipeline/release_zip.py carry_attract`): the
+riders stay when the cameras do, and a pack that changed goes out without the still until a GPU renders one. The
+row's `note` says so and `gpu_still` is true (FEAT-344 can route these to a GPU runner later).
 
 Start: `gh api .../actions/workflows/build-pack.yml/dispatches` on main per picked pack, slug order, with
 requested_by `refresh-packs` and refresh_run this run's id (publish_pack.py writes it in the publish PR, and
@@ -31,12 +34,13 @@ publish_merge.py lets the App's automerge label count when a maintainer started 
 nothing and shows the needs updating plan. The run summary gets a table, one row per pack; --json writes the same rows as data. Exit 1 when a start
 failed.
 """
-import argparse, json, os, re, subprocess, sys, urllib.request, zipfile
+import argparse, json, os, re, subprocess, sys
 from typing import Callable
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "pipeline"))
 import paths  # noqa: E402
+from release_zip import RangeFile, published_attract  # noqa: E402,F401  (FEAT-345: shared with the build)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_pack_ci  # noqa: E402
 import rebuild_choices  # noqa: E402
@@ -44,7 +48,6 @@ import rebuild_choices  # noqa: E402
 MODES = ("needs updating", "all", "list only")
 WORKFLOW = "build-pack.yml"
 REQUESTED_BY = "refresh-packs"
-ATTRACT = "attract/index.json"          # the zip has the pack's files at its root
 # what a build reads besides the resorts' own folders; pipeline/resorts and pipeline/manifests are where the configs
 # lived before the move (build_resort.py NOT_BUILD)
 BUILD_PATHS = ["pipeline", ":(exclude)pipeline/tests", ":(exclude,glob)pipeline/**/*.md",
@@ -53,11 +56,10 @@ REASONS = {
     "test_pack": "a test pack: publish_pack.py --synth builds and publishes it",
     "no_config": "no config in resorts/ that Build pack can rebuild",
     "too_big": "too big for the free runner: build on Drew's PC",
-    "needs_gpu_attract": "published with menu stills or ghost takes, which need the game on a GPU (FEAT-343): "
-                         "build on Drew's PC",
     "attract_unread": "could not read the published menu (attract/): build on Drew's PC, or run again",
     "no_release": "no pack url in the catalog",
 }
+GPU_STILL_NOTE = "riders carried, still needs the PC: a changed pack goes out without its menu still (FEAT-345)"
 
 
 def git(*args, cwd=ROOT) -> subprocess.CompletedProcess:
@@ -95,50 +97,6 @@ def runner(slug: str, resorts=None) -> dict:
         return {}
     with open(path, encoding="utf-8") as f:
         return json.load(f)
-
-
-class RangeFile:
-    """a read-only, seekable file over HTTP range requests, for zipfile: reading one member of a release zip fetches
-    the end of the central directory, the directory and that member, a few requests, not the whole pack"""
-
-    def __init__(self, url: str, size: int, opener: Callable | None = None):
-        self.url, self.size, self.pos, self.opener = url, size, 0, opener or urllib.request.urlopen
-
-    def seekable(self):
-        return True
-
-    def tell(self):
-        return self.pos
-
-    def seek(self, off, whence=0):
-        self.pos = off if whence == 0 else self.pos + off if whence == 1 else self.size + off
-        return self.pos
-
-    def read(self, n=-1):
-        if n is None or n < 0:
-            n = self.size - self.pos
-        if n <= 0 or self.pos >= self.size:
-            return b""
-        end = min(self.size, self.pos + n) - 1
-        req = urllib.request.Request(self.url, headers={"Range": f"bytes={self.pos}-{end}",
-                                                        "User-Agent": "mappacker-refresh-packs"})
-        with self.opener(req, timeout=60) as r:
-            if getattr(r, "status", 206) != 206:
-                raise OSError(f"no range answer from {self.url} (HTTP {getattr(r, 'status', '?')})")
-            data = r.read()
-        self.pos += len(data)
-        return data
-
-
-def published_attract(url: str, size: int) -> dict | None:
-    """the published pack's attract/index.json, or None when it has no attract/; raises OSError when it can't read"""
-    if size <= 0:
-        raise OSError("the catalog has no size for it")
-    try:
-        with zipfile.ZipFile(RangeFile(url, size)) as z:
-            return json.loads(z.read(ATTRACT)) if ATTRACT in z.namelist() else None
-    except (zipfile.BadZipFile, ValueError, KeyError) as e:
-        raise OSError(f"{url}: {e}") from e
 
 
 def needs_gpu(index: dict | None) -> bool:
@@ -189,8 +147,7 @@ def plan(catalog: dict, mode: str, base: str, resorts=None, git=git, attract: Ca
         if attract:
             try:
                 if needs_gpu(attract(pack["url"], int(pack.get("bytes") or 0))):
-                    out("needs_gpu_attract")
-                    continue
+                    row.update(note=GPU_STILL_NOTE, gpu_still=True)
             except (OSError, ValueError) as err:
                 out("attract_unread", f"{REASONS['attract_unread']}: {err}")
                 continue
@@ -221,7 +178,7 @@ def table(rows: list[dict], mode: str, base_sha: str) -> str:
              + ".", "", "| pack | stamp | result | why |", "|---|---|---|---|"]
     for r in rows:
         res = words[r["action"]] + (f" ([run]({r['run_url']}))" if r.get("run_url") else "")
-        why = (f"`{r['reason']}`: " if r.get("reason") else "") + build_pack_ci.md(r.get("detail") or "")
+        why = (f"`{r['reason']}`: " if r.get("reason") else "") + build_pack_ci.md(r.get("detail") or "") +             (f" **Note:** {build_pack_ci.md(r['note'])}" if r.get("note") and r["action"] != "left_out" else "")
         lines.append(f"| {build_pack_ci.md(r['name'])} (`{r['slug']}`) | `{r.get('stamp') or '-'}` | {res} | {why} |")
     return "\n".join(lines) + "\n"
 
