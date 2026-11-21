@@ -49,7 +49,8 @@ def test_publish_merge_triggers_and_branch_gate():
     wf = load(".github/workflows/publish-merge.yml")
     on = triggers(wf)
     assert on["workflow_run"] == {"workflows": ["Checks", "Claude PR review"], "types": ["completed"]}
-    assert on["pull_request_target"]["types"] == ["labeled", "closed"]
+    assert "pull_request_target" not in on   # BUG-168: blocked by default in public repos; the sweep covers it
+    assert "pull_request_target" not in str(wf["jobs"]["publish-merge"]["if"])
     assert "publish/" in str(wf["jobs"]["publish-merge"]["if"])
 
 

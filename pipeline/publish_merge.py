@@ -4,7 +4,8 @@
     python pipeline/publish_merge.py pure <pr>      print true when it is a publish PR changing only the publish file set
     python pipeline/publish_merge.py closed <pr>    merged: publish a draft still unpublished; unmerged: delete it
                                                     and the publish/ branch
-    python pipeline/publish_merge.py sweep          the schedule and a manual run: no PR of its own
+    python pipeline/publish_merge.py sweep          the schedule and a manual run: no PR of its own; `closed` for the
+                                                    recently closed publish PRs (BUG-168: there is no closed event)
 
 Every run then does `ready` for each open `publish/` PR labelled `automerge` (advance_open), so a PR whose own run
 was dropped from the queue, or that waited on the activity log or a check still running, is picked up again.
@@ -292,6 +293,24 @@ def catalog_at(repo: str, ref: str) -> dict:
                          "-H", "Accept: application/vnd.github.raw+json"))
 
 
+def release_created(tag: str) -> str | None:
+    """when the release was created (ISO time), None when it can't be read"""
+    try:
+        return gh("release", "view", tag, "--json", "createdAt", "--jq", ".createdAt") or None
+    except SystemExit:
+        return None
+
+
+def branch_head(repo: str, branch: str) -> str | None:
+    """the branch's head sha, "" when the branch is gone (404), None when it can't be read"""
+    try:
+        return api(f"repos/{repo}/git/ref/heads/{quote(branch)}")["object"]["sha"]
+    except SystemExit as e:
+        return "" if "404" in str(e) or "Not Found" in str(e) else None
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def release_draft(tag: str) -> bool | None:
     """True for a draft, False for a published release, None when it can't be read"""
     try:
@@ -460,19 +479,21 @@ def release_then_merge(n: int, repo: str, tag: str, sha: str, me: str | None) ->
     return 1
 
 
-SWEEP = 20     # how many recently closed PRs `ready` looks through for a merged publish PR with its draft unpublished
+SWEEP = 20     # how many recently closed PRs the sweep looks through for a publish PR with work left
 
 
 def sweep(repo: str, skip: int | None = None) -> None:
-    """a `closed` run can be dropped when runs queue up (one pending run per concurrency group), so each `ready` run
-    first does what `closed` would for the last SWEEP merged publish/ PRs: a draft still unpublished whose tag main's
-    catalog names is published (closed() keeps its fail-closed rules). Never raises: a failure here must not stop `ready`."""
+    """BUG-168: no workflow runs on a PR's `closed` event (pull_request_target is blocked by default in public repos
+    from 2026-12-02), so the schedule and each `ready` run do what `closed` would for the last SWEEP closed publish/
+    PRs: a merged one's draft still unpublished whose tag main's catalog names is published, an unmerged one's draft
+    and branch are deleted (closed() keeps its fail-closed rules and leaves a newer publish of the same version
+    alone). Never raises: a failure here must not stop `ready`."""
     try:
         listed = api(f"repos/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page={SWEEP}")[:SWEEP]  # page 1 only
     except (Exception, SystemExit) as e:
         return print(f"sweep: could not list closed PRs: {e}") or None
     for p in listed:
-        if p.get("number") == skip or not p.get("merged_at") or not parse_branch((p.get("head") or {}).get("ref", "")):
+        if p.get("number") == skip or not parse_branch((p.get("head") or {}).get("ref", "")):
             continue
         try:
             closed(p["number"], repo)
@@ -548,15 +569,29 @@ def closed(n: int, repo: str) -> int:
             return print(f"another open PR uses {branch}: keeping {tag} and the branch") or 0
     except SystemExit as e:
         return print(f"{tag}: can't tell whether another open PR uses {branch}, keeping both: {e}") or 1
+    # BUG-168: the sweep comes back to this PR every run, and a deleted draft frees its version, so the next publish
+    # of the slug can be pushing the same branch and draft again (draft, push, then PR: no open PR yet). Only what is
+    # this PR's own goes: a draft made before it closed, a branch still at its head.
+    closed_at = pr.get("closed_at")
     rc, draft = 0, release_draft(tag)
     if draft:
+        made = release_created(tag)
+        if not made or not closed_at or _time(made) > _time(closed_at):
+            return print(f"{tag}: the draft is newer than #{n}'s close (or the dates can't be read): keeping it "
+                         "and the branch") or 0
         try:
             gh("release", "delete", tag, "--yes")
         except SystemExit as e:
             rc = print(f"{tag}: {e}") or 1
     else:
         print(f"{tag}: {'no draft release' if draft is False else 'release not readable'}")
-    delete_branch(repo, branch)
+    head = branch_head(repo, branch)
+    if head == "":
+        print(f"{branch}: already deleted")
+    elif head != pr["head"].get("sha"):
+        print(f"{branch}: {'not readable' if head is None else 'moved since #' + str(n) + ' closed'}: keeping it")
+    else:
+        delete_branch(repo, branch)
     return rc
 
 

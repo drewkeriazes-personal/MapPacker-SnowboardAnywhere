@@ -181,7 +181,7 @@ class FakeGitHub:
             "pr": {"number": 7, "state": p["state"], "merged": p["merged"], "body": p["body"],
                    "labels": [{"name": n} for n in p["labels"]], "base": {"ref": "main"},
                    "head": {"ref": p["headRefName"], "sha": "h1", "repo": {"full_name": "x/fork" if p["fork"] else REPO}},
-                   "merge_commit_sha": "m1", "changed_files": len(files)},
+                   "merge_commit_sha": "m1", "changed_files": len(files), "closed_at": "2026-11-12T11:00:00Z"},
             "files": files, "activity": [CREATED],
             "timeline": [labeled("automerge", "drewkeriazes"), {"event": "committed"}],
             "compare": {"behind_by": 0, "base": "b0"},
@@ -190,6 +190,7 @@ class FakeGitHub:
             "catalogs": {"b0": {"resorts": []}, "h1": {"resorts": [entry("a", 1)]}, "m1": {"resorts": [entry("a", 1)]}},
             "release_draft": release_draft, "comments": [], "open_prs": [], "run_actor": "drewkeriazes",
             "fail": [], "merge_says_moved": False, "closed_prs": [], "open_list": [], "others": {},
+            "release_created": "2026-11-12T09:30:00Z", "branch_sha": "h1",   # BUG-168: made before the close, at its head
         }
         self.state.update(over)
         self.calls = Calls()
@@ -208,6 +209,8 @@ class FakeGitHub:
         if cmd[:3] == ["gh", "release", "view"]:
             if s["release_draft"] is None:
                 raise SystemExit("release not found")
+            if ".createdAt" in cmd:
+                return s["release_created"] or ""
             return "true" if s["release_draft"] else "false"
         if cmd[:3] in (["gh", "release", "edit"], ["gh", "release", "delete"], ["gh", "pr", "merge"],
                        ["gh", "pr", "comment"]):
@@ -222,6 +225,10 @@ class FakeGitHub:
             return json.dumps(s["pr"])
         if path.startswith("pulls/") and path[6:].isdigit() and int(path[6:]) in s["others"]:
             return json.dumps(s["others"][int(path[6:])])
+        if path == "git/ref/heads/publish/a-v1":
+            if s["branch_sha"] is None:
+                raise SystemExit("gh: Not Found (HTTP 404)")
+            return json.dumps({"object": {"sha": s["branch_sha"]}})
         if path == "pulls/7/files":
             return json.dumps(s["files"])
         if path == "activity?ref=refs/heads/publish/a-v1&per_page=100":
@@ -543,12 +550,49 @@ def test_refresh_pushes_nothing_when_the_merge_did_not_start(tmp_path, monkeypat
 
 def test_ready_first_publishes_the_draft_of_a_recently_merged_publish_pr(monkeypatch):
     other = [{"number": 7, "merged_at": "2026-11-12T10:00:00Z", "head": {"ref": "publish/a-v1"}},
-             {"number": 8, "merged_at": None, "head": {"ref": "publish/b-v1"}},          # closed unmerged: left alone
              {"number": 9, "merged_at": "2026-11-12T10:00:00Z", "head": {"ref": "feature/x"}}]
     calls = fake_gh(monkeypatch, pr={"merged": True, "state": "closed"}, release_draft=True, closed_prs=other)
     publish_merge.sweep(REPO)
     assert released(calls) == [["gh", "release", "edit", "a/v1", "--draft=false"]]
     assert not any(c[:3] == ["gh", "release", "delete"] for c in calls)
+    assert not any("pulls/9" in " ".join(c) for c in calls), "not a publish branch: not even read"
+
+
+# --- BUG-168: no `closed` event any more, the sweep cleans a closed unmerged publish PR ------------------------------
+
+def test_the_sweep_deletes_a_closed_unmerged_prs_draft_and_branch(monkeypatch):
+    other = [{"number": 7, "merged_at": None, "head": {"ref": "publish/a-v1"}}]
+    calls = fake_gh(monkeypatch, pr={"merged": False, "state": "closed"}, release_draft=True, closed_prs=other)
+    publish_merge.sweep(REPO)
+    assert ["gh", "release", "delete", "a/v1", "--yes"] in calls
+    assert deleted_branches(calls) == [["gh", "api", "-X", "DELETE", f"repos/{REPO}/git/refs/heads/publish/a-v1"]]
+
+
+def test_the_sweep_coming_back_to_a_cleaned_pr_does_nothing(monkeypatch):
+    other = [{"number": 7, "merged_at": None, "head": {"ref": "publish/a-v1"}}]
+    calls = fake_gh(monkeypatch, pr={"merged": False, "state": "closed"}, release_draft=None, branch_sha=None,
+                    closed_prs=other)
+    publish_merge.sweep(REPO)
+    assert not any(c[:3] == ["gh", "release", "delete"] for c in calls) and not deleted_branches(calls)
+
+
+@pytest.mark.parametrize("over", [
+    {"release_created": "2026-11-12T11:05:00Z"},   # the next publish of a/v1 (the deleted draft freed v1): its draft
+    {"release_created": None},                     # can't tell
+])
+def test_a_newer_publish_of_the_same_version_keeps_its_draft_and_branch(monkeypatch, over):
+    calls = fake_gh(monkeypatch, pr={"merged": False, "state": "closed"}, release_draft=True, **over)
+    assert publish_merge.closed(7, REPO) == 0
+    assert not any(c[:3] == ["gh", "release", "delete"] for c in calls) and not deleted_branches(calls)
+
+
+@pytest.mark.parametrize("sha", ["h2", "unreadable"])
+def test_a_branch_that_moved_after_the_close_is_kept(monkeypatch, sha):
+    calls = fake_gh(monkeypatch, pr={"merged": False, "state": "closed"}, release_draft=False,
+                    branch_sha=sha if sha != "unreadable" else "x",
+                    fail=[["gh", "api", f"repos/{REPO}/git/ref/heads/publish/a-v1"]] if sha == "unreadable" else [])
+    publish_merge.closed(7, REPO)
+    assert not deleted_branches(calls)
 
 
 def test_sweep_leaves_a_draft_main_does_not_name_and_never_raises(monkeypatch):
