@@ -1,6 +1,6 @@
 # Pack report: Vail (`vail`)
 
-Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17T21:27:11Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261121T043434Z-18294f`, pipeline `c42de20`, format 1. Report 2026-11-21T04:36:46Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -24,15 +24,15 @@ Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17
 | 7 | Trees and shrubs with species | ✅ | 0.52 M crowns + 3.85 M stems = 32.2 k per km2 (82% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 1.31 M crowns in 363 cells |
-| 9 | features.json | ✅ | 33 lifts, 354 runs, 2000 buildings, 1406 roads, 42 water, 1315 peaks, 74 labels |
+| 9 | features.json | ✅ | 33 lifts, 354 runs, 2000 buildings, 1406 roads, 42 water, 1321 peaks, 74 labels |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | Starts at The Legendary Back Bowls (landmark, resorts/vail/landmarks.json), on Timberline Catwalk |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 184 runs of 300 m and 60 m drop or more |
 | 13 | Attribution for every data set | ✅ | 9 lines |
 | 14 | Validated | ⚠️ | 4 advanced+ runs never over 15 deg; 18 compare spots measured; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ✅ | 51% of runs with a grooming record, 42 reports in raw |
-| 16 | Place names | ✅ | GNIS gnis.json; 1315 peaks, 74 town labels |
+| 15 | Grooming history | ✅ | 51% of runs with a grooming record, 42 reports in raw; 90% of the green and blue run length groomed |
+| 16 | Place names | ✅ | GNIS CO, gnis.json; 1321 peaks, 74 town labels |
 | 17 | Main menu shot and ghosts | ✅ | hand-made, game/public/attract/vail/ |
 | 18 | Landmark | ✅ | 1 in the pack (The Legendary Back Bowls) |
 | 19 | Compare spots against photos | ✅ | 15 spots with a Street View or photo in docs/compare/vail, 3 proposed waiting for a Street View link or photo (propose_spots.py) |
@@ -53,6 +53,8 @@ Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17
 | Stems per km within 5 m of lift lines | 0.0 |  |
 | Runs with a grooming record | 51% |  |
 | Runs groomed in OSM | 52% |  |
+| Green and blue run length groomed | 90% |  |
+| Groomed mask on groomed run centre lines | 99% |  |
 | Far ring crowns | 1,307,506 |  |
 | Mean mogulScore by difficulty | advanced 0.47, easy 0.0, expert 0.88, intermediate 0.06 | |
 
@@ -116,9 +118,9 @@ Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17
 | 2600 | 8.35 | 28,540 | 173,574 | 24,197 |
 | 2700 | 10.03 | 41,517 | 271,104 | 31,177 |
 | 2800 | 11.94 | 53,340 | 376,099 | 35,978 |
-| 2900 | 13.43 | 59,397 | 446,048 | 37,640 |
+| 2900 | 13.43 | 59,397 | 446,046 | 37,639 |
 | 3000 | 15.39 | 64,063 | 504,440 | 36,936 |
-| 3100 | 18.2 | 71,544 | 581,298 | 35,870 |
+| 3100 | 18.2 | 71,544 | 581,297 | 35,870 |
 | 3200 | 17.8 | 72,094 | 568,860 | 36,017 |
 | 3300 | 15.26 | 61,041 | 452,684 | 33,661 |
 | 3400 | 7.54 | 29,037 | 221,443 | 33,203 |
@@ -151,16 +153,16 @@ Build `20261117T212451Z-9047f7`, pipeline `c62a0d1`, format 1. Report 2026-11-17
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 529 | 143.3 | 2026-11-17 |
-| mid heights | yes | 25 | 12.0 | 2026-11-17 |
-| far heights | yes | 16 | 2.8 | 2026-11-17 |
-| mask | yes | 144 | 11.8 | 2026-11-17 |
-| AO | yes | 144 | 9.3 | 2026-11-17 |
-| piste directions | yes | 144 | 0.5 | 2026-11-17 |
-| moguls | yes | 144 | 0.4 | 2026-11-17 |
-| cover | yes | 4 | 22.9 | 2026-11-17 |
-| trees (crowns) | yes | 144 | 12.5 | 2026-11-17 |
-| stands (stems) | yes | 144 | 22.0 | 2026-11-17 |
-| far tree ring | yes | 363 | 31.4 | 2026-11-17 |
-| shrubs | yes | 144 | 1.1 | 2026-11-17 |
-| rocks | yes | 141 | 0.7 | 2026-11-17 |
+| fine heights | yes | 529 | 143.3 | 2026-11-21 |
+| mid heights | yes | 25 | 12.0 | 2026-11-21 |
+| far heights | yes | 16 | 2.8 | 2026-11-21 |
+| mask | yes | 144 | 11.8 | 2026-11-21 |
+| AO | yes | 144 | 9.3 | 2026-11-21 |
+| piste directions | yes | 144 | 0.5 | 2026-11-21 |
+| moguls | yes | 144 | 0.4 | 2026-11-21 |
+| cover | yes | 4 | 22.9 | 2026-11-21 |
+| trees (crowns) | yes | 144 | 12.5 | 2026-11-21 |
+| stands (stems) | yes | 144 | 22.0 | 2026-11-21 |
+| far tree ring | yes | 363 | 31.4 | 2026-11-21 |
+| shrubs | yes | 144 | 1.1 | 2026-11-21 |
+| rocks | yes | 140 | 0.7 | 2026-11-21 |
