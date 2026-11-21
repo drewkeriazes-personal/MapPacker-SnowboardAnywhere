@@ -21,6 +21,10 @@
 #            App token, labelled automerge when the run's triggering actor is in .github/maintainers.txt, and
 #            publishes nothing when the pack's content equals the published version's or an open publish PR's.
 #            Never a push to main.
+#            FEAT-346, on the free runner: `restore` before the fetch puts back each raw folder the build reads
+#            from its draft release `raw/<folder>`, and `save` after it uploads a folder whose data changed
+#            (tools/ci/raw_cache.py), so a rebuild downloads only what the manifest now wants made differently
+#            (pipeline/fetch_index.py). fresh_data skips the restore. Neither step fails the build.
 #   retries  FEAT-314, in layers: the probe and the fetch first retry a flaky call inline (pipeline/retry.json: no
 #            answer, 429, 5xx; never a 4xx), each with its own caps, and log the tries per host to SBA_RETRY_LOG
 #            (an artifact per job, read by the outcome job); only a host down for minutes fails the job.
@@ -32,7 +36,8 @@
 # Security: the inputs are untrusted text. They reach steps only as environment variables, never in a `run:`
 # line (pipeline/tests/test_workflows.py checks), and build_pack_ci.py inputs refuses any outside their shapes
 # first. The LANDFIRE email is a secret in the env of the fetch step only (BUG-111: never an argument). The App
-# token is minted just before publishing (it lasts an hour; builds take longer) and only that step holds it.
+# token is minted just before the step that uses it (it lasts an hour; builds take longer) and only that step
+# holds it: publish, and on the free runner the raw cache's restore and save (contents: write only).
 # BUG-113: only the build job names the environment `publish` that holds those secrets, and the environment lets
 # only main use it, so a run dispatched on any other branch is refused at the build job, before a step runs.
 #
@@ -114,6 +119,11 @@ on:
         description: The Refresh packs run that started this build (FEAT-342); set by refresh-packs.yml, leave empty
         required: false
         type: string
+      fresh_data:
+        description: "Download all the raw data again (FEAT-346): skips the free runner's raw-data cache; the build then saves what it fetched"
+        required: false
+        type: boolean
+        default: false
 
 run-name: Build pack ${{ inputs.slug || inputs.rebuild }}
 
@@ -128,6 +138,7 @@ env:
   REQUESTED_BY: ${{ inputs.requested_by }}
   BUILD_ON: ${{ inputs.build_on }}
   REFRESH_RUN: ${{ inputs.refresh_run }}
+  FRESH_DATA: ${{ inputs.fresh_data }}
 
 jobs:
   queue:
@@ -293,10 +304,40 @@ jobs:
 
       - name: resolve
         run: python tools/ci/build_pack_ci.py resolve
+      # FEAT-346: the free runner starts empty; Drew's PC keeps its raw data on disk. No App: a miss, the fetch
+      # downloads it all
+      - id: restore_token
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.PUBLISH_APP_ID }}
+          private-key: ${{ secrets.PUBLISH_APP_KEY }}
+          permission-contents: write
+      - name: restore
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ steps.restore_token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python tools/ci/raw_cache.py restore
       - name: fetch
         env:
           LANDFIRE_EMAIL: ${{ secrets.LANDFIRE_EMAIL }}
         run: python tools/ci/build_pack_ci.py fetch
+      - id: save_token
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.PUBLISH_APP_ID }}
+          private-key: ${{ secrets.PUBLISH_APP_KEY }}
+          permission-contents: write
+      - name: save
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ steps.save_token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python tools/ci/raw_cache.py save
       - name: build
         run: python tools/ci/build_pack_ci.py build
       - name: report
