@@ -407,7 +407,7 @@ A hand start off every run in `features.json` (the test `pack_report.py` line 10
 ```
 {
   "lifts":     [{ "name", "type", "stations": [[x,y,z],...], "towers": [[x,y,zGround,height],...],
-                 "cable": [[x,y,z],...], "capacity" }],
+                 "cable": [[x,y,z],...], "capacity", "towersSpaced" }],  // towers: the way's OSM pylons; a chair or gondola with none gets one every 140 m between the end stations (14 m gondola, 11 m chair, the game's own fallback rule) and towersSpaced: true (BUG-102, optional, not read by the game)
   "runs":      [{ "name", "difficulty": "easy|intermediate|advanced|expert|freeride",
                  "groomed": bool, "gladed": bool, "points": [[x,y,z],...], "osmId",
                  "groomNights", "mogulScore", "altName", "pisteType" }],  // groomNights: nights the resort's reports groomed it (absent when never); mogulScore: 0..1 from pipeline/moguls.py (absent in packs before FEAT-059); altName (FEAT-296, optional, not read by the game): the way's OSM `name` when `piste:name` differs and is the run's name; pisteType (BUG-108, optional, not read by the game): the way's `piste:type` when it is not `downhill` (nordic, skitour, sled, snow_park), so the pipeline's default start leaves those trails out; absent means downhill

@@ -317,3 +317,19 @@ def test_groomed_runs_off_the_mask_and_few_groomers_are_flagged(tmp_path):
     write_features(str(pack), feats)
     l15 = line(pr.build_report(str(pack), repo=str(tmp_path)), "15")
     assert l15["status"] == pr.WARN and "few groomers" in l15["detail"]
+
+
+def test_spaced_towers_are_a_note_not_a_warning(tmp_path):
+    """BUG-102: a lift whose towers the pipeline spaced (no OSM pylons) does not warn; one with none still does"""
+    pack = make_pack(tmp_path / "packs")
+    f = json.load(open(pack / "features.json", encoding="utf-8"))
+    f["buildings"], f["roads"] = [{"name": "Lodge"}], [{"name": "Road"}]
+    f["lifts"][0]["towersSpaced"] = True
+    write_features(str(pack), f)
+    d = line(pr.build_report(str(pack), repo=str(tmp_path)), "9")
+    assert d["status"] == pr.PASS and "1 lifts with towers spaced by the pipeline" in d["detail"], d["detail"]
+    f["lifts"][0]["towers"] = []
+    del f["lifts"][0]["towersSpaced"]
+    write_features(str(pack), f)
+    d = line(pr.build_report(str(pack), repo=str(tmp_path)), "9")
+    assert d["status"] == pr.WARN and "1 of 1 chairs and gondolas without towers" in d["detail"]
