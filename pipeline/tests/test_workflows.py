@@ -175,9 +175,11 @@ def test_build_pack_never_interpolates_an_input_or_a_secret_into_a_shell_line():
 
 def test_build_pack_inputs_reach_the_steps_as_env():
     wf = load(BUILD)
-    assert set(triggers(wf)["workflow_dispatch"]["inputs"]) == {"rebuild", "slug", "name", "osm_id", "requested_by"}
+    assert set(triggers(wf)["workflow_dispatch"]["inputs"]) == {"rebuild", "slug", "name", "osm_id", "requested_by",
+                                                                "build_on"}
     assert wf["env"] == {"SLUG": "${{ inputs.slug }}", "REBUILD": "${{ inputs.rebuild }}", "NAME": "${{ inputs.name }}",
-                         "OSM_ID": "${{ inputs.osm_id }}", "REQUESTED_BY": "${{ inputs.requested_by }}"}
+                         "OSM_ID": "${{ inputs.osm_id }}", "REQUESTED_BY": "${{ inputs.requested_by }}",
+                         "BUILD_ON": "${{ inputs.build_on }}"}
 
 
 def test_build_pack_rebuild_list_names_only_packs_that_can_be_rebuilt():
@@ -215,10 +217,35 @@ def test_build_pack_queues_then_probes_then_builds_on_hosted_runners():
     assert jobs["outcome"]["needs"] == ["queue", "probe", "build"] and jobs["outcome"]["if"] == "always()"
     (rec,) = [s for s in jobs["outcome"]["steps"] if "build_failures.py" in s.get("run", "")]
     assert rec["continue-on-error"] is True and rec["run"].strip().endswith("build_failures.py record")
-    assert all(j["runs-on"] == "ubuntu-latest" for j in jobs.values())
+    assert all(j["runs-on"] == "ubuntu-latest" for n, j in jobs.items() if n != "build")   # build: FEAT-344, below
     assert "concurrency" not in wf and not any("concurrency" in j for j in jobs.values())   # wait_turn.py queues
     assert any("wait_turn.py" in s.get("run", "") for s in jobs["queue"]["steps"])
     assert any("probe_hosts.py" in s.get("run", "") for s in jobs["probe"]["steps"])
+
+
+def test_build_pack_takes_drews_pc_only_for_a_dispatch_on_main():
+    """FEAT-344: the repo is public, so the self-hosted runner must never run PR code. build_on: pc reaches it only
+    through the probe job's where step (build_pack_ci.where: workflow_dispatch, main, a maintainer) and the build
+    job's own `if:`; the cloud keeps the free runner. The job stays `build` (the game's progress reads it)."""
+    wf = load(BUILD)
+    inp = triggers(wf)["workflow_dispatch"]["inputs"]["build_on"]
+    assert inp["type"] == "choice" and inp["default"] == "cloud" and inp["options"] == ["cloud", "pc"]
+    assert set(triggers(wf)) == {"workflow_dispatch"}
+    probe, build = wf["jobs"]["probe"], wf["jobs"]["build"]
+    (step,) = [s for s in probe["steps"] if s.get("id") == "where"]
+    assert step["run"].strip() == "python tools/ci/build_pack_ci.py where"
+    assert probe["outputs"]["runner"] == "${{ steps.where.outputs.runner }}"
+    cond = " ".join(build["if"].split())
+    assert cond == ("needs.probe.outputs.runner == 'cloud' || (needs.probe.outputs.runner == 'pc' && "
+                    "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')")
+    assert build["runs-on"] == ("${{ needs.probe.outputs.runner == 'pc' && "
+                                "fromJSON('[\"self-hosted\", \"windows\", \"sba-pc\"]') || 'ubuntu-latest' }}")
+    pc = [s.get("name") or s.get("uses") for s in build["steps"] if s.get("if", "").endswith("runner.os == 'Windows'")]
+    assert "pc setup" in pc and "game" in pc
+    game = next(s for s in build["steps"] if s.get("with", {}).get("path") == "sba-game")
+    assert game["with"]["repository"] == "drewkeriazes-personal/SnowboardAnywhere" and game["with"]["ref"] == "main"
+    names = [s.get("name") for s in build["steps"]]
+    assert names.index("pc setup") < names.index("inputs")      # its summary line goes above the stage table
 
 
 def test_build_pack_runs_main_without_kept_credentials():
