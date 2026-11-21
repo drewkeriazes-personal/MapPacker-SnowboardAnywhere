@@ -102,7 +102,7 @@ Nothing here is done by a PR; each step is Drew's, on his PC or in the repo's se
 
    (`-RunnerDir`, `-HookDir`, `-RawRoots`, `-IndexDir` change them; the first raw root is where a new resort's data
    goes.) Run it again whenever `.github/maintainers.txt` changes on `main`.
-5. **Secrets:** none new. The fetch step already gets `LANDFIRE_EMAIL` and the publish step the App's secrets.
+5. **Secrets:** none new. The fetch step already gets `LANDFIRE_EMAIL` and the publish step the App's secrets, environment secrets of `publish` that only a job on `main` can read (BUG-113, README, "The publish environment").
 6. **Start it** in Drew's session: `C:\actions-runner\run.cmd` (a console window; closing it takes the runner
    offline). To start it at every logon:
 
