@@ -37,6 +37,7 @@ import stands
 import widths
 import tiers
 import tier_sources as ts
+from lift_towers import spaced_towers
 from species import evt_luts
 
 slug = sys.argv[1]
@@ -886,10 +887,16 @@ for el in ski["elements"]:
         if nt.get("aerialway") == "pylon":
             z = ground(*p)
             towers.append([p[0], p[1], z, 11.0 if aw in ("chair_lift", "gondola", "mixed_lift", "cable_car") else 7.0])
-    lifts.append({"name": t.get("name"), "type": aw, "capacity": int(t["aerialway:capacity"]) if t.get("aerialway:capacity", "").isdigit() else None,
-                  "stations": [[pts[0][0], pts[0][1], ground(*pts[0])], [pts[-1][0], pts[-1][1], ground(*pts[-1])]],
-                  "towers": towers, "cable": [], "osmId": el["id"]})
-log(f"  lifts {len(lifts)}")
+    lift = {"name": t.get("name"), "type": aw, "capacity": int(t["aerialway:capacity"]) if t.get("aerialway:capacity", "").isdigit() else None,
+            "stations": [[pts[0][0], pts[0][1], ground(*pts[0])], [pts[-1][0], pts[-1][1], ground(*pts[-1])]],
+            "towers": towers, "cable": [], "osmId": el["id"]}
+    if not towers:   # BUG-102: OSM has no pylons on this way; space them on the DEM as the game would
+        lift["towers"] = spaced_towers(pts[0], pts[-1], aw, ground)
+        if lift["towers"]:
+            lift["towersSpaced"] = True
+    lifts.append(lift)
+spaced = [l["name"] or str(l["osmId"]) for l in lifts if l.get("towersSpaced")]
+log(f"  lifts {len(lifts)}" + (f"; towers spaced every 140 m on {len(spaced)} with no OSM pylons: {', '.join(spaced)}" if spaced else ""))
 
 buildings, roads, water = [], [], []
 BIG_LODGE_M2 = 1500  # BUG-024: named buildings bigger than this get a lodge height when OSM has none

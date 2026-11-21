@@ -702,10 +702,13 @@ class Report:
         bare = sum(1 for l in towers if not l.get("towers"))
         if bare:
             notes.append(f"{bare} of {len(towers)} chairs and gondolas without towers")
+        spaced = sum(1 for l in towers if l.get("towersSpaced"))   # BUG-102: OSM had no pylons; a note, not a warning
         for k in ("buildings", "roads"):
             if not f.get(k):
                 notes.append(f"no {k}")
         counts = ", ".join(f"{len(f.get(k, []))} {k}" for k in ("lifts", "runs", "buildings", "roads", "water", "peaks", "labels"))
+        if spaced:
+            counts += f" ({spaced} lifts with towers spaced by the pipeline, no OSM pylons)"
         self.line("9", "features.json", FAIL if probs else (WARN if notes else PASS), "; ".join(probs + notes + [counts]))
 
         # 10 start
