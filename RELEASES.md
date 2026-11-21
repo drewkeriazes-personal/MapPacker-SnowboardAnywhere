@@ -91,7 +91,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Whistler Blackcomb
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/whistler-blackcomb/v1) (latest) 197 MB, 2026-11-14
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/whistler-blackcomb/v2) (latest) 221 MB, 2026-11-21
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/whistler-blackcomb/v1) 197 MB, 2026-11-14
 
 ## Test packs
 
