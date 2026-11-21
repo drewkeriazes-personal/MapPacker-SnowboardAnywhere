@@ -2,30 +2,31 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-5 attempts logged, 1 failed. Recovered inline: 9 calls; job re-runs: 0; real failures: 1. Retried runs: 0, of them passed in the end: 0.
+6 attempts logged, 2 failed. Recovered inline: 9 calls; job re-runs: 0; real failures: 2. Retried runs: 0, of them passed in the end: 0.
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
 | host | calls | retried | recovered | failed |
 |---|---|---|---|---|
-| elevation.nationalmap.gov | 58 | 8 | 8 | 0 |
-| overpass-api.de | 12 | 1 | 1 | 0 |
+| elevation.nationalmap.gov | 59 | 8 | 8 | 0 |
+| overpass-api.de | 13 | 1 | 1 | 0 |
 
 **By host**
 
 | host | failures |
 |---|---|
-| (none) | 1 |
+| (none) | 2 |
 
 **By reason**
 
 | reason | failures |
 |---|---|
-| unknown (real) | 1 |
+| unknown (real) | 2 |
 
 **By step**
 
 | job / step | failures |
 |---|---|
 | build / fetch | 1 |
+| build / paths | 1 |
 
