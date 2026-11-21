@@ -26,6 +26,7 @@ import rebuild_choices  # noqa: E402
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 OSM_RE = re.compile(r"^((way|relation|skimap)/)?[1-9][0-9]{0,15}$")   # skimap/497: no OSM outline (FEAT-286)
+RUN_ID_RE = re.compile(r"^[1-9][0-9]{0,19}$")   # FEAT-342: the Refresh packs run that started this build
 REQUESTED_BY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$")   # a game account id (Firebase uid) or a login
 MAX_NAME = 100
 
@@ -34,13 +35,16 @@ class Refused(Exception):
     pass
 
 
-def check_inputs(name, osm_id, slug, requested_by, resorts_dir=None, rebuild=None):
-    """-> dict(mode, slug, name, osm_id, requested_by, tier, deps). Raises Refused on bad input. `mode` is "rebuild"
-    when resorts/<slug>/<slug>.json exists (name and osm_id are then optional: the config already says which ski
-    area it is), else "new" (both needed). FEAT-297: `rebuild` is the form's pick from the rebuild list; a pack
-    picked there is the slug (a typed slug must then be the same one), and it must already have a config."""
-    name, osm_id, slug, requested_by, rebuild = (s.strip() for s in (name or "", osm_id or "", slug or "",
-                                                                      requested_by or "", rebuild or ""))
+def check_inputs(name, osm_id, slug, requested_by, resorts_dir=None, rebuild=None, refresh_run=None):
+    """-> dict(mode, slug, name, osm_id, requested_by, refresh_run, tier, deps). Raises Refused on bad input. `mode`
+    is "rebuild" when resorts/<slug>/<slug>.json exists (name and osm_id are then optional: the config already says
+    which ski area it is), else "new" (both needed). FEAT-297: `rebuild` is the form's pick from the rebuild list; a
+    pack picked there is the slug (a typed slug must then be the same one), and it must already have a config.
+    FEAT-342: `refresh_run` is the id of the Refresh packs run that started this one, digits only."""
+    name, osm_id, slug, requested_by, rebuild, refresh_run = (
+        s.strip() for s in (name or "", osm_id or "", slug or "", requested_by or "", rebuild or "", refresh_run or ""))
+    if refresh_run and not RUN_ID_RE.fullmatch(refresh_run):
+        raise Refused(f"refresh_run {refresh_run!r} is not a workflow run id")
     if rebuild and rebuild != rebuild_choices.NEW:
         if not SLUG_RE.fullmatch(rebuild) or len(rebuild) > 60:
             raise Refused(f"rebuild {rebuild!r} is not a pack slug")
@@ -72,7 +76,8 @@ def check_inputs(name, osm_id, slug, requested_by, resorts_dir=None, rebuild=Non
             raise Refused(f"{slug} is a new resort: give both name and osm_id (the ski area picked in the game)")
         mode, cfg = "new", {}
     return {"mode": mode, "slug": slug, "name": name, "osm_id": osm_id, "requested_by": requested_by,
-            "tier": cfg.get("tier", "gold"), "deps": deps(slug, resorts_dir) if mode == "rebuild" else []}
+            "refresh_run": refresh_run, "tier": cfg.get("tier", "gold"),
+            "deps": deps(slug, resorts_dir) if mode == "rebuild" else []}
 
 
 def deps(slug, resorts_dir=None, seen=None):
@@ -170,13 +175,16 @@ def stage_commands(stage, cfg):
             cmd += ["--run-url", cfg["run_url"]]
         if cfg.get("requested_by"):
             cmd += [f"--requested-by={cfg['requested_by']}"]     # one word: never read as a flag
+        if cfg.get("refresh_url"):
+            cmd += ["--refresh-run", cfg["refresh_url"]]
         return [cmd]
     raise ValueError(stage)
 
 
 def from_env():
     return check_inputs(os.environ.get("NAME"), os.environ.get("OSM_ID"), os.environ.get("SLUG"),
-                        os.environ.get("REQUESTED_BY"), rebuild=os.environ.get("REBUILD"))
+                        os.environ.get("REQUESTED_BY"), rebuild=os.environ.get("REBUILD"),
+                        refresh_run=os.environ.get("REFRESH_RUN"))
 
 
 def main(argv=None, runner=stream):
@@ -196,10 +204,14 @@ def main(argv=None, runner=stream):
         summary(f"## {md(cfg['name'])} (`{cfg['slug']}`)\n\n"
                 + ("New resort, OSM " + cfg["osm_id"] if cfg["mode"] == "new" else "Rebuild of the committed config")
                 + (f", builds on {', '.join(cfg['deps'])}" if cfg["deps"] else "")
-                + (f". Requested by `{cfg['requested_by']}`" if cfg["requested_by"] else "") + ".\n\n"
+                + (f". Requested by `{cfg['requested_by']}`" if cfg["requested_by"] else "")
+                + (f", started by Refresh packs run {cfg['refresh_run']}" if cfg["refresh_run"] else "") + ".\n\n"
                 "| stage | result | time |\n|---|---|---|")
         return 0
     cfg["run_url"] = os.environ.get("RUN_URL")
+    if cfg["refresh_run"]:
+        server = os.environ.get("GITHUB_SERVER_URL") or "https://github.com"
+        cfg["refresh_url"] = f"{server}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{cfg['refresh_run']}"
     cmds = stage_commands(a.stage, cfg)
     if not cmds:
         summary(f"| {a.stage} | skip: the config is committed | |")

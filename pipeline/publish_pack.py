@@ -1,7 +1,8 @@
 """FEAT-222: publish a built pack as a release of this repo, so the game's `npm run get <slug>` can download it.
 
     python pipeline/publish_pack.py packs/vail [--status preview|playable] [--tier gold] [--report report.md]
-                                               [--accept-change] [--requested-by <id>] [--run-url <url>] [--dry-run]
+                                               [--accept-change] [--requested-by <id>] [--run-url <url>]
+                                               [--refresh-run <url>] [--dry-run]
     python pipeline/publish_pack.py --synth [--force] [--dry-run]
 
 `--synth` (FEAT-241) builds the synthetic pack (synth_pack.py, about 2 minutes) into packs/synth and publishes it
@@ -26,7 +27,9 @@ main (FEAT-272). Steps:
      (releases.py, FEAT-271), the pack's report as reports/<slug>.md and the
      resort's config, EPT node lists, data plan (resorts/<slug>/) and manifest (manifests/), copied from this
      checkout (which is left as it was; the worktree and the local branch are deleted afterwards); labels `publish`,
-     `automerge` when the publisher is in .github/maintainers.txt, `accept-change` with --accept-change. The merge
+     `automerge` when the publisher is in .github/maintainers.txt (or, FEAT-342, the build is one a Refresh packs
+     run started, --refresh-run: publish_merge.py checks that a maintainer started that run), `accept-change` with
+     --accept-change. The merge
      workflow releases the draft, then merges. The command prints the PR link and does not wait.
 
 Test packs (`--test`, and `--synth`) go in the catalog's `test` list, not `resorts`, so the resort picker never
@@ -271,6 +274,16 @@ def publisher_login() -> str:
     return who or run(["gh", "api", "user", "--jq", ".login"])
 
 
+BOT = "github-actions[bot]"
+
+
+def vouched(login: str, refresh_run: str | None, maint: set[str]) -> bool:
+    """label the PR automerge: the publisher is a maintainer, or (FEAT-342) a Build pack run that Refresh packs
+    started, whose triggering actor is the workflow token's bot; publish_merge.py trusts that label only when the
+    `Refresh:` run is refresh-packs.yml on main started by a maintainer and the build began while it ran"""
+    return login in maint or (login == BOT and bool(refresh_run))
+
+
 def publish_branch(slug: str, version: int) -> str:
     return f"publish/{slug}-v{version}"
 
@@ -280,7 +293,7 @@ REBUILD_LIST = ("New resort: after this merges, `python tools/ci/rebuild_choices
 
 
 def pr_body(entry: dict, *, why: str, release_url: str, started_by: str, run_url: str | None,
-            requested_by: str | None, new_resort: bool = False) -> str:
+            requested_by: str | None, new_resort: bool = False, refresh_run: str | None = None) -> str:
     """the publish PR's description; `Build:` and `Run:` are read back by resort.py and the merge workflow"""
     p = entry["pack"]
     lines = [f"Publishes **{entry['name']}** v{p['version']}: {entry['status']} ({why}).", "",
@@ -288,6 +301,7 @@ def pr_body(entry: dict, *, why: str, release_url: str, started_by: str, run_url
              f"Size: {p['bytes'] / 1e6:.0f} MB ({p['bytes']} bytes), sha256 `{p['sha256']}`", "",
              f"Started by: {started_by}"]
     lines += [f"Run: {run_url}"] if run_url else []
+    lines += [f"Refresh: {refresh_run}"] if refresh_run else []     # FEAT-342: read back by publish_merge.py
     lines += [f"Requested by: {requested_by}"] if requested_by else []
     lines += [f"Build: {p['build']}", f"Pipeline: {p['pipeline']}"]
     lines += [f"{CONTENT_LINE}{p['content']}"] if p.get("content") else []   # read back by pending_same_content
@@ -402,6 +416,7 @@ def main(argv=None) -> None:
                     help="label the PR accept-change: a big change from the previous version is intended (FEAT-264)")
     ap.add_argument("--requested-by", help="the game account that asked for this build (Build it, FEAT-245)")
     ap.add_argument("--run-url", help="the workflow run that built and publishes the pack (FEAT-245)")
+    ap.add_argument("--refresh-run", help="the Refresh packs run that started that build (FEAT-342), its url")
     ap.add_argument("--dry-run", action="store_true",
                     help="zip and print the catalog entry and the PR branch; no fetch, no release, no PR")
     a = ap.parse_args(argv)
@@ -499,7 +514,7 @@ def main(argv=None) -> None:
                      f"pipeline {pipeline}. {size / 1e6:.0f} MB, sha256 `{sha}`.\n\n"
                      f"Get it: `cd game && npm run get {slug}` in SnowboardAnywhere.")
         login = publisher_login()        # before the upload, so a gh that is not signed in leaves no draft behind
-        trusted = login in maintainers()
+        trusted = vouched(login, a.refresh_run, maintainers())
         labels = (["automerge"] if trusted else []) + (["accept-change"] if a.accept_change else [])
         assets = [zip_path, os.path.join(pack_dir, "meta.json")] + ([report] if report else [])
         print(f"uploading draft release {tag} to {a.repo}")
@@ -509,7 +524,7 @@ def main(argv=None) -> None:
         # the recipe that built it goes in the PR beside the catalog: config, node lists, plan, manifest, report;
         # RELEASES.md lists this publish's draft as out (the merge workflow publishes it before it merges)
         body = pr_body(entry, why=why, release_url=release_url, started_by=login, run_url=a.run_url,
-                       requested_by=a.requested_by, new_resort=not test and old is None)
+                       requested_by=a.requested_by, new_resort=not test and old is None, refresh_run=a.refresh_run)
         try:
             releases = [r for r in list_releases(a.repo, run) if r.get("tag_name") != tag]
             releases.append(own_release(slug, version, f"{meta['name']} v{version}", size))
