@@ -33,6 +33,8 @@
 # line (pipeline/tests/test_workflows.py checks), and build_pack_ci.py inputs refuses any outside their shapes
 # first. The LANDFIRE email is a secret in the env of the fetch step only (BUG-111: never an argument). The App
 # token is minted just before publishing (it lasts an hour; builds take longer) and only that step holds it.
+# BUG-113: only the build job names the environment `publish` that holds those secrets, and the environment lets
+# only main use it, so a run dispatched on any other branch is refused at the build job, before a step runs.
 #
 # Limits: the free runner (about 14 GB disk before the clean-up below, 16 GB RAM, 6 hours a job). A resort too big
 # for it, or one whose menu still and ghosts need the GPU, is built with build_on: pc (FEAT-344): the build job runs
@@ -49,7 +51,8 @@
 #      and 2 live in this file, so they hold only for this file on main; lock 3 also stops a fork PR that edits a
 #      workflow to ask for the sba-pc label. Fork PR runs also wait for approval (repo setting, docs/pc-runner.md).
 # The queue (wait_turn.py) counts PC runs like any other: one build at a time, cloud or PC (docs/pc-runner.md).
-# Setup: secrets PUBLISH_APP_ID, PUBLISH_APP_KEY, LANDFIRE_EMAIL; variable PUBLISH_APP_LOGIN (publish-merge.yml).
+# Setup: secrets PUBLISH_APP_ID, PUBLISH_APP_KEY, LANDFIRE_EMAIL in the environment `publish` (BUG-113: deployment
+# branches main only, so a branch's copy of this file can't read them); variable PUBLISH_APP_LOGIN (publish-merge.yml).
 
 name: Build pack
 
@@ -192,6 +195,11 @@ jobs:
       (needs.probe.outputs.runner == 'pc' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ${{ needs.probe.outputs.runner == 'pc' && fromJSON('["self-hosted", "windows", "sba-pc"]') || 'ubuntu-latest' }}
     timeout-minutes: ${{ needs.probe.outputs.runner == 'pc' && 1440 || 350 }}
+    # BUG-113: the App's secrets and LANDFIRE_EMAIL are environment secrets of `publish`, which only main may use
+    # (Security at the top); no deployment record per build
+    environment:
+      name: publish
+      deployment: false
     permissions:
       actions: read
       contents: read

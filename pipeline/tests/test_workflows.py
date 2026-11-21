@@ -286,6 +286,32 @@ def test_build_pack_gives_the_secrets_only_to_the_steps_that_need_them():
     assert names.index("app") == names.index("publish") - 1     # minted last: the token lasts an hour
 
 
+PUBLISH_SECRETS = ("PUBLISH_APP_ID", "PUBLISH_APP_KEY", "LANDFIRE_EMAIL")
+PUBLISH_JOBS = {(BUILD, "build"), (".github/workflows/publish-merge.yml", "publish-merge")}
+
+
+def test_only_the_publish_jobs_read_the_publish_secrets_and_they_name_the_main_only_environment():
+    """BUG-113: the App's secrets and the LANDFIRE email are environment secrets of `publish` (deployment branches
+    main only), so a branch's copy of a workflow can't read them. Every job that names one of them must name that
+    environment, without a deployment record (publish-merge runs every 15 minutes), and no other job may name them:
+    a new job reading them would get nothing, or, while repository copies still exist, read them from any branch."""
+    wf_dir = os.path.join(ROOT, ".github", "workflows")
+    seen = set()
+    for name in sorted(os.listdir(wf_dir)):
+        if not name.endswith((".yml", ".yaml")):
+            continue
+        path = f".github/workflows/{name}"
+        wf = load(path)
+        assert not any(k in str({k: v for k, v in wf.items() if k != "jobs"}) for k in PUBLISH_SECRETS), path
+        for job_id, job in wf["jobs"].items():
+            if not any(f"secrets.{k}" in str(job) for k in PUBLISH_SECRETS):
+                assert job.get("secrets") != "inherit", (path, job_id)     # a reusable workflow handed them all
+                continue
+            seen.add((path, job_id))
+            assert job.get("environment") == {"name": "publish", "deployment": False}, (path, job_id)
+    assert seen == PUBLISH_JOBS
+
+
 def test_build_pack_narrows_the_app_token_to_publishing():
     (app,) = [s for s in all_steps(load(BUILD)) if "create-github-app-token" in s.get("uses", "")]
     assert {k for k in app["with"] if k.startswith("permission-")} == {"permission-contents", "permission-pull-requests"}

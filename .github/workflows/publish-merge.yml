@@ -17,7 +17,10 @@
 # this repo only. Until the App, both secrets and the variable exist, nothing merges itself (the scheduled run
 # skips quietly; other runs fail on the first step): publish by hand with `gh release edit <tag> --draft=false`
 # first, then merge the PR, never the merge button while the release is still a draft.
-#   secrets   PUBLISH_APP_ID, PUBLISH_APP_KEY (the App's id and a generated private key, PEM)
+#   secrets   PUBLISH_APP_ID, PUBLISH_APP_KEY (the App's id and a generated private key, PEM), with build-pack.yml's
+#             LANDFIRE_EMAIL, as environment secrets of the environment `publish` (BUG-113), whose deployment branches
+#             are main only: a workflow run on any other branch can't read them. Not repository secrets: those any
+#             branch's copy of a workflow can read. Steps: README, Publishing, "The publish environment"
 #   variable  PUBLISH_APP_LOGIN (the App's bot login, e.g. mappacker-publisher[bot])
 # The refresh commit's author is that login with its noreply address; publish_merge.py looks up the App's user id
 # itself (gh api users/<login>), so there is no PUBLISH_APP_USER_ID.
@@ -62,6 +65,12 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30   # a branch refresh, then the draft zip is waited for
+    # BUG-113: the App's secrets are environment secrets of `publish`, which only main may use. workflow_run,
+    # pull_request_target and schedule run as the default branch, so they pass; a dispatch on a branch is refused.
+    # No deployment record per run (this runs every 15 minutes)
+    environment:
+      name: publish
+      deployment: false
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
       # schedule and workflow_dispatch have no PR: `sweep`
