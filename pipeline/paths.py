@@ -4,7 +4,8 @@
                                                       EPT node lists it names and <slug>-plan.md; resort.py
                                                       writes them, every stage reads them. Hand content (FEAT-243,
                                                       pack_content.py copies it into the pack): landmarks.json,
-                                                      start.json, attract/ (the menu, once the game's tools save here)
+                                                      start.json, attract/ (the menu, once the game's tools save here);
+                                                      runner.json (FEAT-342) when the free runner can't build it
     manifests/<slug>.json                             download lists (gen_manifest.py)
     packs/<slug>/                                     built packs (this checkout's; gitignored)
     raw/<slug>/                                       raw data: SBA_RAW_ROOT, else raw/ in the main checkout,
@@ -49,6 +50,12 @@ def landmarks_path(slug, resorts=None) -> str:
 def start_path(slug, resorts=None) -> str:
     """resorts/<slug>/start.json, a hand-placed Free ride start for a resort whose start is not a landmark (FEAT-243)"""
     return os.path.join(resort_dir(slug, resorts), "start.json")
+
+
+def runner_path(slug, resorts=None) -> str:
+    """resorts/<slug>/runner.json, where the pack can be built (FEAT-342): {"cloud": false, "reason": "too_big",
+    "why": ...} for one the free GitHub runner can't build, so Refresh packs leaves it out. Not a build input."""
+    return os.path.join(resort_dir(slug, resorts), "runner.json")
 
 
 def main_checkout(repo=REPO) -> str:

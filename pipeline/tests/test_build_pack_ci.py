@@ -185,3 +185,34 @@ def test_the_report_step_runs_the_published_stage_first():
     cfg = {"slug": "vail", "mode": "rebuild", "deps": [], "tier": "gold"}
     assert ci.stage_commands("build", cfg)[0][-4:] == ["--from", "build", "--stop-after", "index"]
     assert ci.stage_commands("report", cfg)[0][-4:] == ["--from", "published", "--stop-after", "report"]
+
+
+# ------------------------------------------------------------------------------------------------ FEAT-342
+
+def test_a_refresh_run_id_is_digits_and_reaches_publish_as_a_url(tmp_path, monkeypatch):
+    config(tmp_path, "vail")
+    for bad in ("0", "12a", "1; rm -rf /", "-5", "9" * 21):
+        with pytest.raises(ci.Refused, match="not a workflow run id"):
+            ci.check_inputs("", "", "vail", "refresh-packs", tmp_path, refresh_run=bad)
+    got = ci.check_inputs("", "", "vail", "refresh-packs", tmp_path, refresh_run=" 77 ")
+    assert got["refresh_run"] == "77"
+    (cmd,) = ci.stage_commands("publish", {**got, "refresh_url": "https://github.com/o/r/actions/runs/77"})
+    assert cmd[cmd.index("--refresh-run") + 1] == "https://github.com/o/r/actions/runs/77"
+    (cmd,) = ci.stage_commands("publish", ci.check_inputs("", "", "vail", "", tmp_path))
+    assert "--refresh-run" not in cmd
+
+    seen = []
+    monkeypatch.setattr(ci, "from_env", lambda: dict(got))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    assert ci.main(["publish"], runner=lambda c: seen.append(c) or (0, "")) == 0
+    assert seen[0][seen[0].index("--refresh-run") + 1] == "https://github.com/o/r/actions/runs/77"
+
+
+def test_the_env_carries_the_refresh_run(monkeypatch):
+    monkeypatch.setenv("SLUG", "vail")
+    monkeypatch.setenv("REFRESH_RUN", "123")
+    for k in ("REBUILD", "NAME", "OSM_ID", "REQUESTED_BY"):
+        monkeypatch.delenv(k, raising=False)
+    assert ci.from_env()["refresh_run"] == "123"

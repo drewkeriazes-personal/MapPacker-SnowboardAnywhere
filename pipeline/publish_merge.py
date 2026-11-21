@@ -11,7 +11,8 @@ was dropped from the queue, or that waited on the activity log or a check still 
 
 `ready` merges only a `publish/<slug>-v<N>` PR from this repo (not a fork) into main, labelled `publish` and
 `automerge`, whose latest `automerge` label came from a maintainer (.github/maintainers.txt, main's copy) or from
-the App (PUBLISH_APP_LOGIN) on a PR whose `Run:` line names a run a maintainer started; with no push to the branch
+the App (PUBLISH_APP_LOGIN) on a PR whose `Run:` line names a run a maintainer started (FEAT-342: or a run the
+workflow token started for a Refresh packs run a maintainer started, the PR's `Refresh:` line); with no push to the branch
 after that label (GitHub's activity log) except the App's own refresh; changing only the publish file set and in
 catalog.json only <slug> v<N>, at this repo's release url; with every check run on the head success or skipped and
 `publish-check` success. Then it re-checks the release `<slug>/v<N>` (FEAT-271; the branch keeps `-v<N>`), publishes it if it is still a draft (a rollback's release
@@ -36,6 +37,10 @@ BRANCH = re.compile(rf"^publish/({SLUG})-v([1-9][0-9]*)$")
 RUN_LINE = re.compile(r"^Run: https://github\.com/([^/\s]+/[^/\s]+)/actions/runs/(\d+)\s*$", re.M)
 GOOD = ("success", "skipped")
 BUILD_WORKFLOW = ".github/workflows/build-pack.yml"   # FEAT-245: the only workflow whose publish PRs the App labels
+REFRESH_LINE = re.compile(r"^Refresh: https://github\.com/([^/\s]+/[^/\s]+)/actions/runs/(\d+)\s*$", re.M)
+REFRESH_WORKFLOW = ".github/workflows/refresh-packs.yml"   # FEAT-342: starts Build pack runs as the workflow token
+BOT = "github-actions[bot]"           # the triggering actor of a run the workflow token started
+REFRESH_SLACK_S = 600                 # a build counts as the refresh's when created while it ran, or 10 min after
 REQUIRED = "publish-check"            # the check that downloads the draft zip and lints it: must be success
 SELF_JOBS = {"publish-merge"}         # this workflow's job name: its own check run never counts
 PREFIX = "[publish-merge]"
@@ -104,6 +109,36 @@ def build_run_actor(run: dict) -> str | None:
     if run.get("path") != BUILD_WORKFLOW or run.get("head_branch") != "main" or run.get("event") != "workflow_dispatch":
         return None
     return (run.get("triggering_actor") or {}).get("login")
+
+
+def refresh_run_actor(build: dict, refresh: dict) -> str | None:
+    """FEAT-342: who started `refresh` (the API's workflow run), only when it is refresh-packs.yml dispatched on main
+    and the build run `build` was created while it ran (from its attempt's start to its last update, plus
+    REFRESH_SLACK_S): Refresh packs starts its builds in its one step, so a later build can't borrow an old refresh"""
+    if refresh.get("path") != REFRESH_WORKFLOW or refresh.get("head_branch") != "main" or             refresh.get("event") != "workflow_dispatch":
+        return None
+    start, end, made = refresh.get("run_started_at") or refresh.get("created_at"), refresh.get("updated_at"),         build.get("created_at")
+    try:
+        if not (_time(start) <= _time(made) and (_time(made) - _time(end)).total_seconds() <= REFRESH_SLACK_S):
+            return None
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return (refresh.get("triggering_actor") or {}).get("login")
+
+
+def vouching_actor(build: dict, body: str, get_run: Callable[[int], dict], repo: str | None = None) -> str | None:
+    """who vouches for a publish PR's build run `build`: build_run_actor, or, for a run the workflow token started
+    (BOT), the maintainer behind the one `Refresh:` run the PR body names (in `repo`, when given)"""
+    who = build_run_actor(build)
+    if who != BOT:
+        return who
+    refs = set(REFRESH_LINE.findall(body or ""))
+    if len(refs) != 1:
+        return None
+    ref_repo, ref_id = refs.pop()
+    if repo and ref_repo.lower() != repo.lower():
+        return None
+    return refresh_run_actor(build, get_run(int(ref_id)))
 
 
 def _time(s: str) -> datetime:
@@ -267,7 +302,8 @@ def assess(n: int, repo: str, pr: dict, app_login: str) -> tuple[str, dict]:
         activity = [a for a in api_pages(f"repos/{repo}/activity?ref={quote(ref)}&per_page=100")
                     if a.get("ref") in (ref, branch)]
         ev, maint = last_label(events, "automerge"), maintainers()
-        run_actor = lambda i: build_run_actor(json.loads(gh("api", f"repos/{repo}/actions/runs/{i}") or "{}"))
+        get_run = lambda i: json.loads(gh("api", f"repos/{repo}/actions/runs/{i}") or "{}")   # noqa: E731
+        run_actor = lambda i: vouching_actor(get_run(i), pr.get("body") or "", get_run, repo)   # noqa: E731
         if not ev or not label_ok(events, "automerge", maint, app_login, pr.get("body") or "", run_actor, repo):
             who = ((ev or {}).get("actor") or {}).get("login")
             return f"{UNTRUSTED}: added by {who}, not a maintainer (nor by the App on a maintainer's run)", {}

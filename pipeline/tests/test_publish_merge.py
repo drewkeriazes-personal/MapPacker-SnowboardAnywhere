@@ -723,3 +723,44 @@ def test_a_failed_branch_delete_only_warns(monkeypatch, capsys):
 ])
 def test_only_a_build_pack_run_dispatched_on_main_vouches_for_an_app_label(run, want):
     assert publish_merge.build_run_actor(run) == want
+
+
+# ------------------------------------------------------------------------------------------------ FEAT-342 refresh
+
+BOT_BUILD = {"path": ".github/workflows/build-pack.yml", "head_branch": "main", "event": "workflow_dispatch",
+             "triggering_actor": {"login": "github-actions[bot]"}, "created_at": "2026-11-20T20:01:00Z"}
+REFRESH_RUN = {"path": ".github/workflows/refresh-packs.yml", "head_branch": "main", "event": "workflow_dispatch",
+               "triggering_actor": {"login": "drewkeriazes"}, "run_started_at": "2026-11-20T20:00:00Z",
+               "updated_at": "2026-11-20T20:03:00Z"}
+REFRESH_BODY = "Run: https://github.com/o/r/actions/runs/42\nRefresh: https://github.com/o/r/actions/runs/7\n"
+
+
+def test_a_build_the_refresh_started_is_vouched_for_by_who_started_the_refresh():
+    runs = {7: REFRESH_RUN}
+    assert publish_merge.vouching_actor(BOT_BUILD, REFRESH_BODY, runs.get, REPO) == "drewkeriazes"
+    ev = [labeled("automerge", APP)]
+    assert label_ok(ev, "automerge", {"drewkeriazes"}, APP, REFRESH_BODY,
+                    lambda i: publish_merge.vouching_actor(BOT_BUILD, REFRESH_BODY, runs.get, REPO), REPO)
+
+
+def test_a_build_run_a_person_started_ignores_the_refresh_line():
+    mine = {**BOT_BUILD, "triggering_actor": {"login": "someone"}}
+    assert publish_merge.vouching_actor(mine, REFRESH_BODY, {7: REFRESH_RUN}.get, REPO) == "someone"
+
+
+@pytest.mark.parametrize("change, body", [
+    ({"path": ".github/workflows/other.yml"}, REFRESH_BODY),
+    ({"head_branch": "evil"}, REFRESH_BODY),
+    ({"event": "push"}, REFRESH_BODY),
+    ({"triggering_actor": {"login": "someone"}}, REFRESH_BODY),
+    ({"run_started_at": "2026-11-20T20:02:00Z"}, REFRESH_BODY),            # the build is older than the refresh
+    ({"updated_at": "2026-11-20T19:00:00Z", "run_started_at": "2026-11-20T18:00:00Z"}, REFRESH_BODY),   # long over
+    ({"updated_at": None}, REFRESH_BODY),
+    ({}, "Run: https://github.com/o/r/actions/runs/42\n"),                  # no Refresh: line
+    ({}, REFRESH_BODY + "Refresh: https://github.com/o/r/actions/runs/8\n"),   # two
+    ({}, REFRESH_BODY.replace("o/r/actions/runs/7", "x/y/actions/runs/7")),   # another repo
+])
+def test_the_refresh_chain_fails_closed(change, body):
+    runs = {7: {**REFRESH_RUN, **change}, 8: REFRESH_RUN}
+    assert publish_merge.vouching_actor(BOT_BUILD, body, runs.get, REPO) in (None, "someone")
+    assert publish_merge.vouching_actor(BOT_BUILD, body, runs.get, REPO) != "drewkeriazes"
