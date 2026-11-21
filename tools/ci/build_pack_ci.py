@@ -1,10 +1,16 @@
 """The steps of the build-pack workflow (FEAT-245, .github/workflows/build-pack.yml): one resort in, one publish PR out.
 
     python tools/ci/build_pack_ci.py check      check the run's inputs (the probe job, before anything runs)
+    python tools/ci/build_pack_ci.py where      FEAT-344: cloud or Drew's PC (BUILD_ON); refuses a PC run that is not
+                                                a workflow_dispatch on main by a maintainer (the probe job's output)
+    python tools/ci/build_pack_ci.py pc-setup   FEAT-344, on Drew's PC only: the raw root that already holds the
+                                                resort's data (SBA_RAW_ROOTS) and the game checkout (GAME_CHECKOUT)
+                                                for the attract and spots stages, into $GITHUB_ENV
     python tools/ci/build_pack_ci.py inputs     the same, then write the step outputs and the summary's heading
     python tools/ci/build_pack_ci.py resolve    new slug: resort.py add --osm ... --stop-after plan; rebuild: skip
     python tools/ci/build_pack_ci.py fetch      build_resort.py data stages, for the raw data it builds on first
-    python tools/ci/build_pack_ci.py build      build_resort.py build to index (attract and spots skip: no game)
+    python tools/ci/build_pack_ci.py build      build_resort.py build to index (attract and spots skip on the free
+                                                runner, which has no game; on Drew's PC they run, on the GPU)
     python tools/ci/build_pack_ci.py report     build_resort.py report (the DATA-022 scorecard, not a gate here)
     python tools/ci/build_pack_ci.py publish    publish_pack.py: a draft release and a publish PR, or nothing when
                                                 the pack is the same as the one published (or already in a PR)
@@ -29,6 +35,9 @@ OSM_RE = re.compile(r"^((way|relation|skimap)/)?[1-9][0-9]{0,15}$")   # skimap/4
 RUN_ID_RE = re.compile(r"^[1-9][0-9]{0,19}$")   # FEAT-342: the Refresh packs run that started this build
 REQUESTED_BY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$")   # a game account id (Firebase uid) or a login
 MAX_NAME = 100
+BUILD_ON = ("cloud", "pc")                      # FEAT-344: the free runner, or the self-hosted runner on Drew's PC
+PC_REF = "refs/heads/main"
+RETRY_BOT = "github-actions[bot]"               # build-pack-retry.yml re-runs a run as this (FEAT-314)
 
 
 class Refused(Exception):
@@ -181,6 +190,112 @@ def stage_commands(stage, cfg):
     raise ValueError(stage)
 
 
+def maintainers(repo_dir=ROOT):
+    """.github/maintainers.txt: one login a line, # comments (publish_pack.maintainers, without its imports)"""
+    path = os.path.join(repo_dir, ".github", "maintainers.txt")
+    if not os.path.isfile(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        return {line.split("#")[0].strip() for line in f} - {""}
+
+
+def where(env, trusted):
+    """FEAT-344: -> "cloud" or "pc", the runner the build job takes. Raises Refused for a PC run that is not a
+    workflow_dispatch on main started by a maintainer. The repo is public: the PC runner must never take a pull
+    request's code or a branch's edited workflow. The build job's `if:` checks the event and the ref again, and the
+    runner's own job-started hook on the PC (tools/pc-runner/job_started.ps1, copied outside any checkout) checks
+    all of it where no workflow edit can reach. A re-run by build-pack-retry.yml has github-actions[bot] as its
+    triggering actor; the person who started the run is then GITHUB_ACTOR, who must be a maintainer (as in
+    publish_pack.publisher_login)."""
+    on = (env.get("BUILD_ON") or "cloud").strip()
+    if on not in BUILD_ON:
+        raise Refused(f"build_on {on!r} is not one of {', '.join(BUILD_ON)}")
+    if on == "cloud":
+        return on
+    actor = env.get("GITHUB_ACTOR", "")
+    by = env.get("GITHUB_TRIGGERING_ACTOR") or actor
+    why = []
+    if env.get("GITHUB_EVENT_NAME") != "workflow_dispatch":
+        why.append(f"the event is {env.get('GITHUB_EVENT_NAME')!r}, not workflow_dispatch")
+    if env.get("GITHUB_REF") != PC_REF:
+        why.append(f"the ref is {env.get('GITHUB_REF')!r}, not {PC_REF}")
+    if actor not in trusted:
+        why.append(f"{actor or 'nobody'} is not in .github/maintainers.txt")
+    if by not in (actor, RETRY_BOT) and by not in trusted:
+        why.append(f"{by} (who re-ran it) is not in .github/maintainers.txt")
+    if why:
+        raise Refused("a build on Drew's PC runs only a workflow_dispatch on main by a maintainer: " + "; ".join(why))
+    return on
+
+
+def data_slug(slug, resorts_dir=None):
+    """-> (the folder its raw data is in, its config): `raw_from` (FEAT-268), else the slug; (slug, {}) with no config"""
+    path = paths.config_path(slug, resorts_dir)
+    if not os.path.isfile(path):
+        return slug, {}
+    with open(path, encoding="utf-8") as f:
+        cfg = json.load(f)
+    return cfg.get("raw_from") or slug, cfg
+
+
+def raw_score(root, data, cfg):
+    """how many of the raw layers `cfg` builds on are already in <root>/<data>/ (build_resort.raw_need's folders,
+    plus the OSM ski file): the root holding most of them is the one the fetch tops up, not fetches again"""
+    if not cfg:
+        return 0
+    import build_resort
+    have = sum(1 for folder, _ in build_resort.raw_need(cfg).values() if os.path.isdir(os.path.join(root, data, folder)))
+    return have + os.path.isfile(os.path.join(root, data, "osm", "ski.json"))
+
+
+def pick_raw_root(roots, cfg, resorts_dir=None):
+    """FEAT-344: on Drew's PC the raw data is in more than one folder (Vail's in Documents/snowboard-sim/raw, the
+    rest in SnowboardAnywhere/raw). -> (root, note): the root that holds most of the resort's raw layers, the first
+    on a tie (a new resort: the first). Raises Refused when a resort it builds on (`deps`: raw_from, relocate
+    sources) has its data only in another root, since the fetch would then download that resort again."""
+    if not roots:
+        raise Refused("SBA_RAW_ROOTS is empty: set it in the runner's .env (docs/pc-runner.md)")
+    data, own = data_slug(cfg["slug"], resorts_dir)
+    scores = [raw_score(r, data, own) for r in roots]
+    best = max(range(len(roots)), key=lambda i: (scores[i], -i))
+    root = roots[best]
+    for d in cfg["deps"]:
+        dd, dcfg = data_slug(d, resorts_dir)
+        elsewhere = [r for r in roots if r != root and raw_score(r, dd, dcfg)]
+        if not raw_score(root, dd, dcfg) and elsewhere:
+            raise Refused(f"{cfg['slug']}'s raw data is in {root} but {d}'s is in {elsewhere[0]}: move one so they "
+                          f"share a root, or the fetch downloads {d} again")
+    note = f"{data} has {scores[best]} raw layers there" if scores[best] else "no raw data yet: it is fetched there"
+    return root, note
+
+
+def env_out(values):
+    """set variables for the job's later steps ($GITHUB_ENV)"""
+    path = os.environ.get("GITHUB_ENV")
+    if path:
+        with open(path, "a", encoding="utf-8") as f:
+            for k, v in values.items():
+                f.write(f"{k}={v}\n")
+
+
+def pc_setup(cfg, env, resorts_dir=None):
+    """FEAT-344: the variables the build steps get on Drew's PC -> ({name: value}, note). SBA_RAW_ROOTS (the
+    runner's .env) lists the raw roots, os.pathsep between; GAME_CHECKOUT is the game's main, checked out by the
+    job. Raises Refused when the runner is not set up (docs/pc-runner.md)."""
+    roots = [os.path.abspath(r.strip()) for r in (env.get("SBA_RAW_ROOTS") or env.get("SBA_RAW_ROOT") or "")
+             .split(os.pathsep) if r.strip()]
+    missing = [r for r in roots if not os.path.isdir(r)]
+    if missing:
+        raise Refused(f"raw root {missing[0]} (SBA_RAW_ROOTS) is not a folder")
+    root, note = pick_raw_root(roots, cfg, resorts_dir)
+    game = os.path.abspath(env.get("GAME_CHECKOUT") or ".")
+    if not paths.has_game(game):
+        raise Refused(f"no game checkout at {game} (GAME_CHECKOUT): the attract and spots stages need it")
+    # the OpenSkiData index (about 800 MB) stays in one place whichever root the raw data is in
+    return {"SBA_RAW_ROOT": root, "SBA_GAME_REPO": game,
+            "SBA_INDEX_DIR": env.get("SBA_INDEX_DIR") or os.path.join(roots[0], "_index")}, note
+
+
 def from_env():
     return check_inputs(os.environ.get("NAME"), os.environ.get("OSM_ID"), os.environ.get("SLUG"),
                         os.environ.get("REQUESTED_BY"), rebuild=os.environ.get("REBUILD"),
@@ -189,7 +304,8 @@ def from_env():
 
 def main(argv=None, runner=stream):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("stage", choices=["check", "inputs", "resolve", "fetch", "build", "report", "publish"])
+    ap.add_argument("stage", choices=["check", "where", "pc-setup", "inputs", "resolve", "fetch", "build", "report",
+                                      "publish"])
     a = ap.parse_args(argv)
     try:
         cfg = from_env()
@@ -198,6 +314,21 @@ def main(argv=None, runner=stream):
         return 1
     if a.stage == "check":
         print(f"{cfg['slug']}: {cfg['mode']}" + (f", builds on {', '.join(cfg['deps'])}" if cfg["deps"] else ""))
+        return 0
+    if a.stage in ("where", "pc-setup"):
+        try:
+            if a.stage == "where":
+                on = where(os.environ, maintainers())
+                outputs({"runner": on})
+                print(f"{cfg['slug']}: builds on " + ("the free runner" if on == "cloud" else "Drew's PC"))
+                return 0
+            values, note = pc_setup(cfg, os.environ)
+        except Refused as e:
+            summary(f"**Refused:** {e}")
+            return 1
+        env_out(values)
+        print("\n".join(f"{k}={v}" for k, v in values.items()))
+        summary(f"Built on Drew's PC: raw data in `{values['SBA_RAW_ROOT']}` ({note}).\n")
         return 0
     if a.stage == "inputs":
         outputs({"mode": cfg["mode"], "slug": cfg["slug"]})

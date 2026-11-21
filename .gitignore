@@ -46,3 +46,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# FEAT-344: the game checkout the Build pack job makes on Drew's PC (build-pack.yml)
+sba-game/

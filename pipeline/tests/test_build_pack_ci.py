@@ -187,6 +187,105 @@ def test_the_report_step_runs_the_published_stage_first():
     assert ci.stage_commands("report", cfg)[0][-4:] == ["--from", "published", "--stop-after", "report"]
 
 
+# ------------------------------------------------------------------------------------------------ FEAT-344: Drew's PC
+
+DISPATCH = {"BUILD_ON": "pc", "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+            "GITHUB_ACTOR": "drew", "GITHUB_TRIGGERING_ACTOR": "drew"}
+
+
+def test_cloud_is_the_default_and_anything_else_is_refused():
+    assert ci.where({}, set()) == "cloud" and ci.where({"BUILD_ON": "cloud"}, set()) == "cloud"
+    with pytest.raises(ci.Refused, match="not one of cloud, pc"):
+        ci.where({"BUILD_ON": "self-hosted"}, {"drew"})
+
+
+def test_the_pc_takes_only_a_dispatch_on_main_by_a_maintainer():
+    assert ci.where(DISPATCH, {"drew"}) == "pc"
+    for change, why in (({"GITHUB_EVENT_NAME": "pull_request"}, "not workflow_dispatch"),
+                        ({"GITHUB_EVENT_NAME": "pull_request_target"}, "not workflow_dispatch"),
+                        ({"GITHUB_REF": "refs/heads/issue-1-x"}, "not refs/heads/main"),
+                        ({"GITHUB_REF": "refs/pull/5/merge"}, "not refs/heads/main"),
+                        ({"GITHUB_ACTOR": "someone", "GITHUB_TRIGGERING_ACTOR": "someone"}, "someone is not in"),
+                        ({"GITHUB_TRIGGERING_ACTOR": "someone"}, r"someone \(who re-ran it\)")):
+        with pytest.raises(ci.Refused, match=why):
+            ci.where({**DISPATCH, **change}, {"drew"})
+    with pytest.raises(ci.Refused, match="nobody is not in"):
+        ci.where({k: v for k, v in DISPATCH.items() if not k.endswith("ACTOR")}, {"drew"})
+    # FEAT-314: build-pack-retry.yml re-runs a maintainer's run as the workflow bot
+    assert ci.where({**DISPATCH, "GITHUB_TRIGGERING_ACTOR": "github-actions[bot]"}, {"drew"}) == "pc"
+
+
+def test_the_repo_maintainers_list_is_read():
+    assert "drewkeriazes" in ci.maintainers()
+
+
+def test_where_writes_the_runner_output_and_refuses_with_a_summary(tmp_path, monkeypatch):
+    out, summ = tmp_path / "out.txt", tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
+    monkeypatch.setattr(ci, "from_env", lambda: ci.check_inputs("", "", "vail", "", tmp_path))
+    config(tmp_path, "vail")
+    monkeypatch.setattr(ci, "maintainers", lambda: {"drew"})
+    for k, v in DISPATCH.items():
+        monkeypatch.setenv(k, v)
+    assert ci.main(["where"]) == 0 and out.read_text(encoding="utf-8").splitlines() == ["runner=pc"]
+    monkeypatch.setenv("GITHUB_REF", "refs/heads/branch")
+    assert ci.main(["where"]) == 1 and "Refused" in summ.read_text(encoding="utf-8")
+
+
+def raw(root, slug, *folders):
+    for f in folders:
+        os.makedirs(os.path.join(root, slug, f), exist_ok=True)
+
+
+def test_the_raw_root_holding_the_resort_is_picked(tmp_path):
+    res, a, b = tmp_path / "resorts", str(tmp_path / "a"), str(tmp_path / "b")
+    config(res, "vail", lidar={"x": 1}, naip={"x": 1})
+    config(res, "bigsky")
+    raw(a, "vail", "landfire")                                     # SnowboardAnywhere\raw: a LANDFIRE folder only
+    raw(b, "vail", "dem1m", "dem10m", "ept", "naip1m", "mapterhorn")   # Documents\snowboard-sim\raw: the full set
+    vail = ci.check_inputs("", "", "vail", "", res)
+    root, note = ci.pick_raw_root([a, b], vail, res)
+    assert root == b and "5 raw layers" in note
+    new = {"slug": "new-one", "deps": []}
+    assert ci.pick_raw_root([a, b], new, res) == (a, "no raw data yet: it is fetched there")
+    with pytest.raises(ci.Refused, match="SBA_RAW_ROOTS is empty"):
+        ci.pick_raw_root([], new, res)
+
+
+def test_a_resort_whose_source_is_in_another_root_is_refused(tmp_path):
+    res, a, b = tmp_path / "resorts", str(tmp_path / "a"), str(tmp_path / "b")
+    config(res, "boston-mills")
+    config(res, "ohio-hills", raw_from="boston-mills", relocate=[{"source": "mad-river"}])
+    config(res, "mad-river", source_only=True)
+    raw(a, "boston-mills", "dem1m", "osm")
+    raw(b, "mad-river", "dem1m")
+    cfg = ci.check_inputs("", "", "ohio-hills", "", res)
+    with pytest.raises(ci.Refused, match="mad-river's is in"):
+        ci.pick_raw_root([a, b], cfg, res)
+    raw(a, "mad-river", "dem1m")
+    assert ci.pick_raw_root([a, b], cfg, res)[0] == a          # raw_from: boston-mills' folder decides
+
+
+def test_pc_setup_points_the_steps_at_the_raw_root_the_game_and_one_index(tmp_path):
+    res, a, b, game = tmp_path / "resorts", tmp_path / "a", tmp_path / "b", tmp_path / "sba-game"
+    for d in (a, b):
+        d.mkdir()
+    config(res, "vail", lidar={"x": 1})
+    raw(str(b), "vail", "dem1m", "ept")
+    cfg = ci.check_inputs("", "", "vail", "", res)
+    env = {"SBA_RAW_ROOTS": os.pathsep.join([str(a), str(b)]), "GAME_CHECKOUT": str(game)}
+    with pytest.raises(ci.Refused, match="no game checkout"):
+        ci.pc_setup(cfg, env, res)
+    (game / "game").mkdir(parents=True)
+    (game / "game" / "package.json").write_text("{}")
+    got, _ = ci.pc_setup(cfg, env, res)
+    assert got == {"SBA_RAW_ROOT": str(b), "SBA_GAME_REPO": str(game), "SBA_INDEX_DIR": os.path.join(str(a), "_index")}
+    assert ci.pc_setup(cfg, {**env, "SBA_INDEX_DIR": "X"}, res)[0]["SBA_INDEX_DIR"] == "X"
+    with pytest.raises(ci.Refused, match="is not a folder"):
+        ci.pc_setup(cfg, {**env, "SBA_RAW_ROOTS": str(tmp_path / "gone")}, res)
+
+
 # ------------------------------------------------------------------------------------------------ FEAT-342
 
 def test_a_refresh_run_id_is_digits_and_reaches_publish_as_a_url(tmp_path, monkeypatch):
