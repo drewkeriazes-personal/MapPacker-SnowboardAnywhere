@@ -176,10 +176,10 @@ def test_build_pack_never_interpolates_an_input_or_a_secret_into_a_shell_line():
 def test_build_pack_inputs_reach_the_steps_as_env():
     wf = load(BUILD)
     assert set(triggers(wf)["workflow_dispatch"]["inputs"]) == {"rebuild", "slug", "name", "osm_id", "requested_by",
-                                                                "build_on"}
+                                                                "build_on", "refresh_run"}
     assert wf["env"] == {"SLUG": "${{ inputs.slug }}", "REBUILD": "${{ inputs.rebuild }}", "NAME": "${{ inputs.name }}",
                          "OSM_ID": "${{ inputs.osm_id }}", "REQUESTED_BY": "${{ inputs.requested_by }}",
-                         "BUILD_ON": "${{ inputs.build_on }}"}
+                         "BUILD_ON": "${{ inputs.build_on }}", "REFRESH_RUN": "${{ inputs.refresh_run }}"}
 
 
 def test_build_pack_rebuild_list_names_only_packs_that_can_be_rebuilt():
@@ -290,6 +290,60 @@ def test_build_pack_retry_reruns_a_run_from_env_only():
             assert step["with"]["ref"] == "main" and step["with"]["persist-credentials"] is False
     (run,) = [s for s in all_steps(wf) if "run" in s]
     assert run["env"]["RETRY_RUN_ID"] == "${{ inputs.run_id }}" and run["run"] == "python tools/ci/build_failures.py retry"
+
+
+def test_build_pack_queues_with_the_build_slots_variable():
+    """FEAT-342: both queue checks read the repo variable BUILD_SLOTS (wait_turn.py: unset or empty is 1)"""
+    waits = [s for s in all_steps(load(BUILD)) if "wait_turn.py" in s.get("run", "")]
+    assert len(waits) == 2
+    for s in waits:
+        assert s["env"]["BUILD_SLOTS"] == "${{ vars.BUILD_SLOTS }}" and s["run"] == "python tools/ci/wait_turn.py"
+
+
+# ------------------------------------------------------------------------------------------------ refresh-packs (FEAT-342)
+
+REFRESH = ".github/workflows/refresh-packs.yml"
+
+
+def test_refresh_packs_takes_a_mode_through_env_only():
+    wf = load(REFRESH)
+    mode = triggers(wf)["workflow_dispatch"]["inputs"]["mode"]
+    assert set(triggers(wf)) == {"workflow_dispatch"}, "by hand only: on every merge it would pile up builds"
+    assert mode["type"] == "choice" and mode["default"] == "needs updating"
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
+    import refresh_packs
+    assert tuple(mode["options"]) == refresh_packs.MODES
+    assert wf["env"] == {"MODE": "${{ inputs.mode }}"}
+    for step in all_steps(wf):
+        assert "${{" not in step.get("run", ""), step
+
+
+def test_refresh_packs_runs_main_and_may_only_start_runs():
+    wf = load(REFRESH)
+    assert wf["permissions"] == {"contents": "read"}
+    (job,) = wf["jobs"].values()
+    assert job["permissions"] == {"actions": "write", "contents": "read"}
+    assert job["if"] == "github.ref == 'refs/heads/main'"
+    assert job["runs-on"] == "ubuntu-latest"
+    for step in all_steps(wf):
+        if step.get("uses", "").startswith("actions/checkout"):
+            assert step["with"] == {"ref": "main", "fetch-depth": 0, "persist-credentials": False}
+    (tool,) = [s for s in all_steps(wf) if "refresh_packs.py" in s.get("run", "")]
+    assert tool["env"] == {"GH_TOKEN": "${{ github.token }}"}
+    assert "secrets." not in open(os.path.join(ROOT, REFRESH), encoding="utf-8").read()
+
+
+def test_refresh_packs_starts_build_pack_with_inputs_it_has():
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
+    import build_pack_ci
+    import refresh_packs
+    inputs = triggers(load(BUILD))["workflow_dispatch"]["inputs"]
+    assert refresh_packs.WORKFLOW == os.path.basename(BUILD)
+    assert {"slug", "requested_by", "refresh_run"} <= set(inputs)
+    assert build_pack_ci.REQUESTED_BY_RE.fullmatch(refresh_packs.REQUESTED_BY)
+    sys.path.insert(0, os.path.join(ROOT, "pipeline"))
+    import publish_merge as pm
+    assert pm.REFRESH_WORKFLOW == REFRESH
 
 
 # ------------------------------------------------------------------------------------------------ issue forms (FEAT-266)

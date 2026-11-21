@@ -1,0 +1,74 @@
+# Refresh packs (FEAT-342): bring every published pack up to what main builds, by starting one Build pack run per
+# pack. Run by hand, typically at the end of a day after several pipeline PRs merged:
+#   gh workflow run refresh-packs.yml                          (needs updating)
+#   gh workflow run refresh-packs.yml -f mode=all
+#   gh workflow run refresh-packs.yml -f "mode=list only"      (the plan in the run summary, nothing started)
+#   or in the Actions tab: Refresh packs > Run workflow.
+#
+# tools/ci/refresh_packs.py reads catalog.json on main (no static list) and picks the packs whose catalog `pipeline`
+# stamp is behind main in a path their build reads (needs updating), or every pack (all). It leaves out, each with a
+# reason code in the summary and in the plan artifact: test packs (publish_pack.py --synth), packs whose
+# resorts/<slug>/runner.json says the free runner can't build them (too_big: Vail), and packs published with menu
+# stills or ghost takes (needs_gpu_attract, read from the release zip by ranged requests): a cloud build has no game
+# to render them and would drop them (FEAT-343, FEAT-344). Then it dispatches build-pack.yml on main per pack, with
+# requested_by refresh-packs and refresh_run this run's id; each build keeps its own queue slot (BUILD_SLOTS at a
+# time, shared with hand-started builds), retries, outcome log and publish PR, and this run does not wait for them.
+# publish_pack.py publishes nothing when a rebuilt pack's content equals the published one, so a wrong pick costs
+# runner time only. The publish PR names this run (`Refresh:`); publish_merge.py trusts the App's automerge label on
+# it only when this run is this workflow on main, started by a maintainer, and the build was created while it ran.
+#
+# Security: the one input is a choice; it reaches the step as an environment variable, never in a `run:` line
+# (pipeline/tests/test_workflows.py checks). Only on main, so a changed copy on a branch can't vouch for builds.
+
+name: Refresh packs
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Which packs to rebuild
+        required: true
+        type: choice
+        default: needs updating
+        options:
+          - needs updating
+          - all
+          - list only
+
+run-name: Refresh packs (${{ inputs.mode }})
+
+permissions:
+  contents: read
+
+env:
+  MODE: ${{ inputs.mode }}
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: write             # start build-pack.yml runs
+      contents: read
+    steps:
+      # full history: the needs-updating pick diffs each pack's stamp against main
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: pick and start
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/ci/refresh_packs.py --json "$RUNNER_TEMP/refresh-plan.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: refresh-plan
+          path: ${{ runner.temp }}/refresh-plan.json
+          if-no-files-found: ignore
+          retention-days: 30

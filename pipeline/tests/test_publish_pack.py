@@ -492,3 +492,19 @@ def test_a_run_the_retry_workflow_reran_is_still_the_persons(monkeypatch):
     assert publish_pack.publisher_login() == "drewkeriazes"
     monkeypatch.setenv("GITHUB_TRIGGERING_ACTOR", "someone")          # a person's own re-run stays that person's
     assert publish_pack.publisher_login() == "someone"
+
+
+def test_a_refresh_build_names_its_refresh_run_and_asks_for_automerge():
+    """FEAT-342: a Build pack run Refresh packs started has the workflow token's bot as its triggering actor; the
+    PR names the refresh run, and publish_merge.py checks a maintainer started it before trusting the label"""
+    body = publish_pack.pr_body(ENTRY, why="w", release_url="u", started_by=publish_pack.BOT,
+                                run_url="https://github.com/o/r/actions/runs/42", requested_by="refresh-packs",
+                                refresh_run="https://github.com/o/r/actions/runs/7")
+    assert "Refresh: https://github.com/o/r/actions/runs/7\n" in body
+    assert "Refresh:" not in publish_pack.pr_body(ENTRY, why="w", release_url="u", started_by="d", run_url=None,
+                                                  requested_by=None)
+    m = {"drewkeriazes"}
+    assert publish_pack.vouched("drewkeriazes", None, m)
+    assert publish_pack.vouched(publish_pack.BOT, "https://github.com/o/r/actions/runs/7", m)
+    assert not publish_pack.vouched(publish_pack.BOT, None, m)
+    assert not publish_pack.vouched("someone", "https://github.com/o/r/actions/runs/7", m)

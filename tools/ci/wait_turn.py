@@ -1,11 +1,13 @@
-"""Wait for this run's turn among the build-pack runs (FEAT-245): one build at a time, the rest queue in order.
+"""Wait for this run's turn among the build-pack runs (FEAT-245): N builds at a time (FEAT-342), the rest queue in order.
 
-    python tools/ci/wait_turn.py [--workflow build-pack.yml] [--poll 60] [--max-wait 330]
+    python tools/ci/wait_turn.py [--workflow build-pack.yml] [--slots N] [--poll 60] [--max-wait 330]
 
 GitHub's `concurrency` keeps only one pending run per group and cancels an older pending one when a newer one
 arrives, so it cannot hold a queue of more than one. Instead every run starts at once and this waits while any
 run of the same workflow that started earlier (its current attempt's `run_started_at`, then the id) has not
-completed. The oldest run never waits, so the queue always moves. The workflow runs it again at the start of the
+completed; with --slots N (FEAT-342, Refresh packs) it waits while N or more of them have not, so N build at once.
+--slots defaults to the BUILD_SLOTS environment variable (build-pack.yml passes the repo variable), else 1: one
+at a time, as before. The oldest run never waits, so the queue always moves. The workflow runs it again at the start of the
 build job, so "Re-run failed jobs", which skips a queue job that passed, still waits its turn. Reads the runs with `gh api` (GH_TOKEN; actions: read), for GITHUB_REPOSITORY and
 GITHUB_RUN_ID. Gives up after --max-wait minutes with exit 1 (a job may run 6 hours at most).
 """
@@ -22,6 +24,15 @@ def order(r: dict, own: dict | None = None) -> tuple:
     if own is not None and not (r.get("run_started_at") and own.get("run_started_at")):
         return ("", int(r["id"]))
     return (r.get("run_started_at") or "", int(r["id"]))
+
+
+def slots_from(value) -> int:
+    """the slot count from --slots or BUILD_SLOTS: a whole number of at least 1; empty or anything else is 1 (an unset
+    repo variable reaches the step as an empty string)"""
+    try:
+        return max(1, int(str(value).strip()))
+    except (TypeError, ValueError):
+        return 1
 
 
 def blocking(runs: list, own_id: int) -> list:
@@ -59,6 +70,8 @@ def main(argv=None, list_runs: Callable | None = None, sleep: Callable = time.sl
          clock: Callable = time.monotonic) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--workflow", default="build-pack.yml", help="workflow file name (default build-pack.yml)")
+    ap.add_argument("--slots", default=None,
+                    help="builds that may run at once (default: the BUILD_SLOTS environment variable, else 1)")
     ap.add_argument("--poll", type=int, default=60, help="seconds between looks (default 60)")
     ap.add_argument("--max-wait", type=float, default=330, help="minutes to wait before giving up (default 330)")
     a = ap.parse_args(argv)
@@ -68,18 +81,23 @@ def main(argv=None, list_runs: Callable | None = None, sleep: Callable = time.sl
         print("GITHUB_REPOSITORY and GITHUB_RUN_ID must be set (this runs inside a workflow)")
         return 2
     own_id = int(own)
+    slots = slots_from(a.slots if a.slots is not None else os.environ.get("BUILD_SLOTS"))
+    if slots > 1:
+        print(f"{slots} builds at a time", flush=True)
     list_runs = list_runs or (lambda: gh_runs(repo, a.workflow))
     t0 = clock()
     last = None
     while True:
         ahead = blocking(list_runs(), own_id)
-        if not ahead:
+        if len(ahead) < slots:
             waited = clock() - t0
             print("my turn" + (f" after {waited / 60:.0f} min" if waited >= 60 else ""), flush=True)
             return 0
         ids = [r["id"] for r in ahead]
         if ids != last:
-            print(f"waiting for {len(ahead)} earlier build(s): " + ", ".join(describe(r) for r in ahead), flush=True)
+            at_once = f", {slots} at a time" if slots > 1 else ""
+            print(f"waiting for {len(ahead)} earlier build(s){at_once}: " + ", ".join(describe(r) for r in ahead),
+                  flush=True)
             last = ids
         if clock() - t0 > a.max_wait * 60:
             print(f"gave up after {a.max_wait:.0f} min with {len(ahead)} build(s) still ahead; run it again later")

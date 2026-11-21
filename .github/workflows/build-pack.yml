@@ -6,7 +6,8 @@
 #   The list is static (GitHub reads no list at run time): tools/ci/rebuild_choices.py --write rewrites it from
 #   catalog.json after a new resort is published.
 #
-#   queue    one build at a time, in the order they were started (tools/ci/wait_turn.py). Not `concurrency`:
+#   queue    BUILD_SLOTS builds at a time (a repo variable, FEAT-342; unset is 1), in the order they were started
+#            (tools/ci/wait_turn.py). Not `concurrency`:
 #            GitHub keeps one pending run per group and cancels the older pending one, so a third build would drop
 #            the second.
 #   probe    one small request to every data host the build calls (tools/ci/probe_hosts.py); a host that is down
@@ -97,6 +98,10 @@ on:
         options:
           - cloud
           - pc
+      refresh_run:
+        description: The Refresh packs run that started this build (FEAT-342); set by refresh-packs.yml, leave empty
+        required: false
+        type: string
 
 run-name: Build pack ${{ inputs.slug || inputs.rebuild }}
 
@@ -110,6 +115,7 @@ env:
   OSM_ID: ${{ inputs.osm_id }}
   REQUESTED_BY: ${{ inputs.requested_by }}
   BUILD_ON: ${{ inputs.build_on }}
+  REFRESH_RUN: ${{ inputs.refresh_run }}
 
 jobs:
   queue:
@@ -129,6 +135,7 @@ jobs:
       - name: wait for the builds started before this one
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_SLOTS: ${{ vars.BUILD_SLOTS }}
         run: python tools/ci/wait_turn.py
 
   probe:
@@ -233,6 +240,7 @@ jobs:
       - name: still my turn
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_SLOTS: ${{ vars.BUILD_SLOTS }}
         run: python tools/ci/wait_turn.py
       - uses: actions/setup-node@v4
         if: runner.os == 'Linux'

@@ -1,0 +1,270 @@
+"""Refresh packs (FEAT-342, .github/workflows/refresh-packs.yml): rebuild every published pack that needs it with the
+current pipeline, by starting one Build pack run per pack.
+
+    python tools/ci/refresh_packs.py --mode "list only"        the plan, nothing started (also on Drew's PC)
+    python tools/ci/refresh_packs.py --mode "needs updating"   start a build for each pack behind main
+    python tools/ci/refresh_packs.py --mode all                start a build for every pack it can
+    [--base origin/main] [--json plan.json] [--no-attract]
+
+Pick: every resort in catalog.json (and its test packs, which are always left out: `publish_pack.py --synth`
+builds and publishes the synthetic pack after a pipeline merge). In *needs updating* a pack is picked when its
+catalog `pipeline` stamp is behind --base in a path its build reads (BUILD_PATHS: pipeline/ without its tests and
+Markdown, the resort's own resorts/<slug>/ and manifests/<slug>.json, and those of the resorts it builds on, its
+`raw_from` and relocate sources); a stamp git can't find (a pack built before the move to this repo, FEAT-238)
+counts as behind. A wrong pick only costs runner time: publish_pack.py publishes nothing when the content is the
+published version's.
+
+Left out, each with a reason code (the JSON plan's `reason`, so FEAT-344 can route them to another runner later):
+  test_pack          a catalog test pack (synth): publish_pack.py --synth, not Build pack
+  no_config          no resorts/<slug>/<slug>.json, or a source_only one: Build pack can't rebuild it
+  too_big            resorts/<slug>/runner.json says the free runner can't build it ({"cloud": false,
+                     "reason": "too_big", "why": "..."}): built on Drew's PC
+  needs_gpu_attract  the published pack's attract/index.json is generated and has menu stills or ghost takes,
+                     which need the game on a GPU (FEAT-343); a cloud rebuild would drop them
+  attract_unread     the published pack's attract/ could not be read (the release zip, by ranged reads of its
+                     directory and that one file): left out rather than risk dropping a menu
+  no_release         the catalog entry has no pack url
+
+Start: `gh api .../actions/workflows/build-pack.yml/dispatches` on main per picked pack, slug order, with
+requested_by `refresh-packs` and refresh_run this run's id (publish_pack.py writes it in the publish PR, and
+publish_merge.py lets the App's automerge label count when a maintainer started this run). *list only* starts
+nothing and shows the needs updating plan. The run summary gets a table, one row per pack; --json writes the same rows as data. Exit 1 when a start
+failed.
+"""
+import argparse, json, os, re, subprocess, sys, urllib.request, zipfile
+from typing import Callable
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(ROOT, "pipeline"))
+import paths  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_pack_ci  # noqa: E402
+import rebuild_choices  # noqa: E402
+
+MODES = ("needs updating", "all", "list only")
+WORKFLOW = "build-pack.yml"
+REQUESTED_BY = "refresh-packs"
+ATTRACT = "attract/index.json"          # the zip has the pack's files at its root
+# what a build reads besides the resorts' own folders; pipeline/resorts and pipeline/manifests are where the configs
+# lived before the move (build_resort.py NOT_BUILD)
+BUILD_PATHS = ["pipeline", ":(exclude)pipeline/tests", ":(exclude,glob)pipeline/**/*.md",
+               ":(exclude)pipeline/resorts", ":(exclude)pipeline/manifests"]
+REASONS = {
+    "test_pack": "a test pack: publish_pack.py --synth builds and publishes it",
+    "no_config": "no config in resorts/ that Build pack can rebuild",
+    "too_big": "too big for the free runner: build on Drew's PC",
+    "needs_gpu_attract": "published with menu stills or ghost takes, which need the game on a GPU (FEAT-343): "
+                         "build on Drew's PC",
+    "attract_unread": "could not read the published menu (attract/): build on Drew's PC, or run again",
+    "no_release": "no pack url in the catalog",
+}
+
+
+def git(*args, cwd=ROOT) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+
+
+def has_commit(sha: str, git=git) -> bool:
+    return bool(sha) and re.fullmatch(r"[0-9a-f]{4,40}", sha) is not None and \
+        git("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
+
+
+def build_paths(slug: str, resorts=None) -> list[str]:
+    """the git pathspecs a pack's build reads: BUILD_PATHS plus its resort folder and manifest and its sources'"""
+    out = list(BUILD_PATHS)
+    for s in build_pack_ci.deps(slug, resorts) + [slug]:
+        out += [f"resorts/{s}", f"manifests/{s}.json"]
+    return out
+
+
+def behind(stamp: str, base: str, pathspecs: list[str], git=git) -> list[str] | None:
+    """the files `base` changed since `stamp` in `pathspecs`, [] when none; None when git can't find the stamp"""
+    if not has_commit(stamp, git):
+        return None
+    p = git("diff", "--name-only", stamp, base, "--", *pathspecs)
+    if p.returncode:
+        return None
+    return [ln for ln in p.stdout.splitlines() if ln.strip()]
+
+
+def runner(slug: str, resorts=None) -> dict:
+    """resorts/<slug>/runner.json (FEAT-342): {"cloud": false, "reason": <code>, "why": <text>} for a pack the free
+    runner can't build; {} when there is none"""
+    path = paths.runner_path(slug, resorts)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+class RangeFile:
+    """a read-only, seekable file over HTTP range requests, for zipfile: reading one member of a release zip fetches
+    the end of the central directory, the directory and that member, a few requests, not the whole pack"""
+
+    def __init__(self, url: str, size: int, opener: Callable | None = None):
+        self.url, self.size, self.pos, self.opener = url, size, 0, opener or urllib.request.urlopen
+
+    def seekable(self):
+        return True
+
+    def tell(self):
+        return self.pos
+
+    def seek(self, off, whence=0):
+        self.pos = off if whence == 0 else self.pos + off if whence == 1 else self.size + off
+        return self.pos
+
+    def read(self, n=-1):
+        if n is None or n < 0:
+            n = self.size - self.pos
+        if n <= 0 or self.pos >= self.size:
+            return b""
+        end = min(self.size, self.pos + n) - 1
+        req = urllib.request.Request(self.url, headers={"Range": f"bytes={self.pos}-{end}",
+                                                        "User-Agent": "mappacker-refresh-packs"})
+        with self.opener(req, timeout=60) as r:
+            if getattr(r, "status", 206) != 206:
+                raise OSError(f"no range answer from {self.url} (HTTP {getattr(r, 'status', '?')})")
+            data = r.read()
+        self.pos += len(data)
+        return data
+
+
+def published_attract(url: str, size: int) -> dict | None:
+    """the published pack's attract/index.json, or None when it has no attract/; raises OSError when it can't read"""
+    if size <= 0:
+        raise OSError("the catalog has no size for it")
+    try:
+        with zipfile.ZipFile(RangeFile(url, size)) as z:
+            return json.loads(z.read(ATTRACT)) if ATTRACT in z.namelist() else None
+    except (zipfile.BadZipFile, ValueError, KeyError) as e:
+        raise OSError(f"{url}: {e}") from e
+
+
+def needs_gpu(index: dict | None) -> bool:
+    """a generated menu with stills or ghost takes: made by the game's tools on a GPU, which a cloud build skips"""
+    return bool(index) and bool(index.get("generated")) and bool(index.get("stills") or index.get("ghosts"))
+
+
+def plan(catalog: dict, mode: str, base: str, resorts=None, git=git, attract: Callable | None = published_attract,
+         ) -> list[dict]:
+    """one row per catalog pack: {slug, name, stamp, action: start | up_to_date | left_out, reason, detail}"""
+    rows = []
+    for e in catalog.get("test") or []:
+        rows.append({"slug": e["slug"], "name": e.get("name", e["slug"]), "stamp": (e.get("pack") or {}).get("pipeline"),
+                     "action": "left_out", "reason": "test_pack", "detail": REASONS["test_pack"]})
+    for e in sorted(catalog.get("resorts") or [], key=lambda e: e["slug"]):
+        slug, pack = e["slug"], e.get("pack") or {}
+        row = {"slug": slug, "name": e.get("name", slug), "stamp": pack.get("pipeline"), "action": "start",
+               "reason": None, "detail": ""}
+        rows.append(row)
+
+        def out(reason, detail=None):
+            row.update(action="left_out", reason=reason, detail=detail or REASONS[reason])
+        if not build_pack_ci.SLUG_RE.fullmatch(slug) or                 not rebuild_choices.rebuildable(slug, resorts or paths.RESORTS):
+            out("no_config")
+            continue
+        r = runner(slug, resorts)
+        if r.get("cloud") is False:
+            code = r.get("reason") if r.get("reason") in REASONS else "too_big"
+            out(code, REASONS[code] + (f" ({r['why']})" if r.get("why") else ""))
+            continue
+        if mode != "all":         # list only shows the needs updating plan
+            try:
+                changed = behind(pack.get("pipeline") or "", base, build_paths(slug, resorts), git)
+            except build_pack_ci.Refused as err:
+                out("no_config", str(err))
+                continue
+            if changed == []:
+                row.update(action="up_to_date", detail=f"nothing it builds from changed since {row['stamp']}")
+                continue
+            row["detail"] = (f"stamp {row['stamp']} is not in this repo's history" if changed is None else
+                             f"{len(changed)} file(s) changed since {row['stamp']}: " + ", ".join(changed[:3])
+                             + (", ..." if len(changed) > 3 else ""))
+        else:
+            row["detail"] = "mode all: every pack it can"
+        if not pack.get("url"):
+            out("no_release")
+            continue
+        if attract:
+            try:
+                if needs_gpu(attract(pack["url"], int(pack.get("bytes") or 0))):
+                    out("needs_gpu_attract")
+                    continue
+            except (OSError, ValueError) as err:
+                out("attract_unread", f"{REASONS['attract_unread']}: {err}")
+                continue
+    return rows
+
+
+def dispatch(repo: str, slug: str, refresh_run: str | None) -> str:
+    """start Build pack on main for `slug` -> the run's url (or the workflow's runs page when GitHub does not say)"""
+    cmd = ["gh", "api", "-X", "POST", f"repos/{repo}/actions/workflows/{WORKFLOW}/dispatches", "-f", "ref=main",
+           "-f", f"inputs[slug]={slug}", "-f", f"inputs[requested_by]={REQUESTED_BY}", "-F", "return_run_details=true"]
+    if refresh_run:
+        cmd += ["-f", f"inputs[refresh_run]={refresh_run}"]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode:
+        raise RuntimeError((p.stderr or p.stdout).strip())
+    try:
+        return json.loads(p.stdout).get("html_url") or ""
+    except ValueError:
+        return f"https://github.com/{repo}/actions/workflows/{WORKFLOW}"
+
+
+def table(rows: list[dict], mode: str, base_sha: str) -> str:
+    words = {"start": "would start" if mode == "list only" else "started", "up_to_date": "up to date",
+             "left_out": "left out", "start_failed": "**start failed**"}
+    lines = [f"## Refresh packs ({mode})", "",
+             f"Against `{base_sha}`. " + ", ".join(f"{sum(r['action'] == a for r in rows)} {w}"
+                                                    for a, w in words.items() if any(r['action'] == a for r in rows))
+             + ".", "", "| pack | stamp | result | why |", "|---|---|---|---|"]
+    for r in rows:
+        res = words[r["action"]] + (f" ([run]({r['run_url']}))" if r.get("run_url") else "")
+        why = (f"`{r['reason']}`: " if r.get("reason") else "") + build_pack_ci.md(r.get("detail") or "")
+        lines.append(f"| {build_pack_ci.md(r['name'])} (`{r['slug']}`) | `{r.get('stamp') or '-'}` | {res} | {why} |")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None, start: Callable = dispatch) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--mode", choices=MODES, default=os.environ.get("MODE") or "needs updating")
+    ap.add_argument("--base", default=None, help="the commit packs are compared with (default origin/main, else HEAD)")
+    ap.add_argument("--catalog", default=os.path.join(ROOT, "catalog.json"))
+    ap.add_argument("--json", help="write the plan here as JSON (rows with a reason code each)")
+    ap.add_argument("--no-attract", action="store_true", help="don't read the published packs' attract/")
+    a = ap.parse_args(argv)
+    base = a.base or ("origin/main" if git("rev-parse", "--verify", "-q", "origin/main").returncode == 0 else "HEAD")
+    base_sha = git("rev-parse", "--short", base).stdout.strip() or base
+    with open(a.catalog, encoding="utf-8") as f:
+        catalog = json.load(f)
+    rows = plan(catalog, a.mode, base, attract=None if a.no_attract else published_attract)
+    if a.mode != "list only":
+        repo, own = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_RUN_ID")
+        if not repo:
+            print("GITHUB_REPOSITORY must be set to start builds (this runs inside a workflow); use --mode 'list only'")
+            return 2
+        for r in rows:
+            if r["action"] != "start":
+                continue
+            try:
+                r["run_url"] = start(repo, r["slug"], own)
+                print(f"started {r['slug']}: {r['run_url']}", flush=True)
+            except Exception as err:   # one failed start must not stop the rest
+                r.update(action="start_failed", detail=str(err))
+                print(f"::error::could not start {r['slug']}: {err}", flush=True)
+    text = table(rows, a.mode, base_sha)
+    print(text)
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+            f.write(text)
+    if a.json:
+        with open(a.json, "w", encoding="utf-8", newline="\n") as f:
+            json.dump({"mode": a.mode, "base": base_sha, "packs": rows,
+                       "left_out": [r for r in rows if r["action"] == "left_out"]}, f, indent=1)
+            f.write("\n")
+    return 1 if any(r["action"] == "start_failed" for r in rows) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
