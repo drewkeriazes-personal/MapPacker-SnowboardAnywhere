@@ -29,7 +29,7 @@ from pyproj import Transformer
 from packwriter import (FORMAT_VERSION, write_height_set, write_mask_set, write_instances, write_meta, write_features, decode_terrarium)
 from piste_dir import piste_direction
 from terrain_ao import sky_visibility
-from moguls import run_mogul_score, slope_window, paint_field, paint_polygon, corridor_extent, soften_mask
+from moguls import run_mogul_score, slope_window, paint_field, paint_polygon, corridor_extent, soften_mask, groomed_keep
 from canopy_spots import run_half_width   # run corridor half widths, shared with the BUG-028 canopy measure
 import species as spc
 import paths
@@ -1090,7 +1090,8 @@ def centerlines(run_list):
 def yield_to_ungroomed(groomed, run_list):
     """BUG-030: a groomed corridor only keeps the cells that are nearer a groomed run's centre line than
     a never-groomed run's, so the corridor painted around a groomer no longer spills corduroy onto the
-    ungroomed run beside it. Logs the groomed share along each never-groomed run."""
+    ungroomed run beside it; BUG-067: but always its own core strip (moguls.groomed_keep). Logs the groomed
+    share along each never-groomed run."""
     lines = [r for r in run_list if not r.get("area") and len(r["points"]) >= 2]
     never = [r for r in lines if not r["groomed"]]
     if not never or not any(r["groomed"] for r in lines):
@@ -1099,7 +1100,7 @@ def yield_to_ungroomed(groomed, run_list):
     d_u = ndimage.distance_transform_edt(~centerlines(never)).astype(np.float32)
     before = never_groomed_share(groomed, never)
     cells_before = int((groomed > 0.5).sum())
-    groomed = groomed * (d_g <= d_u)
+    groomed = groomed * groomed_keep(d_g, d_u, R2)
     del d_g, d_u
     after = never_groomed_share(groomed, never)
     cells_after = int((groomed > 0.5).sum())

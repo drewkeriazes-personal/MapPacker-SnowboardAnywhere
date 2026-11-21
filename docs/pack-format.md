@@ -58,6 +58,11 @@ RGBA PNG at 2 m. R = rock (0..255), G = scree/talus, B = groomed piste, A = cano
 Snow is implicit: `snow = 1 - max(rock, scree)`. Alpha drives forest-floor darkening and
 snow-depth reduction under trees.
 
+B is each groomed run's corridor (its half width either side of the OSM line), off canopy, blurred over about
+2 m. Beside a never-groomed run a corridor keeps only the cells nearer its own line (BUG-030), but always
+the 7 m either side of its line (BUG-067, `moguls.GROOMED_CORE`), so a groomer crossing or running beside a
+bump run stays smooth down its middle.
+
 R is rock the imagery saw (full weight on steep bare ground, half on grey rock on gentler slopes),
 softened over about 2 m; it carries no slope-only term. The renderer adds rock on faces steeper than
 about 45 degrees, on wind-scoured ridges and talus below cliffs, and thresholds the weights against

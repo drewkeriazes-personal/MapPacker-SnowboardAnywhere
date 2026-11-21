@@ -5,7 +5,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from moguls import FIELD_FADE, corridor_extent, paint_field, run_mogul_score, slope_window, soften_mask  # noqa: E402
+from moguls import FIELD_FADE, GROOMED_CORE, corridor_extent, groomed_keep, paint_field, run_mogul_score, slope_window, soften_mask  # noqa: E402
 
 
 def run(**kw):
@@ -102,3 +102,19 @@ def test_soften_mask_ramps_from_the_edge():
     assert np.all(np.diff(r) >= -1e-6)
     assert np.all(soften_mask(np.ones((8, 8), bool), 2.0) == 1.0)
 
+
+def test_groomed_core_survives_a_bump_run_beside_it():
+    """BUG-067: a groomer 9 m from a never-groomed run's line keeps its own core strip; past the midline the cells
+    still go to the bump run (BUG-030)"""
+    from scipy import ndimage
+    res = 2.0
+    groomed_line = np.zeros((40, 40), bool); groomed_line[:, 10] = True
+    never_line = np.zeros((40, 40), bool); never_line[:, 14] = True      # 8 m away
+    d_g = ndimage.distance_transform_edt(~groomed_line); d_u = ndimage.distance_transform_edt(~never_line)
+    keep = groomed_keep(d_g, d_u, res)
+    core = int(GROOMED_CORE // res)
+    assert keep[:, 10 - core:10 + core + 1].all()          # the groomer's own strip, the side toward the bump run too
+    assert not keep[:, 14].any()                            # the bump run's line stays ungroomed
+    assert keep[:, 0].all()                                 # the far side still nearer the groomer
+    # without a core the old rule handed the cells past the midline (12 and up) to the bump run
+    assert not groomed_keep(d_g, d_u, res, core=0.0)[:, 13].any()
