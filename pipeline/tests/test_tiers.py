@@ -108,6 +108,25 @@ def test_canopy_height_and_bronze_surface():
     assert v[30, 5] > 0.6 and v[30, 35] == pytest.approx(0.4, abs=0.05)
 
 
+
+def test_groomed_runs_clear_the_bronze_canopy():
+    """BUG-163: WorldCover classes a narrow trail cut's mixed 10 m pixels as tree, so the groomed corridor clears the
+    canopy; an ungroomed run and a groomed glade keep theirs"""
+    res = 2.0
+    wc = np.full((60, 60), ts.WC_TREE, np.uint8)              # the trail down x = 25..35 is not in WorldCover
+    chm = ts.canopy_height(np.full(wc.shape, 20.0, np.float32), wc, res)
+    canopy = ts.bronze_surface(wc, chm, np.zeros_like(chm), res)["canopy"]
+    assert canopy.all()
+    groomed = np.zeros(wc.shape, np.float32)
+    piste = np.zeros(wc.shape, bool)
+    groomed[:30, 25:36] = 1.0; piste[:30, 25:36] = True       # groomed run down the north half of the cut
+    piste[30:, 25:36] = True                                  # never groomed in the south half
+    groomed[:, 50:56] = 1.0                                   # a groomed glade: groomed, not a piste corridor
+    out, n = ts.clear_groomed_trails(canopy, groomed, piste)
+    assert not out[:30, 25:36].any() and n == int(canopy[:30, 25:36].sum())
+    assert out[45, 30] and out[10, 52] and out[10, 10]        # ungroomed run, glade and forest keep their canopy
+
+
 # ------------------------------------------------------------------ the plan outside the US (resort.py)
 
 def pb_varint(v):

@@ -1133,6 +1133,10 @@ cut = canopy_grown & (piste_any | (groomed > 0))
 canopy &= ~cut
 log(f"  grown canopy kept off runs: {cut.mean()*100:.2f}% of the pack")
 del cut, canopy_grown
+if not LIDAR and not NAIP:
+    # BUG-163: the WorldCover canopy is too coarse for a trail cut; the groomed runs clear it (tier_sources)
+    canopy, _n = ts.clear_groomed_trails(canopy, groomed, piste_any)
+    log(f"  canopy cleared off groomed runs (no lidar or NAIP): {_n * R2 * R2 / 1e4:.1f} ha")
 # built-up: roads and building footprints are grey in NAIP and were classified as rock (I-70, the villages)
 built_f = np.zeros((H2, W2), np.float32)
 for rd in roads:

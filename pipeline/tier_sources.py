@@ -6,6 +6,7 @@
   3 x 3 degree COGs the far cover levels read) on a UTM grid: the canopy height model where there is no lidar
   (Silver trees) and the surface classes where there is no NAIP (Bronze masks).
 - `bronze_surface`: canopy, rock and scree from those classes, in the shape build_pack.py's NAIP rules give them.
+- `clear_groomed_trails`: BUG-163, that canopy taken off the groomed run corridors it is too coarse to see.
 """
 import glob
 import math
@@ -176,3 +177,14 @@ def bronze_surface(wc, chm, slope, res):
     rock_steep = (bare & (slope > 28)) | ((slope > 42) & ~canopy & ~snow & have)
     scree = bare & (slope <= 28) & (slope > 12)
     return {"have": have, "canopy": canopy, "rock": bare | rock_steep, "rock_steep": rock_steep, "scree": scree}
+
+
+def clear_groomed_trails(canopy, groomed, piste):
+    """BUG-163: the canopy without lidar or NAIP off the groomed run corridors. WorldCover's 10 m tree cover, smoothed
+    over 5 m and kept at a share over half, and the ETH height on it, cannot see a trail cut narrower than about 20 m:
+    at Whistler (Bronze) 31 % of the groomed centre line sat under that canopy (Village Run, the Panoramas, the Lost
+    Lake trails), so stage 7 zeroed its corduroy and planted stems on it. A groomer passes there, so OSM's groomed run
+    is the better source: its corridor (`groomed` > 0; `piste` the non-glade corridors, so a groomed glade keeps its
+    trees) holds no canopy. -> (canopy, cells cleared)"""
+    trail = (groomed > 0) & piste & canopy
+    return canopy & ~trail, int(trail.sum())
