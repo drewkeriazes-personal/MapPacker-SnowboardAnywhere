@@ -1,6 +1,6 @@
 # Pack report: Whistler Blackcomb (`whistler-blackcomb`)
 
-Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14T09:03:59Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261121T065407Z-90350b`, pipeline `ca9f339`, format 1. Report 2026-11-21T06:54:25Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: bronze** (FEAT-225: the weakest layer's)
 
@@ -10,7 +10,7 @@ Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14
 | trees | stands from ETH canopy height + WorldCover | silver |
 | surface | WorldCover 10 m | bronze |
 
-**Preview**: MVP lines 8b hold it back.
+**Playable**: every DATA-022 MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
@@ -20,18 +20,18 @@ Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14
 | 3 | Raw: land cover and pistes_wide | ✅ | all present |
 | 4 | Raw: LANDFIRE | ⚠️ | outside the US, where LANDFIRE has no data: species from elevation and aspect only (FEAT-225) |
 | 5 | Heights fine, mid, far | ✅ | 630 to 2431 m, void 0.00% inside the bounds |
-| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 6.6% (reference 1.1%), canopy 68% : more rock than the reference by over 3x, check the thresholds (FEAT-175 step 2) |
-| 7 | Trees and shrubs with species | ✅ | 0.00 M crowns + 4.11 M stems = 30.6 k per km2 (78% of the reference) (no lidar: every tree is a stand stem, from the ETH canopy height) |
+| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 6.6% (reference 1.1%), canopy 67% : more rock than the reference by over 3x, check the thresholds (FEAT-175 step 2) |
+| 7 | Trees and shrubs with species | ✅ | 0.00 M crowns + 4.00 M stems = 29.7 k per km2 (76% of the reference) (no lidar: every tree is a stand stem, from the ETH canopy height) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
-| 8b | Far tree ring (lidar crowns round the resort) | ❌ | none: no lidar for a far ring at this tier, so the ridges round the resort keep the land cover alone (FEAT-225) |
-| 9 | features.json | ⚠️ | 92 runs without a difficulty; 1 of 25 chairs and gondolas without towers; 35 lifts, 921 runs, 3148 buildings, 3029 roads, 77 water, 1106 peaks, 0 labels |
+| 8b | Far tree ring (crowns round the resort) | ✅ | 0.81 M crowns in 321 cells generated on the ETH canopy height and WorldCover tree cover, not lidar (FEAT-257) |
+| 9 | features.json | ⚠️ | 92 runs without a difficulty; 35 lifts, 921 runs, 3148 buildings, 3029 roads, 77 water, 1106 peaks, 0 labels (1 lifts with towers spaced by the pipeline, no OSM pylons) |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | generated (gen_content.py) on Showcase, top of Showcase Quad |
-| 11 | In the resort picker | ✅ | in packs/index.json |
+| 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 313 runs of 300 m and 60 m drop or more |
 | 13 | Attribution for every data set | ✅ | 5 lines |
-| 14 | Validated | ⚠️ | canopy 25% on run centre lines (trail cuts missing?); 20 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
+| 14 | Validated | ⚠️ | 20 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ✅ | 20% of runs with a grooming record, 46 reports in raw |
+| 15 | Grooming history | ✅ | 20% of runs with a grooming record, 44 reports in raw; 86% of the green and blue run length groomed |
 | 16 | Place names | ❌ | no GNIS file in raw/names; 1106 peaks, 0 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/whistler-blackcomb/landmarks.json) |
@@ -44,14 +44,16 @@ Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14
 | Measure | This pack | Reference |
 |---|---:|---:|
 | Area, km2 | 134.5 |  |
-| Trees (crowns + stems) per km2 | 30,586 | 39,201 |
+| Trees (crowns + stems) per km2 | 29,713 | 39,201 |
 | Rock share | 6.6% | 1.1% |
-| Canopy share | 68% | 66% |
-| Canopy on run centre lines | 25.4% | 3.7% |
-| Groomed share | 3.0% |  |
+| Canopy share | 67% | 66% |
+| Canopy on run centre lines | 8.9% | 3.7% |
+| Groomed share | 5.0% |  |
 | Runs with a grooming record | 20% |  |
 | Runs groomed in OSM | 42% |  |
-| Far ring crowns | 0 |  |
+| Green and blue run length groomed | 86% |  |
+| Groomed mask on groomed run centre lines | 100% |  |
+| Far ring crowns | 809,152 |  |
 | Mean mogulScore by difficulty | advanced 0.55, easy 0.0, expert 0.65, freeride 0.36, intermediate 0.17, none 0.0, novice 0.0 | |
 
 **Advanced or harder runs never over 15 deg:** Poler's Descent (advanced, 7 deg), Upper Panorama (advanced, 8 deg), Sapphire Traverse (expert, 8 deg), Upper Fairway (advanced, 9 deg), Poler's Descent (advanced, 9 deg), Upper Panorama (advanced, 10 deg), Middle Fairway (advanced, 10 deg), Croweman's Challenge (advanced, 10 deg), and 12 more
@@ -108,21 +110,21 @@ Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14
 
 | Band, m | Area, km2 | Crowns | Stems | Per km2 |
 |---|---:|---:|---:|---:|
-| 600 | 10.95 | 0 | 297,559 | 27,169 |
-| 700 | 6.19 | 0 | 239,047 | 38,593 |
-| 800 | 6.73 | 0 | 275,299 | 40,893 |
-| 900 | 6.8 | 0 | 296,519 | 43,636 |
-| 1000 | 8.08 | 0 | 342,579 | 42,399 |
-| 1100 | 7.54 | 0 | 302,565 | 40,127 |
-| 1200 | 7.91 | 0 | 324,024 | 40,986 |
-| 1300 | 8.75 | 0 | 372,077 | 42,529 |
-| 1400 | 9.11 | 0 | 371,147 | 40,754 |
-| 1500 | 10.0 | 0 | 380,242 | 38,036 |
-| 1600 | 10.31 | 0 | 375,055 | 36,392 |
-| 1700 | 9.83 | 0 | 303,778 | 30,896 |
-| 1800 | 9.56 | 0 | 156,598 | 16,385 |
-| 1900 | 7.8 | 0 | 65,780 | 8,432 |
-| 2000 | 5.02 | 0 | 9,133 | 1,819 |
+| 600 | 10.95 | 0 | 291,645 | 26,629 |
+| 700 | 6.19 | 0 | 229,357 | 37,029 |
+| 800 | 6.73 | 0 | 271,834 | 40,379 |
+| 900 | 6.8 | 0 | 289,919 | 42,665 |
+| 1000 | 8.08 | 0 | 338,381 | 41,879 |
+| 1100 | 7.54 | 0 | 295,469 | 39,186 |
+| 1200 | 7.91 | 0 | 316,274 | 40,006 |
+| 1300 | 8.75 | 0 | 365,175 | 41,740 |
+| 1400 | 9.11 | 0 | 361,289 | 39,672 |
+| 1500 | 10.0 | 0 | 359,276 | 35,939 |
+| 1600 | 10.31 | 0 | 355,355 | 34,481 |
+| 1700 | 9.83 | 0 | 293,369 | 29,837 |
+| 1800 | 9.56 | 0 | 152,162 | 15,921 |
+| 1900 | 7.8 | 0 | 65,431 | 8,387 |
+| 2000 | 5.02 | 0 | 9,120 | 1,817 |
 | 2100 | 5.07 | 0 | 991 | 196 |
 | 2200 | 3.34 | 0 | 856 | 256 |
 | 2300 | 1.47 | 0 | 1,101 | 751 |
@@ -131,16 +133,16 @@ Build `20261114T090322Z-76474b`, pipeline `e0e0036`, format 1. Report 2026-11-14
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 552 | 121.2 | 2026-11-14 |
-| mid heights | yes | 25 | 12.0 | 2026-11-14 |
-| far heights | yes | 16 | 2.9 | 2026-11-14 |
-| mask | yes | 144 | 4.1 | 2026-11-14 |
-| AO | yes | 144 | 4.9 | 2026-11-14 |
-| piste directions | yes | 144 | 0.8 | 2026-11-14 |
-| moguls | yes | 144 | 0.3 | 2026-11-14 |
-| cover | yes | 4 | 11.1 | 2026-11-14 |
+| fine heights | yes | 552 | 121.2 | 2026-11-21 |
+| mid heights | yes | 25 | 12.0 | 2026-11-21 |
+| far heights | yes | 16 | 2.9 | 2026-11-21 |
+| mask | yes | 144 | 4.3 | 2026-11-21 |
+| AO | yes | 144 | 4.9 | 2026-11-21 |
+| piste directions | yes | 144 | 0.8 | 2026-11-21 |
+| moguls | yes | 144 | 0.4 | 2026-11-21 |
+| cover | yes | 4 | 11.2 | 2026-11-21 |
 | trees (crowns) | no | 0 | 0.0 |  |
-| stands (stems) | yes | 142 | 13.9 | 2026-11-14 |
-| far tree ring | no | 0 | 0.0 |  |
-| shrubs | yes | 114 | 0.3 | 2026-11-14 |
-| rocks | yes | 115 | 5.2 | 2026-11-14 |
+| stands (stems) | yes | 142 | 13.7 | 2026-11-21 |
+| far tree ring | yes | 321 | 19.4 | 2026-11-21 |
+| shrubs | yes | 115 | 0.3 | 2026-11-21 |
+| rocks | yes | 115 | 5.2 | 2026-11-21 |
