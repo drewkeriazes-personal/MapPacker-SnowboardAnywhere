@@ -3,13 +3,17 @@
 #   ready <pr>   once the Checks have finished (or `automerge` was just added): refresh the branch onto main when
 #                main moved, then release the draft and squash-merge, only for a trusted publish PR; otherwise
 #                wait, or refuse with one comment
-#   closed <pr>  merged: publish a draft still unpublished; closed unmerged: delete the draft and the branch
-#   sweep        (every 15 minutes, and Run workflow) no PR of its own: publish merged PRs' leftover drafts
+#   sweep        (every 15 minutes, and Run workflow) no PR of its own: what `closed <pr>` does for the recently
+#                closed publish PRs: merged, publish a draft still unpublished; closed unmerged, delete the draft
+#                and the branch
+# BUG-168: no pull_request_target trigger (blocked by default in public repos from 2026-12-02). An `automerge` label
+# added after the checks finished is picked up by the next scheduled run (at most 15 minutes), and a closed PR by
+# the sweep.
 # Every run then does `ready` for each open publish/ PR labelled automerge (up to 20), so a PR is never stranded:
 # GitHub keeps one pending run per concurrency group and drops the older pending one, and a `wait` (the activity
 # log not caught up yet, a check such as `review` still running) has no event of its own to come back on.
 #
-# Security: this runs on workflow_run / pull_request_target, so it holds a write token. It checks out main and
+# Security: this runs on workflow_run / schedule, so it holds a write token. It checks out main and
 # nothing else; no step checks out or runs the PR's code. The tool reads the PR through the API only.
 #
 # One-time setup (Drew, by hand): a GitHub App "MapPacker publisher", no webhook, repository permissions
@@ -28,7 +32,7 @@
 # branched, the refresh push is refused (safely, nothing merges); that PR needs a hand refresh (merge main into the
 # branch locally and push, then remove and re-add the `automerge` label: a push after the label by anyone but the
 # App is refused as untrusted).
-# Remaining risk: a dropped `closed` run for a hand-merged PR is made up by the next run (at most 15 minutes).
+# Remaining risk: a hand-merged PR's draft waits for the next run (at most 15 minutes).
 
 name: Publish merge
 
@@ -36,8 +40,6 @@ on:
   workflow_run:
     workflows: [Checks, Claude PR review]   # the reviewer's `review` check can finish after Checks
     types: [completed]
-  pull_request_target:
-    types: [labeled, closed]
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
@@ -52,10 +54,6 @@ jobs:
        startsWith(github.event.workflow_run.head_branch, 'publish/') &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.pull_requests[0].number != null) ||
-      (github.event_name == 'pull_request_target' &&
-       startsWith(github.event.pull_request.head.ref, 'publish/') &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       (github.event.action == 'closed' || github.event.label.name == 'automerge')) ||
       (github.event_name == 'schedule' && vars.PUBLISH_APP_LOGIN != '') ||
       github.event_name == 'workflow_dispatch'
     # Per job, so a run the `if` skips never queues: GitHub keeps one pending run per group and cancels an older
@@ -65,18 +63,17 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30   # a branch refresh, then the draft zip is waited for
-    # BUG-113: the App's secrets are environment secrets of `publish`, which only main may use. workflow_run,
-    # pull_request_target and schedule run as the default branch, so they pass; a dispatch on a branch is refused.
+    # BUG-113: the App's secrets are environment secrets of `publish`, which only main may use. workflow_run
+    # and schedule run as the default branch, so they pass; a dispatch on a branch is refused.
     # No deployment record per run (this runs every 15 minutes)
     environment:
       name: publish
       deployment: false
     env:
-      PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
       # schedule and workflow_dispatch have no PR: `sweep`
       ACTION: >-
-        ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'sweep' ||
-        github.event.action == 'closed' && 'closed' || 'ready' }}
+        ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'sweep' || 'ready' }}
     steps:
       - name: The App is set up
         env:
