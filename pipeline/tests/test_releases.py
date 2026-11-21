@@ -176,3 +176,17 @@ def test_migrate_without_apply_changes_nothing_on_github_but_writes_the_pr_files
     md = (tmp_path / "RELEASES.md").read_text()
     assert "[v2](https://github.com/o/r/releases/tag/vail/v2) (latest) 2 MB" in md and "would move vail-v1" in \
         capsys.readouterr().out
+
+
+def test_every_catalog_url_is_its_releases_url_on_this_repo():
+    """BUG-153: publish-check only looks at the entries a PR changes, so an entry left on an old `<slug>-v<N>` tag or
+    an old owner went unseen until a PR touched it. Every entry, every PR."""
+    import paths
+    from publish_pack import RESORTS_REPO, all_entries
+    with open(os.path.join(paths.REPO, "catalog.json"), encoding="utf-8") as f:
+        catalog = json.load(f)
+    wrong = [f"{e['slug']}: {e['pack'].get('url')}" for e in all_entries(catalog) if e.get("pack")
+             and e["pack"].get("url") != asset_url(e["slug"], e["pack"]["version"], RESORTS_REPO)]
+    assert not wrong, ("catalog urls not at their `<slug>/v<N>` release on " + RESORTS_REPO + " (old tags: "
+                       "`python pipeline/releases.py migrate --apply`, then commit catalog.json and RELEASES.md):\n  "
+                       + "\n  ".join(wrong))
