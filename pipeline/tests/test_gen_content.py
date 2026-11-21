@@ -62,6 +62,20 @@ def test_named_start_run(tmp_path):
     assert gc.run_key("Four O’Clock") == gc.run_key("4 O'Clock")
 
 
+def test_start_leaves_nordic_trails_out(tmp_path):
+    # BUG-108: a Nordic trail from the lift top is no default start; named in start_run it still is
+    pack = make_pack(tmp_path / "packs")
+    f = pack / "features.json"
+    feats = json.load(open(f, encoding="utf-8"))
+    feats["runs"][0]["pisteType"] = "nordic"
+    f.write_text(json.dumps(feats))
+    assert gc.choose_start(meta_of(pack), feats, None, log=lambda s: None) is None
+    cfg = tmp_path / "demo.json"
+    cfg.write_text(json.dumps({"start_run": "Main"}))
+    start, _ = gc.generate(str(pack), str(cfg), dry=True, log=lambda s: None)
+    assert start["run"] == "Main"
+
+
 def test_attract_folder_rules(tmp_path):
     d = tmp_path / "pack"
     (d / "attract").mkdir(parents=True)

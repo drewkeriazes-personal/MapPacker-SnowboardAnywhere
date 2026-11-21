@@ -48,6 +48,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pack_report import (AERIAL, START_CLEAR_M, START_STAND_MAX, distance_to_polyline, grid_top,  # noqa: E402
                          load_json, polyline_length, read_heights, read_instances, read_mask, read_stands, resample)
 from packwriter import write_meta  # noqa: E402
+from osm_filter import is_downhill  # noqa: E402
 
 GENERATOR = "gen_content.py (FEAT-175)"
 # start
@@ -290,7 +291,7 @@ def choose_start(meta, features, check, start_run=None, log=print):
                 hi = downhill(r["points"])[0]
                 tries.append((r, hi[0], hi[1], None))
     for tx, ty, tz, lf in tops[:LIFT_TRIES]:
-        cands = runs_from(runs, tx, ty)
+        cands = [r for r in runs_from(runs, tx, ty) if is_downhill(r)]   # BUG-108: no Nordic or sled trail
         easy = [r for r in cands if (r.get("difficulty") or "") not in EXPERT]
         for r in sorted(easy or cands, key=run_rank):
             tries.append((r, tx, ty, lf))
