@@ -240,6 +240,9 @@ class FakeGitHub:
             return json.dumps(s["run"] if "run" in s else
                               {"triggering_actor": {"login": s["run_actor"]}, "path": publish_merge.BUILD_WORKFLOW,
                                "head_branch": "main", "event": "workflow_dispatch"})
+        if path.startswith("actions/workflows/build-pack-retry.yml/runs?"):    # BUG-167: fetch_retry_runs
+            assert "event=workflow_dispatch&branch=main&created=%3E%3D" in path, path
+            return json.dumps({"total_count": len(s.get("retries", [])), "workflow_runs": s.get("retries", [])})
         if path.startswith("pulls?state=closed"):
             return json.dumps(s["closed_prs"])
         if path.startswith("pulls?state=open&base=main"):          # advance_open's listing
@@ -764,3 +767,103 @@ def test_the_refresh_chain_fails_closed(change, body):
     runs = {7: {**REFRESH_RUN, **change}, 8: REFRESH_RUN}
     assert publish_merge.vouching_actor(BOT_BUILD, body, runs.get, REPO) in (None, "someone")
     assert publish_merge.vouching_actor(BOT_BUILD, body, runs.get, REPO) != "drewkeriazes"
+
+
+# ------------------------------------------------------------------------------------------------ BUG-167 retried builds
+
+BOT = "github-actions[bot]"
+RETRIED = {"id": 42, "path": ".github/workflows/build-pack.yml", "head_branch": "main", "event": "workflow_dispatch",
+           "actor": {"login": "drewkeriazes"}, "triggering_actor": {"login": BOT}, "run_attempt": 2,
+           "created_at": "2026-11-20T20:00:00Z", "run_started_at": "2026-11-20T20:40:00Z",
+           "repository": {"full_name": REPO}}
+RETRY = {"path": ".github/workflows/build-pack-retry.yml", "head_branch": "main", "event": "workflow_dispatch",
+         "display_title": "Retry Build pack run 42", "triggering_actor": {"login": BOT},
+         "created_at": "2026-11-20T20:30:00Z", "updated_at": "2026-11-20T20:40:05Z"}
+MAINT = {"drewkeriazes"}
+
+
+def actor_of(run, retries=(RETRY,), maint=MAINT):
+    return publish_merge.build_run_actor(run, lambda r: list(retries), maint)
+
+
+def test_an_attempt_the_retry_workflow_reran_is_vouched_for_by_who_started_the_first():
+    assert actor_of(RETRIED) == "drewkeriazes"
+    assert actor_of({**RETRIED, "run_attempt": 3}, [{**RETRY, "created_at": "2026-11-20T20:10:00Z",
+                                                     "updated_at": "2026-11-20T20:16:00Z"}, RETRY]) == "drewkeriazes"
+    by_hand = {**RETRY, "triggering_actor": {"login": "DrewKeriazes"}}     # a maintainer dispatched the retry
+    assert actor_of(RETRIED, [by_hand]) == "drewkeriazes"
+
+
+def test_a_strangers_build_the_bot_reran_stays_the_strangers_and_is_refused():
+    run = {**RETRIED, "actor": {"login": "someone"}}
+    assert actor_of(run) == "someone"
+    body = "Run: https://github.com/o/r/actions/runs/42\n"
+    assert not label_ok([labeled("automerge", APP)], "automerge", MAINT, APP, body, lambda i: actor_of(run), REPO)
+    assert label_ok([labeled("automerge", APP)], "automerge", MAINT, APP, body, lambda i: actor_of(RETRIED), REPO)
+
+
+def test_a_person_rerun_or_a_first_attempt_needs_no_retry_run():
+    def boom(r):
+        raise AssertionError("no retry lookup")
+    mine = {**RETRIED, "triggering_actor": {"login": "drewkeriazes"}}
+    assert publish_merge.build_run_actor(mine, boom) == "drewkeriazes"     # a maintainer's own re-run, as before
+    assert publish_merge.build_run_actor({**RETRIED, "triggering_actor": {"login": "someone"}}, boom) == "someone"
+    assert publish_merge.build_run_actor({**RETRIED, "run_attempt": 1}, boom) == BOT     # FEAT-342's refresh builds
+    assert publish_merge.build_run_actor({**RETRIED, "actor": {"login": BOT}}, boom) == BOT   # a refresh build retried
+
+
+@pytest.mark.parametrize("why, run, retry", [
+    ("no retry run", {}, None),
+    ("a branch's copy of the retry workflow", {}, {"head_branch": "evil"}),
+    ("another workflow", {}, {"path": ".github/workflows/other.yml"}),
+    ("not dispatched", {}, {"event": "push"}),
+    ("a retry of another run", {}, {"display_title": "Retry Build pack run 43"}),
+    ("a retry a stranger dispatched", {}, {"triggering_actor": {"login": "someone"}}),
+    ("a retry older than the build", {}, {"created_at": "2026-11-20T19:59:00Z"}),
+    ("a retry newer than the attempt", {}, {"created_at": "2026-11-20T20:41:00Z", "updated_at": "2026-11-20T20:50:00Z"}),
+    ("an attempt long after the retry ended", {"run_started_at": "2026-11-20T21:30:00Z"}, {}),
+    ("a retry with no times", {}, {"updated_at": None}),
+    ("a build with no start", {"run_started_at": None}, {}),
+    ("a build not on main", {"head_branch": "evil"}, {}),
+])
+def test_a_bot_rerun_without_a_matching_retry_run_is_not_trusted(why, run, retry):
+    got = actor_of({**RETRIED, **run}, [] if retry is None else [{**RETRY, **retry}])
+    assert got != "drewkeriazes", why
+
+
+def test_a_failed_retry_lookup_is_not_trusted():
+    def fail(r):
+        raise SystemExit("gh failed")
+    assert publish_merge.build_run_actor(RETRIED, fail, MAINT) == BOT
+
+
+@pytest.mark.parametrize("retries, merges", [([RETRY], True), ([], False),
+                                             ([{**RETRY, "head_branch": "evil"}], False)])
+def test_ready_merges_a_publish_pr_from_a_retried_build(monkeypatch, capsys, retries, merges):
+    calls = fake_gh(monkeypatch, pr={"body": "Run: https://github.com/o/r/actions/runs/42\n"}, release_draft=True,
+                    timeline=[labeled("automerge", APP)], run=RETRIED, retries=retries)
+    publish_merge.main(["ready", "7"])
+    assert bool(merged(calls)) == merges
+    if not merges:
+        assert publish_merge.UNTRUSTED in capsys.readouterr().out
+
+
+def test_a_retried_build_composes_with_the_refresh_chain(monkeypatch):
+    """BUG-167 with FEAT-342: a maintainer's build the bot re-ran vouches through vouching_actor as the maintainer; a
+    Refresh packs build (attempt 1 the bot's too) the bot re-ran still follows its `Refresh:` run, which checks the
+    build's created_at, kept by a re-run; a refresh build re-run long after its refresh is still not trusted"""
+    no_lookup = lambda r: (_ for _ in ()).throw(AssertionError("no retry lookup"))   # noqa: E731
+    refresh = {"path": ".github/workflows/refresh-packs.yml", "head_branch": "main", "event": "workflow_dispatch",
+               "triggering_actor": {"login": "drewkeriazes"}, "run_started_at": "2026-11-20T19:59:00Z",
+               "updated_at": "2026-11-20T20:02:00Z"}
+    body = "Run: https://github.com/o/r/actions/runs/42\nRefresh: https://github.com/o/r/actions/runs/7\n"
+    built = {**RETRIED, "actor": {"login": BOT}}                     # created 20:00, attempt 2 started 20:40
+    assert publish_merge.build_run_actor(built, no_lookup) == BOT
+    assert publish_merge.vouching_actor(built, body, {7: refresh}.get, REPO) == "drewkeriazes"
+    late = {**built, "created_at": "2026-11-20T21:00:00Z"}
+    assert publish_merge.vouching_actor(late, body, {7: refresh}.get, REPO) is None
+    orig = publish_merge.build_run_actor
+    monkeypatch.setattr(publish_merge, "build_run_actor", lambda run: orig(run, lambda r: [RETRY], MAINT))
+    assert publish_merge.vouching_actor(RETRIED, body, {7: refresh}.get, REPO) == "drewkeriazes"
+    stranger = {**RETRIED, "actor": {"login": "someone"}}         # not rescued by a Refresh: line
+    assert publish_merge.vouching_actor(stranger, body, {7: refresh}.get, REPO) == "someone"
