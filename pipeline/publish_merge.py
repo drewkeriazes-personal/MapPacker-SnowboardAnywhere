@@ -11,8 +11,9 @@ was dropped from the queue, or that waited on the activity log or a check still 
 
 `ready` merges only a `publish/<slug>-v<N>` PR from this repo (not a fork) into main, labelled `publish` and
 `automerge`, whose latest `automerge` label came from a maintainer (.github/maintainers.txt, main's copy) or from
-the App (PUBLISH_APP_LOGIN) on a PR whose `Run:` line names a run a maintainer started (FEAT-342: or a run the
-workflow token started for a Refresh packs run a maintainer started, the PR's `Refresh:` line); with no push to the branch
+the App (PUBLISH_APP_LOGIN) on a PR whose `Run:` line names a run a maintainer started (BUG-167: its first attempt,
+when build-pack-retry.yml re-ran it; FEAT-342: or a run the workflow token started for a Refresh packs run a
+maintainer started, the PR's `Refresh:` line); with no push to the branch
 after that label (GitHub's activity log) except the App's own refresh; changing only the publish file set and in
 catalog.json only <slug> v<N>, at this repo's release url; with every check run on the head success or skipped and
 `publish-check` success. Then it re-checks the release `<slug>/v<N>` (FEAT-271; the branch keeps `-v<N>`), publishes it if it is still a draft (a rollback's release
@@ -41,6 +42,8 @@ REFRESH_LINE = re.compile(r"^Refresh: https://github\.com/([^/\s]+/[^/\s]+)/acti
 REFRESH_WORKFLOW = ".github/workflows/refresh-packs.yml"   # FEAT-342: starts Build pack runs as the workflow token
 BOT = "github-actions[bot]"           # the triggering actor of a run the workflow token started
 REFRESH_SLACK_S = 600                 # a build counts as the refresh's when created while it ran, or 10 min after
+RETRY_WORKFLOW = ".github/workflows/build-pack-retry.yml"   # FEAT-314: re-runs a Build pack run's failed jobs
+RETRY_SLACK_S = 600                   # an attempt counts as the retry's when it began while that ran, or 10 min after
 REQUIRED = "publish-check"            # the check that downloads the draft zip and lints it: must be success
 SELF_JOBS = {"publish-merge"}         # this workflow's job name: its own check run never counts
 PREFIX = "[publish-merge]"
@@ -102,13 +105,51 @@ def label_ok(events: list[dict], label: str, maintainers: set[str], app_login: s
         return False
 
 
-def build_run_actor(run: dict) -> str | None:
+def build_run_actor(run: dict, retry_runs: Callable[[dict], list[dict]] | None = None,
+                    maint: set[str] | None = None) -> str | None:
     """FEAT-245: who started `run` (the API's workflow run), only when it is the build-pack workflow dispatched on
     main. A copy of the workflow changed on another branch can read the App's secrets, so a run from anywhere else
-    never vouches for a PR, even one a maintainer started."""
+    never vouches for a PR, even one a maintainer started. BUG-167: an attempt build-pack-retry.yml re-ran is who
+    started the first attempt (retried_run_actor)."""
     if run.get("path") != BUILD_WORKFLOW or run.get("head_branch") != "main" or run.get("event") != "workflow_dispatch":
         return None
-    return (run.get("triggering_actor") or {}).get("login")
+    who = (run.get("triggering_actor") or {}).get("login")
+    return retried_run_actor(run, retry_runs, maint) if who == BOT and (run.get("run_attempt") or 1) > 1 else who
+
+
+def retry_vouches(run: dict, retry: dict, maint: set[str]) -> bool:
+    """BUG-167: `retry` (the API's workflow run) is the Build pack retry workflow on main, dispatched by the workflow
+    token (Build pack's outcome job) or a maintainer, for `run`, and `run`'s latest attempt began while it ran (from
+    its start to its last update, plus RETRY_SLACK_S): the one way the bot re-runs a build"""
+    if (retry.get("path") != RETRY_WORKFLOW or retry.get("head_branch") != "main"
+            or retry.get("event") != "workflow_dispatch"
+            or retry.get("display_title") != f"Retry Build pack run {run.get('id')}"):
+        return False
+    by = (retry.get("triggering_actor") or {}).get("login")
+    if by != BOT and not _is(by, maint):
+        return False
+    try:
+        start, end, began = _time(retry["created_at"]), _time(retry["updated_at"]), _time(run["run_started_at"])
+        return _time(run["created_at"]) <= start <= began and (began - end).total_seconds() <= RETRY_SLACK_S
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+
+
+def retried_run_actor(run: dict, retry_runs: Callable[[dict], list[dict]] | None = None,
+                      maint: set[str] | None = None) -> str | None:
+    """BUG-167: a Build pack run whose latest attempt the workflow token started (build-pack-retry.yml's `gh run rerun`
+    makes the bot its triggering actor) is vouched for by who started its first attempt (`actor`), only when a retry
+    run vouches for that attempt (retry_vouches); otherwise, as before, by the bot, who is no maintainer. A first
+    attempt the bot started too (FEAT-342's Refresh packs) stays the bot's."""
+    first = (run.get("actor") or {}).get("login")
+    if not first or first == BOT:
+        return BOT
+    try:
+        retries = (retry_runs or fetch_retry_runs)(run)
+        maint = maintainers() if maint is None else maint
+    except (Exception, SystemExit):
+        return BOT
+    return first if any(retry_vouches(run, r, maint) for r in retries) else BOT
 
 
 def refresh_run_actor(build: dict, refresh: dict) -> str | None:
@@ -236,6 +277,14 @@ def api_pages(path: str, key: str | None = None) -> list:
         out += page[key] if key else page
         text = text[end:].lstrip()
     return out
+
+
+def fetch_retry_runs(run: dict) -> list[dict]:
+    """the Build pack retry runs dispatched on main since `run` was created (retried_run_actor checks each)"""
+    repo = (run.get("repository") or {}).get("full_name") or os.environ["GITHUB_REPOSITORY"]
+    since = quote(f">={run['created_at']}")
+    return api_pages(f"repos/{repo}/actions/workflows/{os.path.basename(RETRY_WORKFLOW)}/runs"
+                     f"?event=workflow_dispatch&branch=main&created={since}&per_page=100", "workflow_runs")
 
 
 def catalog_at(repo: str, ref: str) -> dict:
