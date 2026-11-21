@@ -1,4 +1,4 @@
-"""tools/ci/wait_turn.py (FEAT-245): build-pack runs queue in run-id order."""
+"""tools/ci/wait_turn.py (FEAT-245): build-pack runs queue in run-id order; FEAT-342: N of them at once."""
 import os, sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools", "ci"))
@@ -21,6 +21,7 @@ def test_the_oldest_run_is_never_blocked():
 def env(monkeypatch, own=40):
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_RUN_ID", str(own))
+    monkeypatch.delenv("BUILD_SLOTS", raising=False)
 
 
 def test_waits_until_the_earlier_run_completes(monkeypatch, capsys):
@@ -57,3 +58,33 @@ def test_a_rerun_of_an_old_run_queues_behind_the_builds_in_flight():
     assert [r["id"] for r in wait_turn.blocking(runs, 10)] == [20, 30]
     assert wait_turn.blocking(runs, 20) == []
     assert [r["id"] for r in wait_turn.blocking(runs, 30)] == [20]
+
+
+def test_slots_let_that_many_runs_build_at_once(monkeypatch, capsys):
+    """FEAT-342: with 3 slots the fourth run waits until one of the three before it completes"""
+    env(monkeypatch)
+    views = iter([[run(10), run(20), run(30), run(40)], [run(10, "completed"), run(20), run(30), run(40)]])
+    slept = []
+    code = wait_turn.main(["--slots", "3", "--poll", "5"], list_runs=lambda: next(views), sleep=slept.append,
+                          clock=lambda: 0)
+    assert code == 0 and slept == [5]
+    out = capsys.readouterr().out
+    assert "waiting for 3 earlier build(s), 3 at a time" in out and "my turn" in out
+
+
+def test_with_slots_a_run_with_fewer_ahead_goes_at_once(monkeypatch):
+    env(monkeypatch)
+    assert wait_turn.main(["--slots", "2"], list_runs=lambda: [run(30), run(40)], sleep=lambda s: 1 / 0) == 0
+
+
+def test_slots_come_from_build_slots_and_an_unset_variable_is_one(monkeypatch):
+    env(monkeypatch)
+    monkeypatch.setenv("BUILD_SLOTS", "2")
+    assert wait_turn.main([], list_runs=lambda: [run(30), run(40)], sleep=lambda s: 1 / 0) == 0
+    for unset in ("", "x", "0", "-3"):
+        monkeypatch.setenv("BUILD_SLOTS", unset)
+        assert wait_turn.slots_from(unset) == 1
+        t = iter(range(0, 10_000, 60))
+        assert wait_turn.main(["--max-wait", "1"], list_runs=lambda: [run(30), run(40)], sleep=lambda s: None,
+                              clock=lambda: next(t)) == 1
+    assert wait_turn.slots_from(" 3 ") == 3
