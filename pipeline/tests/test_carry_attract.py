@@ -239,6 +239,7 @@ def test_the_build_step_carries_before_and_settles_after(tmp_path, monkeypatch):
     monkeypatch.setattr(ci, "published_pack", lambda slug: {"url": "https://x/demo.zip", "bytes": 10})
     summ = tmp_path / "summary.md"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
+    monkeypatch.delenv("BUILD_ON", raising=False)              # the free runner (the default)
     order = []
 
     def carry(url, size, pack_dir, log):
@@ -247,3 +248,9 @@ def test_the_build_step_carries_before_and_settles_after(tmp_path, monkeypatch):
     assert ci.main(["build"], runner=lambda cmd: (order.append("build"), (0, "ok"))[1], carry=carry) == 0
     assert order == ["carry", "build"]
     assert summ.read_text(encoding="utf-8").startswith("| build | done; menu not carried (HTTP 404) |")
+    # on Drew's PC (FEAT-344) the attract stage renders the menu itself: nothing carried
+    monkeypatch.setenv("BUILD_ON", "pc")
+    order.clear()
+    assert ci.main(["build"], runner=lambda cmd: (order.append("build"), (0, "ok"))[1], carry=carry) == 0
+    assert order == ["build"]
+    assert summ.read_text(encoding="utf-8").splitlines()[-1].startswith("| build | done |")
