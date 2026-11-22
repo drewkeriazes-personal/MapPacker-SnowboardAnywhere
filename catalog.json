@@ -468,15 +468,15 @@
    "tier": null,
    "status": "test",
    "pack": {
-    "version": 4,
+    "version": 5,
     "formatVersion": 1,
-    "build": "20261113T201909Z-7fe0d6",
-    "built": "2026-11-13",
-    "pipeline": "2f81885",
-    "bytes": 48068643,
-    "sha256": "65c5007c6cfe31f8942ee44ae181a50bd7d9fcd2dc4440bf32c4a0a0312e5cc4",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/synth/v4/synth.zip",
-    "content": "ebee8c66156ee201"
+    "build": "20261122T144629Z-03230f",
+    "built": "2026-11-22",
+    "pipeline": "955780f",
+    "bytes": 48945281,
+    "sha256": "95cb8599dc72a943de29d7ef27931a0baf88d344a28c8edc4b9717c5803af99b",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/synth/v5/synth.zip",
+    "content": "4eaa6cc336a689a5"
    },
    "report": null
   }
