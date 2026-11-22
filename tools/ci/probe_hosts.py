@@ -20,6 +20,8 @@ asks Planetary Computer's STAC whether every NAIP item the slug's config (and th
 in the catalog; items do leave it. A new resort has no config yet (resort.py plan picks current items), and a local
 run names no slug: no row then.
 
+BUG-170: rows marked plan_only are hosts only resort.py resolve and plan call, which run only for a new resort; on a
+rebuild (the slug has a config) they only warn.
 FEAT-347: --raw-cache names the file `raw_cache.py covered` writes when the raw-data cache covers every folder the
 build reads, so the build fetches nothing: every host but its `keep` list then warns instead of failing.
 
@@ -143,6 +145,7 @@ class Probe:
     range: bool = False        # ask for the first KB only
     required: bool = True      # False: warn, do not fail
     mirror: bool = False       # one of the host's mirrors: the host passes when any of them passes
+    plan_only: bool = False    # BUG-170: only resort.py resolve/plan calls it (a new resort): a rebuild only warns
 
 
 def vail():
@@ -177,17 +180,20 @@ def probes() -> list:
         {"url": "vail.com", "output": "json", "filter": "statuscode:200", "limit": 1})
     rows = [
         Probe("3DEP ImageServer exportImage", "elevation.nationalmap.gov", export, tiff),
-        Probe("TNM Access products", "tnmaccess.nationalmap.gov", tnm, json_with("items")),
+        Probe("TNM Access products", "tnmaccess.nationalmap.gov", tnm, json_with("items"), plan_only=True),
         Probe("3DEP work units (WESM.csv)", "prd-tnm.s3.amazonaws.com", resort.INDEXES["wesm.csv"], range_ok,
-              range=True),
+              range=True, plan_only=True),
         Probe("usgs-lidar-public EPT", "s3-us-west-2.amazonaws.com", cfg["lidar"]["ept"] + "ept.json",
               json_with("bounds", "schema")),
-        Probe("Entwine boundaries", "usgs.entwine.io", resort.INDEXES["entwine_resources.geojson"], range_ok, range=True),
+        Probe("Entwine boundaries", "usgs.entwine.io", resort.INDEXES["entwine_resources.geojson"], range_ok, range=True,
+              plan_only=True),
         Probe("Planetary Computer STAC naip", "planetarycomputer.microsoft.com",
-              "https://planetarycomputer.microsoft.com/api/stac/v1/collections/naip", json_with("id", "extent")),
+              "https://planetarycomputer.microsoft.com/api/stac/v1/collections/naip", json_with("id", "extent"),
+              plan_only=True),
         Probe("Planetary Computer NAIP crop", "planetarycomputer.microsoft.com", crop, tiff),
         Probe("Mapterhorn tile", "tiles.mapterhorn.com", resort.MAPTERHORN_TILE.format(z=0, x=0, y=0), webp),
-        Probe("Mapterhorn attribution", "download.mapterhorn.com", resort.INDEXES["mapterhorn_attribution.json"], http_ok),
+        Probe("Mapterhorn attribution", "download.mapterhorn.com", resort.INDEXES["mapterhorn_attribution.json"], http_ok,
+              plan_only=True),
         Probe("Overpass", "Overpass", "https://overpass-api.de/api/interpreter?data=" + q, overpass, mirror=True),
         Probe("Overpass mirror private.coffee", "Overpass", "https://overpass.private.coffee/api/interpreter?data=" + q,
               overpass, mirror=True),
@@ -204,7 +210,8 @@ def probes() -> list:
         Probe("Census gazetteer", "www2.census.gov", placenames.GAZ_URL, range_ok, range=True),
         Probe("Census population", "www2.census.gov", placenames.POP_URL, range_ok, range=True),
         Probe("OpenSkiData ski areas", "tiles.openskimap.org", resort.INDEXES["ski_areas.geojson"], range_ok, range=True),
-        Probe("Geofabrik index", "download.geofabrik.de", resort.INDEXES["geofabrik_index.json"], range_ok, range=True),
+        Probe("Geofabrik index", "download.geofabrik.de", resort.INDEXES["geofabrik_index.json"], range_ok, range=True,
+              plan_only=True),
         Probe("Internet Archive CDX (grooming)", "web.archive.org", cdx_url, cdx, required=False),
     ]
     built = build_naip_items()
@@ -248,6 +255,13 @@ def naip_items(slug, resorts_dir=None, seen=None) -> list:
             [m["source"] for m in cfg.get("relocate") or [] if m.get("source")]:
         out += [i for i in naip_items(dep, resorts_dir, seen) if i not in out]
     return out
+
+
+def is_rebuild(env=None, resorts_dir=None) -> str:
+    """BUG-170: the slug when this run rebuilds a resort that has a config (its committed config and manifest: no
+    resolve or plan), else "" (a new resort, or a local run)"""
+    slug = build_slug(env)
+    return slug if slug and os.path.isfile(paths.config_path(slug, resorts_dir)) else ""
 
 
 def build_naip_items(env=None, resorts_dir=None):
@@ -418,13 +432,21 @@ def main(argv=None, fetch: Callable | None = None) -> int:
         if not todo:
             print(f"no probe matches {a.only}")
             return 2
+    rebuild = is_rebuild()
+    planned = sorted({p.name for p in todo if rebuild and p.plan_only and p.required})
+    for p in todo:
+        if p.name in planned:
+            p.required = False
     covers, keep = raw_cache_covers(a.raw_cache) if a.raw_cache else ([], set())
     downgraded = sorted({p.host for p in todo if covers and p.required and p.host not in keep})
     for p in todo:
         if p.host in downgraded:
             p.required = False
-    cached = (f"Raw cache covers {', '.join(covers)}: {', '.join(downgraded)} only warn, as the build does not call "
-              "them (FEAT-347)." if downgraded else "")
+    cached = " ".join(
+        ([f"A rebuild of {rebuild}: {', '.join(planned)} only warn, as only a new resort's plan calls them "
+          "(BUG-170)."] if planned else []) +
+        ([f"Raw cache covers {', '.join(covers)}: {', '.join(downgraded)} only warn, as the build does not call "
+          "them (FEAT-347)."] if downgraded else []))
     if cached:
         print(cached)
     results = []
@@ -440,7 +462,9 @@ def main(argv=None, fetch: Callable | None = None) -> int:
         results.append((p, ok, detail, s))
         print(f"{'ok  ' if ok else 'FAIL'} {p.name}: {detail}", flush=True)
     bad, warn = failed_hosts(results)
-    why = "not needed: the raw cache covers the build" if set(warn) & set(downgraded) else "grooming only"
+    why = ("not needed: the raw cache covers the build" if set(warn) & set(downgraded) else
+           "only a new resort's plan calls them" if {p.host for p in todo if p.name in planned} & set(warn) else
+           "grooming only")
     tally.save("probe")
     rec = sorted(h for h, t in tally.hosts.items() if t["recovered"])
     inline = (f"Recovered inline: {', '.join(rec)}. " if rec else "") + retry.caps_md()
