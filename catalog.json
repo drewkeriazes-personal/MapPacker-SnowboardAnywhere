@@ -252,15 +252,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261113T150026Z-11a2d5",
-    "built": "2026-11-13",
-    "pipeline": "839bf62",
-    "bytes": 164969714,
-    "sha256": "e35c29314da1a3f74a3e7d7f3e3f3a059435bbef95199e6d1822213ca7986204",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/keystone/v1/keystone.zip",
-    "content": "1de0ed117114e377"
+    "build": "20261122T155016Z-5fcaa4",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 168224061,
+    "sha256": "c5600faca703cf5974cc4513ab94f3870194b38eafb89c20a603f767a2672120",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/keystone/v2/keystone.zip",
+    "content": "50048e3b0e17116f"
    },
    "report": "reports/keystone.md"
   },
