@@ -2,29 +2,29 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-44 attempts logged, 37 failed. Recovered inline: 31 calls; job re-runs: 0; real failures: 37. Retried runs: 0, of them passed in the end: 0.
+45 attempts logged, 38 failed. Recovered inline: 31 calls; job re-runs: 0; real failures: 38. Retried runs: 0, of them passed in the end: 0.
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
 | host | calls | retried | recovered | failed |
 |---|---|---|---|---|
-| overpass-api.de | 99 | 19 | 15 | 4 |
-| elevation.nationalmap.gov | 448 | 16 | 16 | 0 |
-| download.geofabrik.de | 24 | 5 | 0 | 5 |
-| lz4.overpass-api.de | 3 | 3 | 0 | 3 |
-| overpass.private.coffee | 3 | 3 | 0 | 3 |
+| overpass-api.de | 100 | 20 | 15 | 5 |
+| elevation.nationalmap.gov | 449 | 16 | 16 | 0 |
+| download.geofabrik.de | 25 | 6 | 0 | 6 |
+| lz4.overpass-api.de | 4 | 4 | 0 | 4 |
+| overpass.private.coffee | 4 | 4 | 0 | 4 |
 
 **By host**
 
 | host | failures |
 |---|---|
-| (none) | 37 |
+| (none) | 38 |
 
 **By reason**
 
 | reason | failures |
 |---|---|
-| unknown (real) | 20 |
+| unknown (real) | 21 |
 | cancelled (real) | 17 |
 
 **By step**
@@ -33,7 +33,7 @@ Written by `tools/ci/build_failures.py record` on every Build pack attempt; the 
 |---|---|
 | queue / wait for the builds started before this one | 17 |
 | build / fetch | 12 |
-| probe / data hosts | 6 |
+| probe / data hosts | 7 |
 | build / paths | 1 |
 | build / build | 1 |
 
