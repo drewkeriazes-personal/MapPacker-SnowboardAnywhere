@@ -61,15 +61,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 3,
+    "version": 4,
     "formatVersion": 1,
-    "build": "20261114T144754Z-a3c8ed",
-    "built": "2026-11-14",
-    "pipeline": "8255205",
-    "bytes": 251996778,
-    "sha256": "17319743a723d1726ea9e21a5008e4c76ba7b7a60bd78cfadcb3076dbea043af",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/bigsky/v3/bigsky.zip",
-    "content": "041a0acf762febae"
+    "build": "20261122T155336Z-f59907",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 253936321,
+    "sha256": "6499fd52452fb2af92f603b90d50ef2bc6ecf9e74615dcd01994554dbef6cb16",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/bigsky/v4/bigsky.zip",
+    "content": "2ba25860dbb9bdd3"
    },
    "report": "reports/bigsky.md"
   },
