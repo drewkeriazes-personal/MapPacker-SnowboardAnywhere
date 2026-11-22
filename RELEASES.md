@@ -80,7 +80,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Park City Mountain
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v1) (latest) 245 MB, 2026-11-12
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v2) (latest) 250 MB, 2026-11-22
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v1) 245 MB, 2026-11-12
 
 ## Snowbird
 
