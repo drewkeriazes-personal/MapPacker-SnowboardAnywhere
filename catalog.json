@@ -276,15 +276,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261114T093553Z-209651",
-    "built": "2026-11-14",
-    "pipeline": "25f28a7",
-    "bytes": 129666251,
-    "sha256": "d20c0c743fa13fcb76398e2054e9c56e90106e2524a1e3734bfd0c6fb184e9b2",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/killington/v1/killington.zip",
-    "content": "3405d4c874f95f64"
+    "build": "20261122T153453Z-1463c9",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 130799110,
+    "sha256": "3fa36f6b31f995180f6d5750dcaebafcacb23862deb7ebf798d2d3bcedf36565",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/killington/v2/killington.zip",
+    "content": "14fd1e0497613c11"
    },
    "report": "reports/killington.md"
   },
