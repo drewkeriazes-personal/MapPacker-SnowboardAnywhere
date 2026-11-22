@@ -423,6 +423,8 @@ def main(argv=None, runner=stream, carry=None):
             return code
     if pack is not None and os.path.isfile(os.path.join(pack_dir, "meta.json")):
         notes.append(settle_stills(pack_dir, pack))
+    if a.stage == "fetch":         # FEAT-348: fetch_run's line for the files fetched again for their age
+        notes += re.findall(r"^\s*(\d+ file\(s\) over their maximum age .*)$", text, re.M)
     result = publish_result(text) if a.stage == "publish" else "done"
     result += "".join(f"; {md(n)}" for n in notes if n)
     summary(f"| {a.stage} | {result} | {time.time() - t0:.0f} s |")

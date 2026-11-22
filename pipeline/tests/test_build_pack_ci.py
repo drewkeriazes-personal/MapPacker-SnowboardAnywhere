@@ -133,6 +133,19 @@ def test_a_stage_writes_a_summary_line_and_stops_on_failure(tmp_path, monkeypatc
     assert len(calls) == 1
 
 
+
+def test_the_fetch_summary_names_the_files_fetched_again_for_age(tmp_path, monkeypatch):
+    """FEAT-348"""
+    config(tmp_path, "vail")
+    summ = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
+    monkeypatch.setattr(ci, "from_env", lambda: ci.check_inputs("", "", "vail", "", tmp_path))
+    log = ("[fetch] run: 2 file(s) over their maximum age\n"
+           "  2 file(s) over their maximum age (osm/: 14 days), fetched again: osm/ski.json, osm/built.json\n")
+    assert ci.main(["fetch"], runner=lambda cmd: (0, log)) == 0
+    assert ("| fetch | done; 2 file(s) over their maximum age (osm/: 14 days), fetched again: osm/ski.json, "
+            "osm/built.json |") in summ.read_text(encoding="utf-8")
+
 def test_refused_inputs_fail_every_stage(tmp_path, monkeypatch):
     summ = tmp_path / "summary.md"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))

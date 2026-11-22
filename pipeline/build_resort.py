@@ -31,6 +31,10 @@ A stage is skipped when its inputs have not changed since it last ran: each stag
 grooming reports, a pack built by a pipeline whose code matches this one) and records them, so an existing resort
 is not walked, fetched or built again. A fetch from an older manifest (a new layer, a bigger box, MANIFEST_VERSION)
 changes the manifest's fingerprint, so the fetch runs again and downloads only what is missing (DATA-022 item 3).
+FEAT-346/348: pipeline/fetch_index.py deletes before the fetch what the manifest now wants made differently, and
+what is past its maximum age (OpenStreetMap, 14 days); a file over age also runs the fetch stage when its inputs are
+unchanged, and the build after it (state `fetch_aged`). A skipped fetch stage records the index too, so an index
+without fetch times gets them.
 After the fetch and the build come the pack-build skill's checks: every raw layer present, the OSM files real
 JSON and not an Overpass error page, the pack's meta.json in this pipeline's format.
 
@@ -278,11 +282,16 @@ def powershell():
 def fetch_run(r, ctx):
     if os.path.basename(os.path.normpath(r.raw)) != r.slug:
         raise Failed(f"fetch.ps1 writes <RawDir>\\{r.slug}; the raw folder {r.raw} is not named {r.slug}")
-    items = manifest_items(r)
-    gone = fetch_index.prune(r.raw, items)     # FEAT-346: what the manifest now wants made differently goes again
-    if gone:
-        print(f"  {len(gone)} file(s) fetched for an older manifest item, fetched again: {', '.join(gone[:5])}"
-              + (", ..." if len(gone) > 5 else ""))
+    items, now = manifest_items(r), ctx.now()
+    aged = fetch_index.over_age(r.raw, items, now)   # FEAT-348: OSM older than its maximum age goes again
+    gone = fetch_index.prune(r.raw, items, now)      # FEAT-346: what the manifest now wants made differently goes again
+    changed = [p for p in gone if p not in aged]
+    if changed:
+        print(f"  {len(changed)} file(s) fetched for an older manifest item, fetched again: {few(changed)}")
+    if aged:
+        print(f"  {len(aged)} file(s) over their maximum age ({max_ages(aged)}), fetched again: {few(aged)}")
+        r.state["fetch_aged"] = fetch_index.stamp(now)   # a build input: the pack is built again on the new data
+    fetched = fetch_index.missing(r.raw, items)
     code = ctx.run([powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "fetch.ps1"),
                     "-Slug", r.slug, "-RawDir", os.path.dirname(os.path.normpath(r.raw))])
     if code == 3:     # FEAT-314: a 4xx, never retried (retry.json)
@@ -294,7 +303,25 @@ def fetch_run(r, ctx):
     if code:
         raise Failed(f"fetch.ps1 exited {code}")
     check_raw(r)
-    fetch_index.record(r.raw, items)
+    fetch_index.record(r.raw, items, fetched, now)
+
+
+def few(paths):
+    return ", ".join(paths[:5]) + (", ..." if len(paths) > 5 else "")
+
+
+def max_ages(paths):
+    """'osm/: 14 days' for the prefixes the paths fall under"""
+    return ", ".join(f"{pre}: {d} days" for pre, d in fetch_index.MAX_AGE_DAYS.items()
+                     if any(p.startswith(pre) for p in paths))
+
+
+def fetch_over_age(r, ctx):
+    """FEAT-348: the manifest items whose last fetch is older than their maximum age ([] without a manifest)"""
+    try:
+        return fetch_index.over_age(r.raw, manifest_items(r), ctx.now())
+    except (OSError, ValueError, KeyError):
+        return []
 
 
 def no_pistes_anywhere(r, d):
@@ -403,8 +430,23 @@ def build_inputs(r, code=None, out=None):
     parts = [file_sha(r.cfg_path), manifest_items_sha(r), r.state.get("fetch"), r.state.get("landfire"), groom,
              code or pipeline_code(), out or r.out]
     for s in r.sources():      # FEAT-268: a relocate source's data is an input too (none: the formula as before)
-        parts.append([s.slug, file_sha(s.cfg_path), manifest_items_sha(s), s.state.get("fetch"), s.state.get("landfire")])
+        parts.append([s.slug, file_sha(s.cfg_path), manifest_items_sha(s), s.state.get("fetch"), s.state.get("landfire")]
+                     + ([fetch_aged(s)] if fetch_aged(s) else []))
+    if fetch_aged(r):          # FEAT-348: data fetched again for age (none: the formula as before)
+        parts.append(fetch_aged(r))
     return sha(*parts)
+
+
+def fetch_aged(r):
+    """FEAT-348: when the fetch last got files again for their age, from the raw folder's state (with raw_from,
+    the data resort's)"""
+    if r.data == r.slug:
+        return r.state.get("fetch_aged")
+    try:
+        with open(os.path.join(r.raw, STATE), encoding="utf-8") as f:
+            return json.load(f).get("fetch_aged")
+    except (OSError, ValueError, AttributeError):
+        return None
 
 
 def built_before_move(r, seen):
@@ -646,8 +688,9 @@ GAME_TOOL = {"attract": "game/tools/auto_attract.mjs", "spots": "tools/propose_s
 # ------------------------------------------------------------------------------------------------ runner
 
 class Context:
-    def __init__(self, force=(), email=None, interactive=False, gate=False, runner=run):
+    def __init__(self, force=(), email=None, interactive=False, gate=False, runner=run, clock=fetch_index.utc_now):
         self.force, self.email, self.interactive, self.gate, self.run = set(force), email, interactive, gate, runner
+        self.now = clock      # FEAT-348: the fetch index's clock (a test sets the date)
 
     def forced(self, stage):
         return "all" in self.force or stage in self.force
@@ -679,6 +722,8 @@ def decide(r, stage, ctx):
         return False, "outside the US"
     if stage == "grooming" and not r.cfg.get("terrain_status_url"):
         return False, "no terrain_status_url"
+    if stage == "fetch" and present(r) and (aged := fetch_over_age(r, ctx)):
+        return True, f"{len(aged)} file(s) over their maximum age ({max_ages(aged)})"
     seen = r.state.get(stage)
     if seen == fp and present(r):
         return False, "inputs unchanged"
@@ -709,6 +754,8 @@ def build(r, ctx, first=None, last=None, dry=False, out=print):
             out(f"[{stage}] done in {time.time() - t:.0f} s")
         elif stage == "fetch":
             check_raw(r)             # data fetched earlier gets the same checks before it is built
+            if r.data == r.slug:     # FEAT-348: an index without fetch times (or none) gets them, from now
+                fetch_index.record(r.raw, manifest_items(r), now=ctx.now())
         if stage in ("nodes", "manifest", "fetch", "build"):
             r.cfg = json.load(open(r.cfg_path, encoding="utf-8"))
         if why == SOURCE_WHY:
