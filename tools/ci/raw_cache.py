@@ -30,6 +30,9 @@ deletes the parts the previous cache.json named: a save that dies halfway leaves
 parts stay as orphans until a later save of the same key overwrites them).
 Neither ever fails the build: a miss or any error is a warning, and the fetch downloads what is missing.
 FRESH_DATA=true (Build pack's `fresh_data`) skips the restore, so everything is downloaded again and saved.
+FEAT-349: a fetch that failed on some items is saved too (`"complete": false`, and part of the key): the fetch
+stage records fetch_index.json for the files it has and removes FETCH_COMPLETE.txt, so a retry restores them and
+downloads only the rest. A partial never replaces a complete cache, and never covers a build.
 
 covered (FEAT-347) reads only each folder's cache.json, never a part. A folder is covered when its `stages` are the
 data stages' fingerprints on this checkout of main (build_resort.py would skip every one of them on the restored
@@ -53,7 +56,7 @@ import paths  # noqa: E402
 PART = 1 << 30
 CACHE = "cache.json"
 UNSAVED = {"fetch_log.txt", "env.txt"}                                  # this run's logs
-UNKEYED = UNSAVED | {"build_resort.json", "FETCH_COMPLETE.txt"}         # saved, but not data
+UNKEYED = UNSAVED | {"build_resort.json", fetch_index.COMPLETE}         # saved, but not data
 CHUNK = 1 << 20
 # FEAT-347: the probed hosts a covered rebuild still calls. With every data stage skipped (nodes: ept_select.py;
 # manifest: gen_manifest.py, offline; fetch: fetch.ps1; landfire: fetch_landfire.mjs, whose clips are in the raw
@@ -109,6 +112,7 @@ def data_key(raw: str, files: list[str]) -> str:
     except OSError:
         pass
     h.update(json.dumps(stages(raw), sort_keys=True).encode())
+    h.update(b"complete" if fetch_index.COMPLETE in files else b"partial")    # FEAT-349: a partial is its own key
     return h.hexdigest()[:16]
 
 
@@ -181,7 +185,7 @@ def restore_one(folder: str, raw: str) -> str:
         shutil.rmtree(raw, ignore_errors=True)
         raise
     size = sum(p["size"] for p in cache["parts"])
-    return f"restored {size / 2**20:,.0f} MB (key {cache['key']})"
+    return f"restored {size / 2**20:,.0f} MB{'' if cache.get('complete', True) else ', partial'} (key {cache['key']})"
 
 
 class PartWriter:
@@ -221,13 +225,16 @@ class PartWriter:
 
 
 def save_one(folder: str, raw: str) -> str:
-    if not (os.path.isdir(raw) and os.path.isfile(os.path.join(raw, "FETCH_COMPLETE.txt"))):
-        return "skip: no finished fetch in the folder"
+    complete = os.path.isfile(os.path.join(raw, fetch_index.COMPLETE))
+    if not (complete or os.path.isfile(os.path.join(raw, fetch_index.INDEX))):
+        return "skip: no fetch in the folder"       # FEAT-349: a partial fetch is saved only with its index
     files = saved_files(raw)
     key = data_key(raw, files)
     old = read_cache(folder)
     if old and old.get("key") == key:
         return f"skip: the cache already holds this data (key {key})"
+    if not complete and old and old.get("complete", True):
+        return "skip: a partial fetch never replaces a complete cache"
     if old is None:
         try:
             gh("release", "view", tag(folder), "--json", "isDraft")
@@ -246,7 +253,7 @@ def save_one(folder: str, raw: str) -> str:
             for rel in files:
                 tar.add(os.path.join(raw, rel), arcname=rel, recursive=False)
         writer.close()
-        new = {"key": key, "stages": stages(raw), "parts": writer.parts}
+        new = {"key": key, "complete": complete, "stages": stages(raw), "parts": writer.parts}
         cache_path = os.path.join(work, CACHE)
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump(new, f, indent=1)
@@ -258,7 +265,7 @@ def save_one(folder: str, raw: str) -> str:
         if p["name"] not in keep:
             gh("release", "delete-asset", tag(folder), p["name"], "--yes")
     size = sum(p["size"] for p in writer.parts)
-    return f"saved {size / 2**20:,.0f} MB in {len(writer.parts)} part(s) (key {key})"
+    return f"saved {size / 2**20:,.0f} MB in {len(writer.parts)} part(s){'' if complete else ', partial'} (key {key})"
 
 
 # ------------------------------------------------------------------------------------------------ coverage
@@ -268,6 +275,8 @@ def uncovered(folder: str, cache: dict | None, resorts_dir=None, manifests_dir=N
     restored folder skips every data stage and downloads nothing; else why it does not"""
     if not cache:
         return "no cache yet"
+    if not cache.get("complete", True):
+        return "the cache is from a fetch that did not finish"      # FEAT-349
     if not os.path.isfile(paths.config_path(folder, resorts_dir)):
         return "no config"
     recorded = cache.get("stages") or {}

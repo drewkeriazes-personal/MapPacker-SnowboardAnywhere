@@ -67,7 +67,24 @@ def test_the_fetch_stage_prunes_first_and_records_after(resort, capsys):
     assert F.load(resort.raw)["dem1m/a.tif"] != index["dem1m/a.tif"]
 
 
-def test_a_failed_fetch_records_nothing(resort):
+def test_a_failed_fetch_records_nothing_it_does_not_have(resort):
     with pytest.raises(B.Failed):
         go(resort, Fake(resort, fetch_code=2))
     assert F.load(resort.raw) == {}
+
+
+def test_a_failed_fetch_records_the_files_it_has_and_is_not_complete(resort):
+    """FEAT-349: what came is in the index, so the raw cache saves it and a retry fetches only the rest; a complete
+    marker left from an older manifest's fetch goes"""
+    go(resort, Fake(resort))
+    put(resort.raw, {"path": "dem1m/a.tif"})              # the Fake fetch writes dem1m/a; the manifest names a.tif
+    have = F.load(resort.raw)
+    assert list(have) == ["dem1m/a.tif"] and os.path.isfile(os.path.join(resort.raw, F.COMPLETE))
+    man = json.load(open(resort.man_path))
+    man["items"].append({"url": "https://x.org/b.tif", "path": "dem1m/b.tif"})       # a new item, then a failure
+    json.dump(man, open(resort.man_path, "w"))
+    r = B.Resort("demo", resort.raw, resort.out, resort.resorts, resort.manifests)
+    with pytest.raises(B.Failed):
+        B.fetch_run(r, B.Context(runner=Fake(r, fetch_code=2)))
+    assert F.load(resort.raw) == have                   # a.tif kept with its entry, b.tif (never fetched) has none
+    assert not os.path.exists(os.path.join(resort.raw, F.COMPLETE))

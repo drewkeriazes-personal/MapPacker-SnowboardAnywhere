@@ -351,12 +351,15 @@ jobs:
           GH_TOKEN: ${{ steps.restore_token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: python tools/ci/raw_cache.py restore
-      - name: fetch
+      - id: fetch
+        name: fetch
         env:
           LANDFIRE_EMAIL: ${{ secrets.LANDFIRE_EMAIL }}
         run: python tools/ci/build_pack_ci.py fetch
+      # FEAT-349: the save runs after a failed fetch too (the fetch ran: success or failure), so a retry restores what
+      # came and fetches only the rest; the job still fails on the fetch
       - id: save_token
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !cancelled() && contains(fromJSON('["success", "failure"]'), steps.fetch.outcome)
         continue-on-error: true
         uses: actions/create-github-app-token@v2
         with:
@@ -364,7 +367,7 @@ jobs:
           private-key: ${{ secrets.PUBLISH_APP_KEY }}
           permission-contents: write
       - name: save
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !cancelled() && contains(fromJSON('["success", "failure"]'), steps.fetch.outcome)
         env:
           GH_TOKEN: ${{ steps.save_token.outputs.token }}
           GH_REPO: ${{ github.repository }}
