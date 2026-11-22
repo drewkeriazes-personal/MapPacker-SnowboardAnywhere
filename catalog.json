@@ -371,14 +371,15 @@
    "tier": "silver",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261112T165956Z-1e47fa",
-    "built": "2026-11-12",
-    "pipeline": "039b9a7",
-    "bytes": 245318703,
-    "sha256": "1267bf1260c8b41903091ddcfcf6a60ad397ac37b887c3979af7de32d93fa096",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/park-city-mountain/v1/park-city-mountain.zip"
+    "build": "20261122T154834Z-ceb136",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 249891773,
+    "sha256": "7d714d4d0af2309005c548ae786c0d73f9da6d400b8fc8642c7fd812f7838231",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/park-city-mountain/v2/park-city-mountain.zip",
+    "content": "247617f9d3c3f9a7"
    },
    "report": "reports/park-city-mountain.md"
   },
