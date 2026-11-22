@@ -1,11 +1,22 @@
 """tools/ci/probe_hosts.py (FEAT-245): the data host probe, checked without the network."""
 import json, os, sys
+from urllib.parse import parse_qs, urlparse
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools", "ci"))
 import probe_hosts as ph  # noqa: E402
+import gen_manifest  # noqa: E402  (pipeline/ is on the path through probe_hosts)
 
 TIFF = b"II*\x00" + b"\x00" * 60
 WEBP = b"RIFF\x10\x00\x00\x00WEBPVP8 " + b"\x00" * 20
+
+
+@pytest.fixture(autouse=True)
+def no_build_slug(monkeypatch):
+    """a local run: no "NAIP items of <slug>" row unless a test sets REBUILD or SLUG"""
+    monkeypatch.delenv("REBUILD", raising=False)
+    monkeypatch.delenv("SLUG", raising=False)
 
 
 def test_checks():
@@ -56,7 +67,7 @@ def fake(answers):
                 return reply
         if "interpreter" in url:
             return 200, b'{"version": 0.6, "elements": []}'
-        if "exportImage" in url or "/crop/" in url:
+        if "exportImage" in url or "/item/bbox/" in url:
             return 200, TIFF
         if url.endswith(".webp"):
             return 200, WEBP
@@ -72,6 +83,9 @@ def fake(answers):
             return 200, b'{"items": []}'
         if "MapServer" in url:
             return 200, b'{"features": []}'
+        if "/stac/v1/search" in url:
+            ids = parse_qs(urlparse(url).query)["ids"][0].split(",")
+            return 200, json.dumps({"type": "FeatureCollection", "features": [{"id": i} for i in ids]}).encode()
         if "collections/naip" in url:
             return 200, b'{"id": "naip", "extent": {}}'
         return 200, b"{}"
@@ -203,3 +217,105 @@ def test_the_retry_budget_caps_the_waits_of_a_whole_run(monkeypatch):
     budget = [15]
     ok, detail, _, k = ph.run_probe(p, lambda u, r: (503, b""), budget=budget)
     assert not ok and k == 2 and "retry budget used up" in detail and budget[0] < 15    # 10 s spent, 30 s refused
+
+
+# ---------------------------------------------------------------- BUG-169
+
+
+def test_naip_url_is_the_bbox_route_with_each_side_capped_at_2048():
+    u = gen_manifest.naip_url((100, 200, 1899, 2891), 1799, 2691, "co_m_x", "EPSG:26913")
+    assert u.startswith("https://planetarycomputer.microsoft.com/api/data/v1/item/bbox/100,200,1899,2891/1799x2048.tif?")
+    assert "/item/crop/" not in u
+    q = parse_qs(urlparse(u).query)
+    assert q["collection"] == ["naip"] and q["item"] == ["co_m_x"] and q["asset_bidx"] == ["image|1,2,3,4"]
+    assert q["coord_crs"] == q["dst_crs"] == ["EPSG:26913"] and q["resampling"] == ["average"]
+    assert "/2048x2048.tif" in gen_manifest.naip_url((0, 0, 4000, 2500), 4000, 2500, "i", "EPSG:26913")
+    assert "/2048x64.tif" in gen_manifest.naip_url((0, 0, 4000, 64), 4000, 64, "i", "EPSG:26913")
+
+
+def test_the_manifest_asks_for_the_capped_size_and_keeps_the_meta():
+    with open(ph.paths.config_path("vail"), encoding="utf-8") as f:
+        cfg = json.load(f)
+    naip = [i for i in gen_manifest.manifest_items(cfg) if i["path"].startswith("naip1m/")]
+    assert naip and gen_manifest.MANIFEST_VERSION == 3
+    for it in naip:
+        w, h = it["meta"]["size"]
+        bx0, by0, bx1, by1 = it["meta"]["bbox"]
+        assert (w, h) == (bx1 - bx0, by1 - by0)          # the meta keeps the full 1 m size (FEAT-346's index keys)
+        assert f"/item/bbox/{bx0},{by0},{bx1},{by1}/{min(w, 2048)}x{min(h, 2048)}.tif?" in it["url"]
+    assert any(max(i["meta"]["size"]) > 2048 for i in naip)    # Vail has crops the cap cuts
+
+
+def test_the_probe_uses_the_manifests_naip_route():
+    p = next(p for p in ph.probes() if p.name == "Planetary Computer NAIP crop")
+    assert p.url.startswith(gen_manifest.NAIP_BBOX_URL) and "/64x64.tif?" in p.url
+
+
+def test_each_row_stands_for_itself_on_a_shared_host(monkeypatch, capsys):
+    """the NAIP route failing is a failure though the STAC row on the same host passed; so are WESM next to GNIS
+    (prd-tnm.s3) and the Census population file next to the gazetteer (www2.census.gov)"""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    for key, host in (("/item/bbox/", "planetarycomputer.microsoft.com"), ("wesm", "prd-tnm.s3.amazonaws.com"),
+                      ("popest", "www2.census.gov")):
+        row = next(p for p in ph.probes() if p.host == host and key.lower() in p.url.lower())
+        assert ph.main([], fetch=fake({row.url: (404, b'{"detail":"Not Found"}')})) == 1, key
+        out = capsys.readouterr().out
+        assert f"unreachable: {host}" in out and f"FAIL {row.name}: HTTP 404" in out, key
+        assert [ln for ln in out.splitlines() if "not tried (host ok)" in ln and "Overpass" not in ln] == [], key
+
+
+def test_build_slug_reads_the_run_inputs_like_build_pack_ci():
+    assert ph.build_slug({}) == ""
+    assert ph.build_slug({"REBUILD": "heavenly", "SLUG": ""}) == "heavenly"
+    assert ph.build_slug({"REBUILD": "(new resort: type the slug below)", "SLUG": " mt-new "}) == "mt-new"
+    assert ph.build_slug({"SLUG": "bad slug; rm"}) == ""
+
+
+def write_cfg(d, slug, items, **kw):
+    os.makedirs(d / slug, exist_ok=True)
+    cfg = {"slug": slug, "naip": {"item_bboxes_ll": {i: [0, 0, 1, 1] for i in items}}, **kw}
+    (d / slug / f"{slug}.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+
+def test_naip_items_of_a_config_and_what_it_builds_on(tmp_path):
+    write_cfg(tmp_path, "a", ["a1", "a2"], raw_from="b", relocate=[{"source": "c"}, {"dx": 1}])
+    write_cfg(tmp_path, "b", ["b1", "a1"])
+    write_cfg(tmp_path, "c", [], relocate=[{"source": "a"}])
+    assert ph.naip_items("a", str(tmp_path)) == ["a1", "a2", "b1"]
+    assert ph.naip_items("new-resort", str(tmp_path)) == []                 # no config yet
+    assert ph.build_naip_items({"SLUG": "a"}, str(tmp_path)) == ("a", ["a1", "a2", "b1"])
+    assert ph.build_naip_items({"SLUG": "new-resort"}, str(tmp_path)) is None
+    assert ph.build_naip_items({}, str(tmp_path)) is None
+    write_cfg(tmp_path, "abroad", [])
+    assert ph.build_naip_items({"SLUG": "abroad"}, str(tmp_path)) is None   # no NAIP outside the US
+
+
+def test_naip_items_check_names_the_items_gone_and_the_fix():
+    url = ph.stac_items_url(["x1", "x2", "x3"])
+    q = parse_qs(urlparse(url).query)
+    assert url.startswith(ph.STAC_SEARCH + "?") and q["ids"] == ["x1,x2,x3"] and q["collections"] == ["naip"]
+    check = ph.naip_items_check("heavenly", ["x1", "x2", "x3"])
+    ok, detail = check(200, json.dumps({"features": [{"id": "x2"}]}).encode())
+    assert not ok and "x1, x3" in detail and "resort.py plan heavenly" in detail and "x2" not in detail.split(":")[1]
+    assert check(200, json.dumps({"features": [{"id": i} for i in ("x1", "x2", "x3")]}).encode())[0]
+    assert not check(200, b"<html>")[0] and not check(503, b"{}")[0]
+
+
+def test_a_build_run_probes_its_resorts_naip_items(monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    monkeypatch.setenv("REBUILD", "vail")
+    rows = [p.name for p in ph.probes()]
+    assert rows[rows.index("Planetary Computer NAIP crop") + 1] == "NAIP items of vail"
+    assert ph.main(["--only", "NAIP"], fetch=fake({})) == 0
+    gone = next(iter(json.load(open(ph.paths.config_path("vail"), encoding="utf-8"))["naip"]["item_bboxes_ll"]))
+
+    def fetch(url, rng):
+        if "/stac/v1/search" in url:
+            ids = [i for i in parse_qs(urlparse(url).query)["ids"][0].split(",") if i != gone]
+            return 200, json.dumps({"features": [{"id": i} for i in ids]}).encode()
+        return fake({})(url, rng)
+    assert ph.main(["--only", "NAIP"], fetch=fetch) == 1
+    out = capsys.readouterr().out
+    assert gone in out and "resort.py plan vail" in out and "unreachable: planetarycomputer.microsoft.com" in out

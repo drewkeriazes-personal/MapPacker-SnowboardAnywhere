@@ -8,14 +8,22 @@ back (a TIFF, a WebP tile, JSON with the fields the pipeline reads, a 200 or 206
 FEAT-314: a probe that got no answer, a 429 or 5xx, or a bad body is retried inline by pipeline/retry.json's rules
 (3 tries, waits 10 then 30 s, at most 300 s of waiting per run); a 4xx is not, unless retry.json lists it for the
 host. --tuning (the metrics branch's host-tuning.json, build_failures.py) raises the timeout and tries of a host that
-keeps timing out, within build_failures.CAP. The tries per host go to $SBA_RETRY_LOG (retry.Tally). A host with mirrors (Overpass) passes when any mirror passes, tried in order: the next mirror
-only when the ones before it failed (each gets its own row). web.archive.org is only for grooming (fetch_grooming.py), so it warns instead of failing.
+keeps timing out, within build_failures.CAP. The tries per host go to $SBA_RETRY_LOG (retry.Tally). Each row passes or
+fails on its own (BUG-169: two rows on one host test two things, a route or a file each), except a host's mirrors
+(Overpass, `mirror=True`): they pass when any mirror passes, tried in order, the next mirror only when the ones before
+it failed (each gets its own row). web.archive.org is only for grooming (fetch_grooming.py), so it warns instead of
+failing.
+
+BUG-169: in a build-pack run (REBUILD or SLUG set, as build_pack_ci.py reads them) the row "NAIP items of <slug>"
+asks Planetary Computer's STAC whether every NAIP item the slug's config (and the configs it builds on) names is still
+in the catalog; items do leave it. A new resort has no config yet (resort.py plan picks current items), and a local
+run names no slug: no row then.
 
 Prints a table, appends it to $GITHUB_STEP_SUMMARY as Markdown when that is set, and exits 1 when a required host
 failed. Uses curl (on ubuntu-latest and Windows 10+): Python's ssl rejects web.archive.org's chain (resort.py
 curl_json).
 """
-import argparse, json, os, subprocess, sys, tempfile, time
+import argparse, json, os, re, subprocess, sys, tempfile, time
 from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import quote, urlencode, urlparse
@@ -23,6 +31,7 @@ from urllib.parse import quote, urlencode, urlparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, "pipeline"))
+import gen_manifest  # noqa: E402
 import paths  # noqa: E402
 import placenames  # noqa: E402
 import resort  # noqa: E402
@@ -124,11 +133,12 @@ def cdx(code: int, body: bytes):
 @dataclass
 class Probe:
     name: str                  # row name
-    host: str                  # the host group: a host passes when any of its probes passes (mirrors)
+    host: str                  # the host, as the summary and --tuning name it
     url: str
     check: Callable
     range: bool = False        # ask for the first KB only
     required: bool = True      # False: warn, do not fail
+    mirror: bool = False       # one of the host's mirrors: the host passes when any of them passes
 
 
 def vail():
@@ -142,8 +152,8 @@ def probes() -> list:
     cfg = vail()
     epsg = cfg["crs"].split(":")[1]
     x0, y0 = cfg["utm_bbox"][:2]
-    naip_item = next(iter(cfg["naip"]["item_bboxes_ll"]))
-    # gen_manifest.py builds these inline (EXPORT, CROP, WC, ETH, the Overpass URLs); kept here in the same form
+    # gen_manifest.py builds these inline (EXPORT, WC, ETH, the Overpass URLs); kept here in the same form. The NAIP
+    # URL is gen_manifest.naip_url's own (BUG-169)
     export = ("https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?" +
               urlencode({"bbox": f"{x0},{y0},{x0 + 16},{y0 + 16}", "bboxSR": epsg, "imageSR": epsg, "size": "16,16",
                          "format": "tiff", "pixelType": "F32", "noData": "-9999",
@@ -153,9 +163,7 @@ def probes() -> list:
         first = next(it for it in json.load(f)["items"] if it["path"].startswith("naip1m/"))
     naip_item = first["meta"]["item"]
     cx, cy = first["meta"]["bbox"][0] + 100, first["meta"]["bbox"][1] + 100
-    crop = (f"https://planetarycomputer.microsoft.com/api/data/v1/item/crop/{cx},{cy},{cx + 64},{cy + 64}/64x64.tif?" +
-            urlencode({"collection": "naip", "item": naip_item, "assets": "image", "asset_bidx": "image|1,2,3,4",
-                       "coord_crs": cfg["crs"], "dst_crs": cfg["crs"], "resampling": "average", "max_size": "4000"}))
+    crop = gen_manifest.naip_url((cx, cy, cx + 64, cy + 64), 64, 64, naip_item, cfg["crs"])
     tile = "N39W108"           # the WorldCover / ETH 3 degree tile over Vail
     q = quote("[out:json][timeout:25];node(1);out;", safe="")
     box_ll = "-106.40,39.60,-106.39,39.61"
@@ -163,7 +171,7 @@ def probes() -> list:
         {"datasets": "Digital Elevation Model (DEM) 1 meter", "bbox": box_ll, "max": 1})
     cdx_url = "https://web.archive.org/cdx/search/cdx?" + urlencode(
         {"url": "vail.com", "output": "json", "filter": "statuscode:200", "limit": 1})
-    return [
+    rows = [
         Probe("3DEP ImageServer exportImage", "elevation.nationalmap.gov", export, tiff),
         Probe("TNM Access products", "tnmaccess.nationalmap.gov", tnm, json_with("items")),
         Probe("3DEP work units (WESM.csv)", "prd-tnm.s3.amazonaws.com", resort.INDEXES["wesm.csv"], range_ok,
@@ -176,10 +184,11 @@ def probes() -> list:
         Probe("Planetary Computer NAIP crop", "planetarycomputer.microsoft.com", crop, tiff),
         Probe("Mapterhorn tile", "tiles.mapterhorn.com", resort.MAPTERHORN_TILE.format(z=0, x=0, y=0), webp),
         Probe("Mapterhorn attribution", "download.mapterhorn.com", resort.INDEXES["mapterhorn_attribution.json"], http_ok),
-        Probe("Overpass", "Overpass", "https://overpass-api.de/api/interpreter?data=" + q, overpass),
+        Probe("Overpass", "Overpass", "https://overpass-api.de/api/interpreter?data=" + q, overpass, mirror=True),
         Probe("Overpass mirror private.coffee", "Overpass", "https://overpass.private.coffee/api/interpreter?data=" + q,
-              overpass),
-        Probe("Overpass mirror lz4", "Overpass", "https://lz4.overpass-api.de/api/interpreter?data=" + q, overpass),
+              overpass, mirror=True),
+        Probe("Overpass mirror lz4", "Overpass", "https://lz4.overpass-api.de/api/interpreter?data=" + q, overpass,
+              mirror=True),
         Probe("LANDFIRE LFPS", "lfps.usgs.gov", "https://lfps.usgs.gov/api/job/status?JobId=probe", any_json),
         Probe("ESA WorldCover", "esa-worldcover.s3.eu-central-1.amazonaws.com",
               f"https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_{tile}_Map.tif",
@@ -194,6 +203,76 @@ def probes() -> list:
         Probe("Geofabrik index", "download.geofabrik.de", resort.INDEXES["geofabrik_index.json"], range_ok, range=True),
         Probe("Internet Archive CDX (grooming)", "web.archive.org", cdx_url, cdx, required=False),
     ]
+    built = build_naip_items()
+    if built:
+        slug, names = built
+        # next to the NAIP route's row, so `--only NAIP` and `--only Planetary` both pick it
+        at = next(k for k, p in enumerate(rows) if p.name == "Planetary Computer NAIP crop") + 1
+        rows.insert(at, Probe(f"NAIP items of {slug}", "planetarycomputer.microsoft.com", stac_items_url(names),
+                              naip_items_check(slug, names)))
+    return rows
+
+
+# ---------------------------------------------------------------- BUG-169: the NAIP items of the resort being built
+STAC_SEARCH = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
+SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")      # build_pack_ci.SLUG_RE
+
+
+def build_slug(env=None) -> str:
+    """the slug a build-pack run builds, as build_pack_ci.check_inputs reads it: the rebuild list's pick, else the
+    typed slug; "" in a local run or for anything that is not a slug (check_inputs refuses it)"""
+    env = os.environ if env is None else env
+    rebuild = (env.get("REBUILD") or "").strip()
+    slug = rebuild if SLUG_RE.fullmatch(rebuild) else (env.get("SLUG") or "").strip()   # NEW is "(new resort: ...)"
+    return slug if SLUG_RE.fullmatch(slug) and len(slug) <= 60 else ""
+
+
+def naip_items(slug, resorts_dir=None, seen=None) -> list:
+    """every NAIP item id the config of `slug` names, then those of the configs it builds on (`raw_from`, relocate
+    sources: the build fetches their manifests too); [] when it has no config (a new resort)"""
+    seen = set() if seen is None else seen
+    if slug in seen:
+        return []
+    seen.add(slug)
+    path = paths.config_path(slug, resorts_dir)
+    if not os.path.isfile(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        cfg = json.load(f)
+    out = list((cfg.get("naip") or {}).get("item_bboxes_ll") or {})
+    for dep in ([cfg["raw_from"]] if cfg.get("raw_from") else []) + \
+            [m["source"] for m in cfg.get("relocate") or [] if m.get("source")]:
+        out += [i for i in naip_items(dep, resorts_dir, seen) if i not in out]
+    return out
+
+
+def build_naip_items(env=None, resorts_dir=None):
+    """(slug, [item ids]) for the "NAIP items of <slug>" row, or None: no slug (a local run), no config yet (a new
+    resort) or no NAIP (outside the US)"""
+    slug = build_slug(env)
+    names = naip_items(slug, resorts_dir) if slug else []
+    return (slug, names) if names else None
+
+
+def stac_items_url(names) -> str:
+    return STAC_SEARCH + "?" + urlencode({"collections": "naip", "ids": ",".join(names), "limit": max(50, len(names))})
+
+
+def naip_items_check(slug, names) -> Callable:
+    """HTTP 200 and a STAC search reply holding every one of `names`"""
+    def check(code: int, body: bytes):
+        if code != 200:
+            return False, f"HTTP {code}: {snippet(body)}"
+        d = _json(body)
+        if not isinstance(d, dict) or not isinstance(d.get("features"), list):
+            return False, f"not a STAC search reply: {snippet(body)}"
+        have = {f.get("id") for f in d["features"] if isinstance(f, dict)}
+        gone = [n for n in names if n not in have]
+        if gone:
+            return False, (f"{len(gone)} of {len(names)} NAIP items are no longer in STAC: {', '.join(gone)}; "
+                           f"python pipeline/resort.py plan {slug} picks current ones")
+        return True, f"HTTP 200, all {len(names)} NAIP items in STAC"
+    return check
 
 
 # ---------------------------------------------------------------- running
@@ -253,20 +332,24 @@ def run_probe(p: Probe, fetch: Callable, tries: int = 0, budget: list | None = N
 
 
 def verdicts(results: list) -> dict:
-    """{host: ok} from [(probe, ok, detail, s)]: a host passes when any of its probes does (mirrors)"""
+    """{host: ok} of the hosts with mirrors, from [(probe, ok, detail, s)]: such a host passes when any mirror does.
+    Every other row stands for itself (BUG-169: one row passing on a host says nothing of its other routes)"""
     out = {}
     for p, ok, _, _ in results:
-        out[p.host] = out.get(p.host, False) or bool(ok)
+        if p.mirror:
+            out[p.host] = out.get(p.host, False) or bool(ok)
     return out
 
 
 def failed_hosts(results: list) -> tuple:
-    """(required hosts that failed, warn-only hosts that failed)"""
+    """(required hosts with a failed row, warn-only hosts with a failed row), a row of mirrors failing only when
+    every mirror of its host did"""
     v = verdicts(results)
-    req = {p.host: p.required for p, *_ in results}
-    bad = sorted(h for h, ok in v.items() if not ok and req[h])
-    warn = sorted(h for h, ok in v.items() if not ok and not req[h])
-    return bad, warn
+    bad, warn = set(), set()
+    for p, ok, _, _ in results:
+        if not (v[p.host] if p.mirror else ok):
+            (bad if p.required else warn).add(p.host)
+    return sorted(bad), sorted(warn - bad)
 
 
 def status(p: Probe, ok, host_ok: bool) -> str:
@@ -281,7 +364,7 @@ def status(p: Probe, ok, host_ok: bool) -> str:
 
 def table(results: list, markdown: bool = False) -> str:
     v = verdicts(results)
-    rows = [(p.name, status(p, ok, v[p.host]), f"{s:.1f} s", detail) for p, ok, detail, s in results]
+    rows = [(p.name, status(p, ok, p.mirror and v[p.host]), f"{s:.1f} s", detail) for p, ok, detail, s in results]
     if markdown:
         lines = ["| host | result | time | detail |", "|---|---|---|---|"]
         lines += ["| " + " | ".join(c.replace("|", "\\|") for c in r) + " |" for r in rows]
@@ -322,7 +405,7 @@ def main(argv=None, fetch: Callable | None = None) -> int:
     results = []
     tally, budget = retry.Tally(), [retry.RULES["probe"]["budget_s"]]
     for p in todo:
-        if verdicts(results).get(p.host):     # a mirror of a host that already answered: not needed
+        if p.mirror and verdicts(results).get(p.host):     # a mirror of a host that already answered: not needed
             results.append((p, None, "", 0.0))
             continue
         t = tune.get(p.host, {})
