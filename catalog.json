@@ -298,17 +298,17 @@
     46.22506408239066
    ],
    "tier": "bronze",
-   "status": "preview",
+   "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261114T092110Z-4c76de",
-    "built": "2026-11-14",
-    "pipeline": "71570e8",
-    "bytes": 105481561,
-    "sha256": "e91ed442909963ce4e743560159975ef54a7d8e0c182555db8eed9eb6e140193",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mont-tremblant-resort-station-mont-tremblant/v1/mont-tremblant-resort-station-mont-tremblant.zip",
-    "content": "19576d737eaf045f"
+    "build": "20261122T153048Z-9f4c7e",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 129827462,
+    "sha256": "a5f473fee8fa0181ebe6ffea640a216b3b1ce483614a6ea8d81f5ccef7a94ddb",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mont-tremblant-resort-station-mont-tremblant/v2/mont-tremblant-resort-station-mont-tremblant.zip",
+    "content": "df59054628eb9fc2"
    },
    "report": "reports/mont-tremblant-resort-station-mont-tremblant.md"
   },
