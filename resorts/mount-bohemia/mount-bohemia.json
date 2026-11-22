@@ -41,20 +41,20 @@
     "chunk_px": 1500
   },
   "naip": {
-    "source": "Planetary Computer naip 2022 60cm (1 quarter quad from 2024 where 2022 has none)",
+    "source": "Planetary Computer naip 2022 60cm",
     "res_m": 1,
     "max_px": 4000,
     "items": [
-      "mi_m_4708733_sw_16_060_20240726",
+      "mi_m_4708733_sw_16_060_20220906",
       "mi_m_4708840_se_16_060_20220906",
       "mi_m_4708848_ne_16_060_20220906"
     ],
     "item_bboxes_ll": {
-      "mi_m_4708733_sw_16_060_20240726": [
-        -88.001,
-        47.374,
-        -87.936,
-        47.438
+      "mi_m_4708733_sw_16_060_20220906": [
+        -88.004,
+        47.373,
+        -87.934,
+        47.44
       ],
       "mi_m_4708840_se_16_060_20220906": [
         -88.066,
@@ -85,7 +85,7 @@
   "attribution": [
     "Elevation: USGS 3DEP 1 m lidar DEM (MI_FEMA_2019_C19), public domain",
     "Canopy: USGS 3DEP lidar point cloud MI_FEMA_Houghton_Keweenaw_Ontonagon_2019 via AWS usgs-lidar-public, public domain",
-    "Imagery: USDA NAIP 2024 (2022 where 2024 has none) via Microsoft Planetary Computer, public domain",
+    "Imagery: USDA NAIP 2022 via Microsoft Planetary Computer, public domain",
     "Background terrain: Mapterhorn (mapterhorn.com)",
     "Runs, lifts, buildings, roads, names: OpenStreetMap contributors (ODbL)"
   ],

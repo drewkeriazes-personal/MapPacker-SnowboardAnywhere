@@ -41,15 +41,15 @@
     "chunk_px": 1500
   },
   "naip": {
-    "source": "Planetary Computer naip 2024 60cm (5 quarter quads from 2022 where 2024 has none)",
+    "source": "Planetary Computer naip 2022 60cm",
     "res_m": 1,
     "max_px": 4000,
     "items": [
-      "ca_m_3811901_ne_11_060_20240821",
-      "ca_m_3811901_nw_11_060_20240821",
-      "ca_m_3811901_se_11_060_20240821",
-      "ca_m_3811901_sw_11_060_20240821",
-      "ca_m_3811902_sw_11_060_20240821",
+      "ca_m_3811901_ne_11_060_20220813",
+      "ca_m_3811901_nw_11_060_20220813",
+      "ca_m_3811901_se_11_060_20220813",
+      "ca_m_3811901_sw_11_060_20220813",
+      "ca_m_3811902_sw_11_060_20220813",
       "nv_m_3811901_ne_11_060_20220614",
       "nv_m_3811901_nw_11_060_20220610",
       "nv_m_3811901_se_11_060_20220630",
@@ -57,31 +57,31 @@
       "nv_m_3811902_sw_11_060_20220630"
     ],
     "item_bboxes_ll": {
-      "ca_m_3811901_ne_11_060_20240821": [
+      "ca_m_3811901_ne_11_060_20220813": [
         -119.942,
         38.934,
         -119.87,
         39.003
       ],
-      "ca_m_3811901_nw_11_060_20240821": [
+      "ca_m_3811901_nw_11_060_20220813": [
         -120.005,
         38.934,
         -119.933,
         39.003
       ],
-      "ca_m_3811901_se_11_060_20240821": [
+      "ca_m_3811901_se_11_060_20220813": [
         -119.942,
         38.872,
         -119.87,
         38.941
       ],
-      "ca_m_3811901_sw_11_060_20240821": [
+      "ca_m_3811901_sw_11_060_20220813": [
         -120.005,
         38.872,
         -119.933,
         38.941
       ],
-      "ca_m_3811902_sw_11_060_20240821": [
+      "ca_m_3811902_sw_11_060_20220813": [
         -119.88,
         38.872,
         -119.808,
@@ -149,7 +149,7 @@
   "attribution": [
     "Elevation: USGS 3DEP 1 m lidar DEM (CA_SierraNevada_B22, NV_Reno_Carson_QL1_2017, NV_USFSR4_D23, NV_WestCentral_EarthMRI_2020_D20), public domain",
     "Canopy: USGS 3DEP lidar point clouds CA_SierraNevada_8_2022 and NV_WestCentralEarthMRI_3_2020 via AWS usgs-lidar-public, public domain",
-    "Imagery: USDA NAIP 2024 (2022 where 2024 has none) via Microsoft Planetary Computer, public domain",
+    "Imagery: USDA NAIP 2022 via Microsoft Planetary Computer, public domain",
     "Background terrain: Mapterhorn (mapterhorn.com)",
     "Runs, lifts, buildings, roads, names: OpenStreetMap contributors (ODbL)"
   ],
