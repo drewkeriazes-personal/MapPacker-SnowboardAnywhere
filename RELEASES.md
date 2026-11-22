@@ -54,7 +54,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Jackson Hole Mountain
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/jackson-hole-mountain/v1) (latest) 92 MB, 2026-11-14
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/jackson-hole-mountain/v2) (latest) 94 MB, 2026-11-22
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/jackson-hole-mountain/v1) 92 MB, 2026-11-14
 
 ## Keystone
 
