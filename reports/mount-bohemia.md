@@ -1,6 +1,6 @@
 # Pack report: Mount Bohemia (`mount-bohemia`)
 
-Build `20261122T150922Z-bdc757`, pipeline `189e682`, format 1. Report 2026-11-22T15:09:27Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261122T152700Z-849d7e`, pipeline `874dd77`, format 1. Report 2026-11-22T15:27:07Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
