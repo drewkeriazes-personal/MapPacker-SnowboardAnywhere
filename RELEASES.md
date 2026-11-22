@@ -63,7 +63,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Mount Bohemia
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v2) (latest) 38 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v3) (latest) 38 MB, 2026-11-22
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v2) 38 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mount-bohemia/v1) 37 MB, 2026-11-14
 
 ## Ohio Hills (custom mashup)
