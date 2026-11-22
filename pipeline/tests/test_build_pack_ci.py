@@ -331,3 +331,16 @@ def test_the_env_carries_the_refresh_run(monkeypatch):
     for k in ("REBUILD", "NAME", "OSM_ID", "REQUESTED_BY"):
         monkeypatch.delenv(k, raising=False)
     assert ci.from_env()["refresh_run"] == "123"
+
+
+def test_stream_passes_a_line_this_console_cannot_show(monkeypatch):
+    """BUG-172: the PC runner's stdout is a cp1252 pipe; vite's "✓ built" crashed the build step"""
+    import io
+    monkeypatch.setenv("PYTHONUTF8", "1")          # as build-pack.yml sets it: the child writes UTF-8
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1252", newline="\n"))
+    code, out = ci.stream([sys.executable, "-c", "print('\u2713 built in 2 s')"])
+    sys.stdout.flush()
+    assert code == 0 and out == "✓ built in 2 s\n"
+    assert raw.getvalue() == b"? built in 2 s\n"
+

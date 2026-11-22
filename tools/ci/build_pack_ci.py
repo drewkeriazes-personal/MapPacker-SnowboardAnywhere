@@ -142,7 +142,11 @@ def outputs(values):
 
 
 def stream(cmd):
-    """run cmd, passing its output through as it comes -> (exit code, the output)"""
+    """run cmd, passing its output through as it comes -> (exit code, the output). BUG-172: a character this
+    console can't show is replaced, never a failed build (the PC runner's pipe is cp1252; vite prints "✓")"""
+    for out in (sys.stdout, sys.stderr):
+        if hasattr(out, "reconfigure"):
+            out.reconfigure(errors="replace")
     p = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                          encoding="utf-8", errors="replace", bufsize=1, env={**os.environ, "PYTHONUNBUFFERED": "1"})
     lines = []

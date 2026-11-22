@@ -250,6 +250,8 @@ jobs:
         shell: bash           # on Windows the runner uses Git for Windows' bash
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # BUG-172: Python reads and writes UTF-8 on the Windows runner too (a pipe there is cp1252, which has no "✓")
+      PYTHONUTF8: "1"
     steps:
       # where the retry log and the OpenSkiData index go, per runner (the PC's index: pc setup below)
       - name: paths
