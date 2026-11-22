@@ -61,7 +61,7 @@ def saved_files(raw: str) -> list[str]:
     out = []
     for d, _, names in os.walk(raw):
         for n in names:
-            if n.endswith((".part", ".tmp")) or (d == raw and n in UNSAVED):
+            if n.endswith((".part", ".tmp", ".keep")) or (d == raw and n in UNSAVED):
                 continue
             out.append(os.path.relpath(os.path.join(d, n), raw).replace(os.sep, "/"))
     return sorted(out)

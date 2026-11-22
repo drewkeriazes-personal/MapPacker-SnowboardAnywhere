@@ -1,5 +1,5 @@
 """FEAT-346: what each raw file was fetched for, and (FEAT-348) when, so a file is reused while it still fits and
-fetched again once it doesn't or once it is too old.
+fetched again once it doesn't, or (OSM) once it was edited upstream.
 
 fetch.ps1 skips a file that is already on disk, by its path alone. That keeps a file the manifest now wants made
 differently (a new bbox, size or query under the same name), and it is what lets a restored raw folder
@@ -11,13 +11,15 @@ differently (a new bbox, size or query under the same name), and it is what lets
 
 A change in how a meta source's bytes are made (its resampling, say) goes in that item's `meta`, so its key changes.
 
-FEAT-348: some layers go stale on their own. MAX_AGE_DAYS gives a maximum age by path prefix (OpenStreetMap, 14
-days: the layer that changes most, and about 8 MB and 5 Overpass requests per resort); an item older than that is
-fetched again as if its key had changed. The other layers (DEM, NAIP, lidar, Mapterhorn, land cover, names) have no
-maximum age.
+FEAT-348: OpenStreetMap changes on its own. Before the fetch, build_resort.py asks Overpass (pipeline/osm_check.py)
+whether anything the osm/ items cover was edited since their fetch, and passes those items as `again`. `newer:`
+can't see a deletion, so MAX_AGE_DAYS is a backstop: an osm/ item older than 90 days goes again without a check.
+The other layers (DEM, NAIP, lidar, Mapterhorn, land cover, names) have no maximum age.
 
     over_age(raw, items, now)          the items whose fetch time is past their maximum age
-    prune(raw, items, now)             before the fetch: delete each file whose key changed or that is over age
+    prune(raw, items, now, again)      before the fetch: delete each file whose key changed; move aside (to
+                                       <file>.keep) each one over age or in `again`, so a failed refetch can put it back
+    restore_kept / drop_kept           after the fetch: put the kept copies back where nothing new came, or delete them
     record(raw, items, fetched, now)   after a fetch that finished: write <raw>/fetch_index.json,
                                        {path: {"key", "fetched"}}; `fetched` names the files this fetch downloaded,
                                        which get `now`, and every other item keeps the time it has
@@ -27,15 +29,16 @@ cache's key hashes this file: a rebuild from a restored cache must not upload it
 
 A raw folder from before FEAT-346 has no index: nothing is pruned (its files are trusted, as before), and the next
 record writes them. An index from before FEAT-348 ({path: key}) is read with no fetch times: an unknown time is
-never over age and is recorded as now, so the upgrade deletes nothing and the 14 days start then (that form was
-only ever written by FEAT-346 builds a few days before this card)."""
+never over age, is not checked, and is recorded as now, so the upgrade deletes nothing and the next build checks
+from then."""
 import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
 
 INDEX = "fetch_index.json"
-MAX_AGE_DAYS = {"osm/": 14}
+MAX_AGE_DAYS = {"osm/": 90}
+KEEP = ".keep"
 
 
 def item_key(item: dict) -> str:
@@ -104,10 +107,11 @@ def over_age(raw: str, items: list[dict], now: datetime | None = None, index: di
     return out
 
 
-def prune(raw: str, items: list[dict], now: datetime | None = None) -> list[str]:
-    """delete the files whose recorded key is not the manifest's any more, or that are over age; -> their paths"""
+def prune(raw: str, items: list[dict], now: datetime | None = None, again=()) -> list[str]:
+    """delete the files whose recorded key is not the manifest's any more, and move aside (<file>.keep) those over
+    age or named in `again`; -> the paths of both"""
     index = load(raw)
-    stale = set(over_age(raw, items, now, index))
+    stale = set(over_age(raw, items, now, index)) | set(again)
     gone = []
     for item in items:
         path = item["path"]
@@ -116,9 +120,30 @@ def prune(raw: str, items: list[dict], now: datetime | None = None) -> list[str]
             continue
         full = _file(raw, path)
         if os.path.isfile(full):
-            os.remove(full)
+            if e["key"] == item_key(item):
+                os.replace(full, full + KEEP)    # the same item fetched again: a failed fetch puts this back
+            else:
+                os.remove(full)
             gone.append(path)
     return gone
+
+
+def restore_kept(raw: str, items: list[dict]) -> list[str]:
+    """put each kept copy back whose file is not there (the refetch failed); -> their paths"""
+    back = []
+    for item in items:
+        full = _file(raw, item["path"])
+        if os.path.isfile(full + KEEP) and not os.path.isfile(full):
+            os.replace(full + KEEP, full)
+            back.append(item["path"])
+    return back
+
+
+def drop_kept(raw: str, items: list[dict]) -> None:
+    for item in items:
+        full = _file(raw, item["path"]) + KEEP
+        if os.path.isfile(full):
+            os.remove(full)
 
 
 def missing(raw: str, items: list[dict]) -> list[str]:

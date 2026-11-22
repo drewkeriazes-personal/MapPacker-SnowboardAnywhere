@@ -31,10 +31,11 @@ A stage is skipped when its inputs have not changed since it last ran: each stag
 grooming reports, a pack built by a pipeline whose code matches this one) and records them, so an existing resort
 is not walked, fetched or built again. A fetch from an older manifest (a new layer, a bigger box, MANIFEST_VERSION)
 changes the manifest's fingerprint, so the fetch runs again and downloads only what is missing (DATA-022 item 3).
-FEAT-346/348: pipeline/fetch_index.py deletes before the fetch what the manifest now wants made differently, and
-what is past its maximum age (OpenStreetMap, 14 days); a file over age also runs the fetch stage when its inputs are
-unchanged, and the build after it (state `fetch_aged`). A skipped fetch stage records the index too, so an index
-without fetch times gets them.
+FEAT-346: pipeline/fetch_index.py deletes before the fetch what the manifest now wants made differently. FEAT-348:
+an Overpass change check (pipeline/osm_check.py, once per run) asks whether the osm/ items were edited since their
+fetch, and OSM past a 90-day backstop goes again unchecked; either runs the fetch stage when its inputs are unchanged,
+and the build after it (state `fetch_aged`). A failed check, or a failed refetch of OSM that has a cached copy, keeps
+that copy and warns. A skipped fetch stage records the index too, so an index without fetch times gets them.
 After the fetch and the build come the pack-build skill's checks: every raw layer present, the OSM files real
 JSON and not an Overpass error page, the pack's meta.json in this pipeline's format.
 
@@ -47,12 +48,13 @@ pack whose relocate moves name a `source` checks that source's raw data before i
 (`--force all` runs every one), `--dry-run` prints what would run and why. Exit status: 0 done, 1 a stage failed
 (the message says which and what to do), 2 bad arguments. `build_resort.cmd` is the launcher on Drew's PC.
 """
-import argparse, glob, hashlib, json, os, shutil, subprocess, sys, time
+import argparse, glob, hashlib, json, os, re, shutil, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import fetch_index  # noqa: E402
+import osm_check  # noqa: E402
 import paths  # noqa: E402
 
 STAGES = ["nodes", "manifest", "fetch", "landfire", "grooming", "build", "content", "attract", "spots", "index", "published", "report"]
@@ -183,6 +185,7 @@ class Resort:
                 self.state = json.load(f)
         except (OSError, ValueError):
             self.state = {}
+        self.osm_again = None     # FEAT-348: osm_plan's answer, once per run
 
     def save(self):
         os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
@@ -283,45 +286,99 @@ def fetch_run(r, ctx):
     if os.path.basename(os.path.normpath(r.raw)) != r.slug:
         raise Failed(f"fetch.ps1 writes <RawDir>\\{r.slug}; the raw folder {r.raw} is not named {r.slug}")
     items, now = manifest_items(r), ctx.now()
-    aged = fetch_index.over_age(r.raw, items, now)   # FEAT-348: OSM older than its maximum age goes again
-    gone = fetch_index.prune(r.raw, items, now)      # FEAT-346: what the manifest now wants made differently goes again
-    changed = [p for p in gone if p not in aged]
+    again = osm_plan(r, ctx)                     # FEAT-348: OSM edited upstream, or past the 90-day backstop
+    gone = fetch_index.prune(r.raw, items, now, again)   # FEAT-346: what the manifest now wants made differently
+    changed = [p for p in gone if p not in again]
     if changed:
         print(f"  {len(changed)} file(s) fetched for an older manifest item, fetched again: {few(changed)}")
-    if aged:
-        print(f"  {len(aged)} file(s) over their maximum age ({max_ages(aged)}), fetched again: {few(aged)}")
-        r.state["fetch_aged"] = fetch_index.stamp(now)   # a build input: the pack is built again on the new data
     fetched = fetch_index.missing(r.raw, items)
     code = ctx.run([powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "fetch.ps1"),
                     "-Slug", r.slug, "-RawDir", os.path.dirname(os.path.normpath(r.raw))])
-    if code == 3:     # FEAT-314: a 4xx, never retried (retry.json)
+    back = fetch_index.restore_kept(r.raw, items) if code else []    # a failed refetch: the old copy goes back
+    failed = failed_items(r.raw) if code in (2, 3) else None
+    if back and failed and set(failed) <= set(back):
+        warn(f"osm: fetch again failed, kept the cached copy ({few(back)})")
+        fetched = [p for p in fetched if p not in back]      # their index entries (and fetch times) stay
+    elif code == 3:   # FEAT-314: a 4xx, never retried (retry.json)
         raise Failed(f"a download was refused (a 4xx: not retried; {os.path.join(r.raw, 'fetch_log.txt')} lists "
                      "it): fix the manifest or the config, then run again")
-    if code == 2:
+    elif code == 2:
         raise Failed(f"some downloads failed ({os.path.join(r.raw, 'fetch_log.txt')} lists them): run again, "
                      "it resumes")
-    if code:
+    elif code:
         raise Failed(f"fetch.ps1 exited {code}")
     check_raw(r)
+    fetch_index.drop_kept(r.raw, items)
+    if set(again) & set(fetched):
+        r.state["fetch_aged"] = fetch_index.stamp(now)   # a build input: the pack is built again on the new OSM
     fetch_index.record(r.raw, items, fetched, now)
+
+
+def failed_items(raw):
+    """the paths fetch.ps1's last run listed as failed (fetch_log.txt, which every run appends to); None when the
+    log has no such list"""
+    try:
+        with open(os.path.join(raw, "fetch_log.txt"), encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return None
+    starts = [k for k, ln in enumerate(lines) if FETCH_START.search(ln)]
+    run = lines[starts[-1]:] if starts else lines
+    marks = [k for k, ln in enumerate(run) if ln.endswith(FETCH_FAILED)]
+    if not marks:
+        return None
+    return [ln.split("  ", 1)[1].strip() for ln in run[marks[-1] + 1:] if "  " in ln and ln.split("  ", 1)[1].strip()]
+
+
+FETCH_START = re.compile(r"^\S+  Manifest \S+: \d+ items -> ")   # fetch.ps1's first log line
+FETCH_FAILED = "Failed items (re-run this script to retry them):"
 
 
 def few(paths):
     return ", ".join(paths[:5]) + (", ..." if len(paths) > 5 else "")
 
 
-def max_ages(paths):
-    """'osm/: 14 days' for the prefixes the paths fall under"""
-    return ", ".join(f"{pre}: {d} days" for pre, d in fetch_index.MAX_AGE_DAYS.items()
-                     if any(p.startswith(pre) for p in paths))
+def warn(msg):
+    print(f"::warning::{msg}" if os.environ.get("GITHUB_ACTIONS") else f"  warning: {msg}", flush=True)
 
 
-def fetch_over_age(r, ctx):
-    """FEAT-348: the manifest items whose last fetch is older than their maximum age ([] without a manifest)"""
+def osm_plan(r, ctx):
+    """FEAT-348, once per build (decide and fetch_run both ask): the osm/ items to fetch again, the ones past the
+    90-day backstop and the ones the Overpass change check finds edited, saying so in the log"""
+    if r.osm_again is None:
+        r.osm_again = plan_osm(r, ctx)
+    return r.osm_again
+
+
+def plan_osm(r, ctx):
     try:
-        return fetch_index.over_age(r.raw, manifest_items(r), ctx.now())
+        items = manifest_items(r)
     except (OSError, ValueError, KeyError):
         return []
+    now, index = ctx.now(), fetch_index.load(r.raw)
+    aged = fetch_index.over_age(r.raw, items, now, index)
+    if aged:
+        oldest = min(index[p]["fetched"] for p in aged)[:10]
+        print(f"  osm: last fetched {oldest}, over {fetch_index.MAX_AGE_DAYS['osm/']} days, fetched again "
+              f"({few(aged)})")
+    look = [i for i in items if i["path"].startswith(osm_check.PREFIX) and i["path"] not in aged
+            and (e := index.get(i["path"])) and e["fetched"] and e["key"] == fetch_index.item_key(i)
+            and os.path.isfile(fetch_index._file(r.raw, i["path"]))]
+    if not look:          # nothing fetched yet, or no fetch time yet (recorded now, checked from then)
+        return aged
+    since = {i["path"]: index[i["path"]]["fetched"] for i in look}
+    day = min(since.values())[:10]
+    try:
+        got = osm_check.check(look, since, ctx.overpass)
+    except osm_check.CheckFailed as e:
+        warn(f"osm: check failed, kept the cached copy ({e})")
+        return aged
+    edited = [p for p, n in got.items() if n > 0]
+    if edited:
+        print(f"  osm: {sum(got.values())} elements edited since {day}, fetched again ({few(edited)})")
+    else:
+        print(f"  osm: unchanged since {day}")
+    return aged + edited
 
 
 def no_pistes_anywhere(r, d):
@@ -688,9 +745,10 @@ GAME_TOOL = {"attract": "game/tools/auto_attract.mjs", "spots": "tools/propose_s
 # ------------------------------------------------------------------------------------------------ runner
 
 class Context:
-    def __init__(self, force=(), email=None, interactive=False, gate=False, runner=run, clock=fetch_index.utc_now):
+    def __init__(self, force=(), email=None, interactive=False, gate=False, runner=run, clock=fetch_index.utc_now,
+                 overpass=osm_check.send):
         self.force, self.email, self.interactive, self.gate, self.run = set(force), email, interactive, gate, runner
-        self.now = clock      # FEAT-348: the fetch index's clock (a test sets the date)
+        self.now, self.overpass = clock, overpass   # FEAT-348: the fetch index's clock, the change check's sender
 
     def forced(self, stage):
         return "all" in self.force or stage in self.force
@@ -722,8 +780,8 @@ def decide(r, stage, ctx):
         return False, "outside the US"
     if stage == "grooming" and not r.cfg.get("terrain_status_url"):
         return False, "no terrain_status_url"
-    if stage == "fetch" and present(r) and (aged := fetch_over_age(r, ctx)):
-        return True, f"{len(aged)} file(s) over their maximum age ({max_ages(aged)})"
+    if stage == "fetch" and present(r) and (again := osm_plan(r, ctx)):
+        return True, f"OpenStreetMap to fetch again ({few(again)})"
     seen = r.state.get(stage)
     if seen == fp and present(r):
         return False, "inputs unchanged"
