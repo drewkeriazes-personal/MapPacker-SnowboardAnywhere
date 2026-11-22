@@ -180,15 +180,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261114T154440Z-bf8262",
-    "built": "2026-11-14",
-    "pipeline": "30c6fb1",
-    "bytes": 192600571,
-    "sha256": "43b90805181a528b5367ffeb5e1b7d02246d2ced87f0df9d3740f7857923aa04",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/deer-valley/v1/deer-valley.zip",
-    "content": "0e7fc49ef96a6150"
+    "build": "20261122T154004Z-46bd75",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 194262512,
+    "sha256": "2e47bfeb0f01794fd294900f17b1d6c98acf2d05ffcdfc17260f7307b80e32a7",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/deer-valley/v2/deer-valley.zip",
+    "content": "0988993db1c8ab13"
    },
    "report": "reports/deer-valley.md"
   },
