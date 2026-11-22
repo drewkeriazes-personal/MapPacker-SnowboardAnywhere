@@ -121,8 +121,23 @@ def attempt_jobs(repo: str, run_id: str, attempt: int) -> list:
     return json.loads(gh("api", f"repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100"))["jobs"]
 
 
-def job_log(repo: str, job_id) -> str:
-    return gh("api", f"repos/{repo}/actions/jobs/{job_id}/logs", check=False)
+LOG_WAITS = (10, 20, 40, 60, 60)   # BUG-171: s between tries; a job's log can lag its end (about 3 min in all)
+
+
+def job_log(repo: str, job_id, sleep=time.sleep, api=None) -> str:
+    """the job's log; "" when it still can't be read after LOG_WAITS, with the last error as a warning (BUG-171:
+    the outcome job starts seconds after the job it reads, and an empty log read as `unknown` stopped every retry)"""
+    api = api or (lambda: subprocess.run(["gh", "api", f"repos/{repo}/actions/jobs/{job_id}/logs"],
+                                         capture_output=True, text=True, encoding="utf-8", errors="replace"))
+    err = ""
+    for wait in (0, *LOG_WAITS):
+        sleep(wait)
+        p = api()
+        if not p.returncode and p.stdout.strip():
+            return p.stdout
+        err = (p.stderr or "").strip()[:300] or "an empty log"
+    print(f"::warning::the log of job {job_id} could not be read: {err}")
+    return ""
 
 
 def when(s):
@@ -140,7 +155,13 @@ def verdict(jobs: list, own: str, log_of) -> dict:
         return {"job": "", "step": "", "host": "", "reason": "", "transient": False, "duration_s": dur, "ok": True}
     j = bad[0]
     step = next((s["name"] for s in j.get("steps", []) if s.get("conclusion") in ("failure", "cancelled")), "")
-    c = classify(step, log_of(j)[-200_000:], "cancelled" if j["conclusion"] == "cancelled" else "failure")
+    log = log_of(j)
+    if j["conclusion"] == "cancelled":
+        c = classify(step, log, "cancelled")
+    elif not log.strip():      # BUG-171: no log to read is no evidence of a real failure; the retry decides
+        c = {"reason": "log-unreadable", "transient": True, "host": ""}
+    else:
+        c = classify(step, log[-200_000:])
     if j["conclusion"] == "timed_out":
         c = {"reason": "job-timeout", "transient": False, "host": ""}
     return {"job": j["name"], "step": step, **c, "duration_s": dur, "ok": False}

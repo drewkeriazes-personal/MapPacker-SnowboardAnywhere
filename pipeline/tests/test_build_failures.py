@@ -219,3 +219,35 @@ def test_inline_retries_are_counted_per_host_and_summarised(tmp_path):
     text = bf.summary_md(rows, {})
     assert "Recovered inline: 3 calls; job re-runs: 0; real failures: 1" in text
     assert "| a.org | 41 | 4 | 3 | 1 |" in text
+
+
+# ---------------------------------------------------------------- BUG-171
+
+
+class Answer:
+    def __init__(self, code, out="", err=""):
+        self.returncode, self.stdout, self.stderr = code, out, err
+
+
+def test_job_log_waits_for_a_log_that_lags_the_job(capsys):
+    """the outcome job starts seconds after the job it reads; the log can come later"""
+    answers = iter([Answer(1, err="HTTP 404: Not Found"), Answer(0, ""), Answer(0, "##[error]the log")])
+    waits = []
+    assert bf.job_log("o/r", 7, sleep=waits.append, api=lambda: next(answers)) == "##[error]the log"
+    assert waits == [0, 10, 20] and "::warning::" not in capsys.readouterr().out
+
+
+def test_job_log_gives_up_with_the_error_as_a_warning(capsys):
+    waits = []
+    assert bf.job_log("o/r", 7, sleep=waits.append, api=lambda: Answer(1, err="HTTP 403: Resource not accessible")) == ""
+    assert waits == [0, *bf.LOG_WAITS]
+    assert "::warning::the log of job 7 could not be read: HTTP 403: Resource not accessible" in capsys.readouterr().out
+
+
+def test_a_failure_whose_log_cannot_be_read_is_retried_not_stopped(monkeypatch, tmp_path):
+    """BUG-171: every failure read as `unknown` (a real stop) when the log came back empty, so no retry ever ran"""
+    jobs = [job("queue", "success"), job("probe", "success"), job("build", "failure", "fetch", id=9),
+            job("outcome", None)]
+    row, sent, text = run_record(monkeypatch, tmp_path, jobs, 1, {})
+    assert (row["reason"], row["transient"], row["outcome"]) == ("log-unreadable", True, "retrying") and sent == [1]
+    assert "**log-unreadable** (transient) at build / fetch" in text
