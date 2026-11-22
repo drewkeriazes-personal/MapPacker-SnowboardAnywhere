@@ -228,15 +228,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261114T072547Z-bf74a1",
-    "built": "2026-11-14",
-    "pipeline": "50b0207",
-    "bytes": 92352302,
-    "sha256": "24a1f54d5e5f2748a66cac5edb2dd249fd4e2bd36ffcc8358a4d59651af3e29c",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/jackson-hole-mountain/v1/jackson-hole-mountain.zip",
-    "content": "ccb21a51f5e12cea"
+    "build": "20261122T162036Z-6565df",
+    "built": "2026-11-22",
+    "pipeline": "79e54c3",
+    "bytes": 93938897,
+    "sha256": "b4d1fc16b37b2ee5368acc1ce72a9f5beec9bb7595d88a40627fdd09738fb548",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/jackson-hole-mountain/v2/jackson-hole-mountain.zip",
+    "content": "78186509938dcb87"
    },
    "report": "reports/jackson-hole-mountain.md"
   },
