@@ -60,7 +60,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Mont Tremblant Resort, Station Mont Tremblant
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mont-tremblant-resort-station-mont-tremblant/v1) (latest) 105 MB, 2026-11-14
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mont-tremblant-resort-station-mont-tremblant/v2) (latest) 130 MB, 2026-11-22
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/mont-tremblant-resort-station-mont-tremblant/v1) 105 MB, 2026-11-14
 
 ## Mount Bohemia
 
