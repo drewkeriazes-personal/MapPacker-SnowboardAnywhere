@@ -34,7 +34,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Crystal Mountain
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/crystal-mountain/v1) (latest) 95 MB, 2026-11-13
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/crystal-mountain/v2) (latest) 95 MB, 2026-11-22
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/crystal-mountain/v1) 95 MB, 2026-11-13
 
 ## Deer Valley
 
