@@ -2,13 +2,13 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-66 attempts logged, 43 failed. Recovered inline: 77 calls; job re-runs: 0; real failures: 43. Retried runs: 0, of them passed in the end: 0.
+67 attempts logged, 43 failed. Recovered inline: 77 calls; job re-runs: 0; real failures: 43. Retried runs: 0, of them passed in the end: 0.
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
 | host | calls | retried | recovered | failed |
 |---|---|---|---|---|
-| overpass-api.de | 208 | 67 | 54 | 13 |
+| overpass-api.de | 209 | 67 | 54 | 13 |
 | elevation.nationalmap.gov | 1059 | 21 | 21 | 0 |
 | download.geofabrik.de | 43 | 6 | 0 | 6 |
 | overpass.private.coffee | 5 | 5 | 1 | 4 |
