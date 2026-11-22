@@ -363,3 +363,44 @@ def test_no_covering_file_means_the_probe_as_before(tmp_path, monkeypatch, capsy
     assert ph.main(["--raw-cache", str(path)], fetch=fake(DOWN)) == 1
     out = capsys.readouterr().out
     assert "unreachable: Overpass, download.geofabrik.de" in out and "Raw cache covers" not in out
+
+
+# ---------------------------------------------------------------- BUG-170
+
+
+PLAN_ONLY = {"TNM Access products", "3DEP work units (WESM.csv)", "Entwine boundaries", "Planetary Computer STAC naip",
+             "Mapterhorn attribution", "Geofabrik index"}
+
+
+def test_the_hosts_only_a_new_resorts_plan_calls_are_marked():
+    """resort.py resolve/plan read these (Geofabrik at plan's geofabrik_for, Entwine's index, TNM's DEM tiles, WESM,
+    the STAC search, Mapterhorn's attribution); a rebuild builds from its committed config and manifest"""
+    assert {p.name for p in ph.probes() if p.plan_only} == PLAN_ONLY
+
+
+def test_a_rebuild_lets_the_plan_only_hosts_warn(monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    monkeypatch.setenv("REBUILD", "vail")
+    down = {"geofabrik": (0, b"curl: (7) Failed to connect"), "entwine": (0, b"curl: (7) Failed to connect")}
+    assert ph.main([], fetch=fake(down)) == 0
+    out = capsys.readouterr().out
+    assert "A rebuild of vail: " in out and "Geofabrik index" in out and "(BUG-170)" in out
+    assert "download.geofabrik.de, usgs.entwine.io unreachable (only a new resort's plan calls them)" in out
+
+
+def test_a_new_resort_still_needs_the_plan_only_hosts(monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    monkeypatch.setenv("REBUILD", "(new resort: type the slug below)")
+    monkeypatch.setenv("SLUG", "brand-new-resort")
+    assert ph.main([], fetch=fake({"geofabrik": (0, b"curl: (7) Failed to connect")})) == 1
+    out = capsys.readouterr().out
+    assert "unreachable: download.geofabrik.de" in out and "A rebuild of" not in out
+
+
+def test_is_rebuild_needs_a_config(tmp_path):
+    write_cfg(tmp_path, "old", [])
+    assert ph.is_rebuild({"REBUILD": "old"}, str(tmp_path)) == "old"
+    assert ph.is_rebuild({"SLUG": "new-one"}, str(tmp_path)) == ""
+    assert ph.is_rebuild({}, str(tmp_path)) == ""
