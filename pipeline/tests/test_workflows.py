@@ -177,10 +177,11 @@ def test_build_pack_never_interpolates_an_input_or_a_secret_into_a_shell_line():
 def test_build_pack_inputs_reach_the_steps_as_env():
     wf = load(BUILD)
     assert set(triggers(wf)["workflow_dispatch"]["inputs"]) == {"rebuild", "slug", "name", "osm_id", "requested_by",
-                                                                "build_on", "refresh_run"}
+                                                                "build_on", "refresh_run", "fresh_data"}
     assert wf["env"] == {"SLUG": "${{ inputs.slug }}", "REBUILD": "${{ inputs.rebuild }}", "NAME": "${{ inputs.name }}",
                          "OSM_ID": "${{ inputs.osm_id }}", "REQUESTED_BY": "${{ inputs.requested_by }}",
-                         "BUILD_ON": "${{ inputs.build_on }}", "REFRESH_RUN": "${{ inputs.refresh_run }}"}
+                         "BUILD_ON": "${{ inputs.build_on }}", "REFRESH_RUN": "${{ inputs.refresh_run }}",
+                         "FRESH_DATA": "${{ inputs.fresh_data }}"}
 
 
 def test_build_pack_rebuild_list_names_only_packs_that_can_be_rebuilt():
@@ -280,11 +281,14 @@ def test_build_pack_names_a_step_per_stage_in_order():
 def test_build_pack_gives_the_secrets_only_to_the_steps_that_need_them():
     steps = load(BUILD)["jobs"]["build"]["steps"]
     holders = {s.get("name") or s.get("id"): s for s in steps if "secrets." in str(s) or "steps.app" in str(s)}
-    assert set(holders) == {"fetch", "the App is set up", "app", "publish"}
+    assert set(holders) == {"fetch", "the App is set up", "app", "publish", "restore_token", "save_token"}
     assert holders["fetch"]["env"] == {"LANDFIRE_EMAIL": "${{ secrets.LANDFIRE_EMAIL }}"}
-    assert holders["publish"]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token }}"
     names = [s.get("name") or s.get("id") for s in steps]
-    assert names.index("app") == names.index("publish") - 1     # minted last: the token lasts an hour
+    # each token is minted right before the one step that holds it (it lasts an hour), and no other step sees it
+    for token, user in (("app", "publish"), ("restore_token", "restore"), ("save_token", "save")):
+        assert names.index(token) == names.index(user) - 1
+        assert [n for n, s in zip(names, steps) if f"steps.{token}." in str(s)] == [user]
+        assert steps[names.index(user)]["env"]["GH_TOKEN"] == f"${{{{ steps.{token}.outputs.token }}}}"
 
 
 PUBLISH_SECRETS = ("PUBLISH_APP_ID", "PUBLISH_APP_KEY", "LANDFIRE_EMAIL")
@@ -313,9 +317,23 @@ def test_only_the_publish_jobs_read_the_publish_secrets_and_they_name_the_main_o
     assert seen == PUBLISH_JOBS
 
 
-def test_build_pack_narrows_the_app_token_to_publishing():
-    (app,) = [s for s in all_steps(load(BUILD)) if "create-github-app-token" in s.get("uses", "")]
-    assert {k for k in app["with"] if k.startswith("permission-")} == {"permission-contents", "permission-pull-requests"}
+def test_build_pack_narrows_the_app_tokens():
+    tokens = {s["id"]: s for s in all_steps(load(BUILD)) if "create-github-app-token" in s.get("uses", "")}
+    perms = {i: {k for k in s["with"] if k.startswith("permission-")} for i, s in tokens.items()}
+    assert perms == {"app": {"permission-contents", "permission-pull-requests"},
+                     "restore_token": {"permission-contents"}, "save_token": {"permission-contents"}}   # FEAT-346
+
+
+def test_the_raw_cache_runs_on_the_free_runner_around_the_fetch_and_never_fails_the_build():
+    """FEAT-346: Drew's PC keeps its raw data; raw_cache.py itself never exits non-zero, and a missing App only
+    means a miss (the token steps carry on)"""
+    steps = load(BUILD)["jobs"]["build"]["steps"]
+    names = [s.get("name") or s.get("id") for s in steps]
+    assert names.index("resolve") < names.index("restore") < names.index("fetch") < names.index("save") < names.index("build")
+    for n in ("restore_token", "restore", "save_token", "save"):
+        assert steps[names.index(n)]["if"] == "runner.os == 'Linux'"
+    for n in ("restore_token", "save_token"):
+        assert steps[names.index(n)]["continue-on-error"] is True
 
 
 def test_build_pack_retry_reruns_a_run_from_env_only():

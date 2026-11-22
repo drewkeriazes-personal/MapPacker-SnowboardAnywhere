@@ -48,6 +48,7 @@ import argparse, glob, hashlib, json, os, shutil, subprocess, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
+import fetch_index  # noqa: E402
 import paths  # noqa: E402
 
 STAGES = ["nodes", "manifest", "fetch", "landfire", "grooming", "build", "content", "attract", "spots", "index", "published", "report"]
@@ -231,10 +232,14 @@ def manifest_inputs(r):
 def manifest_items_sha(r):
     """the manifest's download list (not its bytes: a new manifestVersion key alone fetches nothing)"""
     try:
-        with open(r.man_path, encoding="utf-8") as f:
-            return sha(json.load(f).get("items"))
-    except (OSError, ValueError):
+        return sha(manifest_items(r))
+    except (OSError, ValueError, KeyError):
         return None
+
+
+def manifest_items(r) -> list[dict]:
+    with open(r.man_path, encoding="utf-8") as f:
+        return json.load(f)["items"]
 
 
 def manifest_present(r):
@@ -273,6 +278,11 @@ def powershell():
 def fetch_run(r, ctx):
     if os.path.basename(os.path.normpath(r.raw)) != r.slug:
         raise Failed(f"fetch.ps1 writes <RawDir>\\{r.slug}; the raw folder {r.raw} is not named {r.slug}")
+    items = manifest_items(r)
+    gone = fetch_index.prune(r.raw, items)     # FEAT-346: what the manifest now wants made differently goes again
+    if gone:
+        print(f"  {len(gone)} file(s) fetched for an older manifest item, fetched again: {', '.join(gone[:5])}"
+              + (", ..." if len(gone) > 5 else ""))
     code = ctx.run([powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(HERE, "fetch.ps1"),
                     "-Slug", r.slug, "-RawDir", os.path.dirname(os.path.normpath(r.raw))])
     if code == 3:     # FEAT-314: a 4xx, never retried (retry.json)
@@ -284,6 +294,7 @@ def fetch_run(r, ctx):
     if code:
         raise Failed(f"fetch.ps1 exited {code}")
     check_raw(r)
+    fetch_index.record(r.raw, items)
 
 
 def no_pistes_anywhere(r, d):
