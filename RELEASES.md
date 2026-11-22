@@ -43,7 +43,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Heavenly Mountain
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v2) (latest) 151 MB, 2026-11-14
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v3) (latest) 153 MB, 2026-11-22
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v2) 151 MB, 2026-11-14
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/heavenly/v1) 150 MB, 2026-11-13
 
 ## Jackson Hole Mountain
