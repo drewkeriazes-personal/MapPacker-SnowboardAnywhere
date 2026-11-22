@@ -21,7 +21,9 @@ import time
 import urllib.parse
 import urllib.request
 
-BUDGET_S = 60
+# seconds for the whole check: a busy Overpass took 31 s for one small count (2026-11-22), and a check that runs out
+# of time keeps OSM until the backstop
+BUDGET_S = 120
 PREFIX = "osm/"
 STATEMENT = re.compile(r"(node|way|rel|relation|nwr|nw|nr|wr|area)\b")
 
