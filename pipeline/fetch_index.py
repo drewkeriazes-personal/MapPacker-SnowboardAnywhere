@@ -37,6 +37,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 INDEX = "fetch_index.json"
+COMPLETE = "FETCH_COMPLETE.txt"     # fetch.ps1 writes it after a whole fetch; a failed fetch removes it (FEAT-349)
 MAX_AGE_DAYS = {"osm/": 90}
 KEEP = ".keep"
 

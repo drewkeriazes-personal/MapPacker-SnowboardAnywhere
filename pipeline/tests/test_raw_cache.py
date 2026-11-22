@@ -151,11 +151,50 @@ def test_restore_skips_a_folder_that_has_data_and_misses_without_a_cache(rel, tm
     assert C.restore_one("demo", str(tmp_path / "new")) == "miss: no cache yet"
 
 
-def test_save_skips_a_folder_whose_fetch_did_not_finish(rel, tmp_path):
+def test_save_skips_a_folder_with_no_fetch_to_save(rel, tmp_path):
     raw = raw_folder(str(tmp_path))
     os.remove(os.path.join(raw, "FETCH_COMPLETE.txt"))
-    assert C.save_one("demo", raw).startswith("skip: no finished fetch")
+    os.remove(os.path.join(raw, "fetch_index.json"))          # a fetch that failed before FEAT-349, or before any file
+    assert C.save_one("demo", raw) == "skip: no fetch in the folder"
     assert rel.releases == {}
+
+
+def partial(raw):
+    os.remove(os.path.join(raw, "FETCH_COMPLETE.txt"))
+    return raw
+
+
+def test_a_partial_fetch_is_saved_and_restored_as_partial(rel, tmp_path):
+    """FEAT-349: a fetch that failed on some items saves the rest; the retry restores them and fetches only the rest"""
+    raw = partial(raw_folder(str(tmp_path / "a")))
+    assert C.save_one("demo", raw).endswith(f"partial (key {C.data_key(raw, C.saved_files(raw))})")
+    assert json.loads(rel.releases["raw/demo"]["cache.json"])["complete"] is False
+    out = str(tmp_path / "b" / "demo")
+    assert ", partial (key" in C.restore_one("demo", out)
+    assert "dem1m/a.tif" in tree(out) and "FETCH_COMPLETE.txt" not in tree(out)
+
+
+def test_a_partial_never_replaces_a_complete_cache(rel, tmp_path):
+    raw = raw_folder(str(tmp_path))
+    C.save_one("demo", raw)
+    before = dict(rel.releases["raw/demo"])
+    open(os.path.join(raw, "fetch_index.json"), "w").write('{"dem1m/a.tif": "k2"}')    # a new manifest, then a failure
+    assert C.save_one("demo", partial(raw)) == "skip: a partial fetch never replaces a complete cache"
+    assert rel.releases["raw/demo"] == before
+
+
+def test_a_complete_save_replaces_a_partial_one(rel, tmp_path):
+    raw = partial(raw_folder(str(tmp_path)))
+    C.save_one("demo", raw)
+    open(os.path.join(raw, "FETCH_COMPLETE.txt"), "w").write("complete")       # the retry's fetch finished
+    assert "partial" not in C.save_one("demo", raw)
+    assert json.loads(rel.releases["raw/demo"]["cache.json"])["complete"] is True
+
+
+def test_a_partial_and_a_complete_folder_have_different_keys(tmp_path):
+    raw = raw_folder(str(tmp_path))
+    whole = C.data_key(raw, C.saved_files(raw))
+    assert C.data_key(raw, C.saved_files(partial(raw))) != whole
 
 
 @pytest.fixture
@@ -252,6 +291,13 @@ def test_a_changed_config_or_an_old_manifest_is_not_covered(main_checkout):
     c = json.loads(cfg.read_text(encoding="utf-8"))
     cfg.write_text(json.dumps({**c, "name": "Demo 2"}), encoding="utf-8")
     assert check() == "the manifest stage's inputs changed"
+
+
+def test_a_partial_cache_never_covers_the_build(main_checkout):
+    """FEAT-349: the fetch still has items to download, so the probe stays strict"""
+    check, cache, *_ = main_checkout
+    assert check({**cache, "complete": False}) == "the cache is from a fetch that did not finish"
+    assert check({**cache, "complete": True}) is None
 
 
 def test_no_cache_an_old_cache_or_a_new_resort_is_not_covered(main_checkout, tmp_path):

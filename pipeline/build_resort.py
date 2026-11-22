@@ -270,7 +270,7 @@ def fetch_inputs(r):
 
 
 def fetch_present(r):
-    return os.path.isfile(os.path.join(r.raw, "FETCH_COMPLETE.txt"))
+    return os.path.isfile(os.path.join(r.raw, fetch_index.COMPLETE))
 
 
 def powershell():
@@ -299,19 +299,33 @@ def fetch_run(r, ctx):
     if back and failed and set(failed) <= set(back):
         warn(f"osm: fetch again failed, kept the cached copy ({few(back)})")
         fetched = [p for p in fetched if p not in back]      # their index entries (and fetch times) stay
-    elif code == 3:   # FEAT-314: a 4xx, never retried (retry.json)
-        raise Failed(f"a download was refused (a 4xx: not retried; {os.path.join(r.raw, 'fetch_log.txt')} lists "
-                     "it): fix the manifest or the config, then run again")
-    elif code == 2:
-        raise Failed(f"some downloads failed ({os.path.join(r.raw, 'fetch_log.txt')} lists them): run again, "
-                     "it resumes")
     elif code:
+        record_partial(r, items, fetched, now)   # FEAT-349: the raw cache saves what came, a retry fetches the rest
+        if code == 3:   # FEAT-314: a 4xx, never retried (retry.json)
+            raise Failed(f"a download was refused (a 4xx: not retried; {os.path.join(r.raw, 'fetch_log.txt')} lists "
+                         "it): fix the manifest or the config, then run again")
+        if code == 2:
+            raise Failed(f"some downloads failed ({os.path.join(r.raw, 'fetch_log.txt')} lists them): run again, "
+                         "it resumes")
         raise Failed(f"fetch.ps1 exited {code}")
     check_raw(r)
     fetch_index.drop_kept(r.raw, items)
     if set(again) & set(fetched):
         r.state["fetch_aged"] = fetch_index.stamp(now)   # a build input: the pack is built again on the new OSM
     fetch_index.record(r.raw, items, fetched, now)
+
+
+def record_partial(r, items, fetched, now):
+    """FEAT-349: after a failed fetch, fetch_index.json for the items whose file is on disk. Each is right for this
+    manifest (prune removed the stale ones; the rest were kept or just fetched, and fetch.ps1 renames a file into place
+    only once it is whole); a missing item gets no entry, and a kept OSM copy keeps its old one. FETCH_COMPLETE.txt
+    goes: it may be left from a whole fetch for an older manifest, and this folder is not whole for this one."""
+    try:
+        os.remove(os.path.join(r.raw, fetch_index.COMPLETE))
+    except FileNotFoundError:
+        pass
+    have = [i for i in items if os.path.isfile(fetch_index._file(r.raw, i["path"]))]
+    fetch_index.record(r.raw, have, [p for p in fetched if os.path.isfile(fetch_index._file(r.raw, p))], now)
 
 
 def failed_items(raw):

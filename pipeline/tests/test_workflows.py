@@ -352,8 +352,12 @@ def test_the_raw_cache_runs_on_the_free_runner_around_the_fetch_and_never_fails_
     steps = load(BUILD)["jobs"]["build"]["steps"]
     names = [s.get("name") or s.get("id") for s in steps]
     assert names.index("resolve") < names.index("restore") < names.index("fetch") < names.index("save") < names.index("build")
-    for n in ("restore_token", "restore", "save_token", "save"):
+    for n in ("restore_token", "restore"):
         assert steps[names.index(n)]["if"] == "runner.os == 'Linux'"
+    for n in ("save_token", "save"):      # FEAT-349: after a failed fetch too, never after a cancel or a fetch not run
+        assert steps[names.index(n)]["if"] == ("runner.os == 'Linux' && !cancelled() && "
+                                               "contains(fromJSON('[\"success\", \"failure\"]'), steps.fetch.outcome)")
+    assert steps[names.index("fetch")].get("id") == "fetch"
     for n in ("restore_token", "save_token"):
         assert steps[names.index(n)]["continue-on-error"] is True
 
