@@ -292,7 +292,7 @@ def test_build_pack_gives_the_secrets_only_to_the_steps_that_need_them():
 
 
 PUBLISH_SECRETS = ("PUBLISH_APP_ID", "PUBLISH_APP_KEY", "LANDFIRE_EMAIL")
-PUBLISH_JOBS = {(BUILD, "build"), (".github/workflows/publish-merge.yml", "publish-merge")}
+PUBLISH_JOBS = {(BUILD, "probe"), (BUILD, "build"), (".github/workflows/publish-merge.yml", "publish-merge")}
 
 
 def test_only_the_publish_jobs_read_the_publish_secrets_and_they_name_the_main_only_environment():
@@ -321,7 +321,29 @@ def test_build_pack_narrows_the_app_tokens():
     tokens = {s["id"]: s for s in all_steps(load(BUILD)) if "create-github-app-token" in s.get("uses", "")}
     perms = {i: {k for k in s["with"] if k.startswith("permission-")} for i, s in tokens.items()}
     assert perms == {"app": {"permission-contents", "permission-pull-requests"},
-                     "restore_token": {"permission-contents"}, "save_token": {"permission-contents"}}   # FEAT-346
+                     "restore_token": {"permission-contents"}, "save_token": {"permission-contents"},   # FEAT-346
+                     "cache_token": {"permission-contents"}}                                              # FEAT-347
+
+
+def test_the_probe_reads_the_raw_cache_with_its_own_token_and_never_fails_on_it():
+    """FEAT-347: the probe job mints the App token just before the one step that reads cache.json, and that step
+    writes the file probe_hosts.py reads; the pip install, the token and the check carry on when they fail, so the
+    probe is then as before"""
+    steps = load(BUILD)["jobs"]["probe"]["steps"]
+    names = [s.get("name") or s.get("id") or s.get("run") or s.get("uses") for s in steps]
+    holders = [n for n, s in zip(names, steps) if "secrets." in str(s)]
+    assert holders == ["cache_token"]
+    assert names.index("cache_token") == names.index("raw cache") - 1 < names.index("data hosts") - 1
+    assert [n for n, s in zip(names, steps) if "steps.cache_token." in str(s)] == ["raw cache"]
+    check, probe = steps[names.index("raw cache")], steps[names.index("data hosts")]
+    assert check["env"]["GH_TOKEN"] == "${{ steps.cache_token.outputs.token }}"
+    out = '"$RUNNER_TEMP/raw-cache-covers.json"'
+    assert check["run"].strip() == f"python tools/ci/raw_cache.py covered --out {out}"
+    assert probe["run"].strip().endswith(f"--raw-cache {out}")
+    pip = next(s for s in steps if "pip install" in s.get("run", ""))
+    for s in (pip, steps[names.index("cache_token")], check):
+        assert s["continue-on-error"] is True
+    assert "continue-on-error" not in probe
 
 
 def test_the_raw_cache_runs_on_the_free_runner_around_the_fetch_and_never_fails_the_build():

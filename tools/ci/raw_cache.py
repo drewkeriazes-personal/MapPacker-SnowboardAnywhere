@@ -4,6 +4,8 @@ holds only the built output, so without this every rebuild downloads every layer
 
     python tools/ci/raw_cache.py restore    before the fetch stage: each raw folder the build reads, from its cache
     python tools/ci/raw_cache.py save       after the fetch stage: each one whose data changed, to its cache
+    python tools/ci/raw_cache.py covered --out FILE
+                                            FEAT-347, in the probe job: FILE when the cache covers the build
 
 The run's slug comes from the environment, checked as build_pack_ci.py checks it. The folders are the slug's raw
 folder and those of the resorts it builds on (`raw_from`, relocate sources: build_pack_ci.deps).
@@ -11,12 +13,14 @@ folder and those of the resorts it builds on (`raw_from`, relocate sources: buil
 Each raw folder's cache is the **draft** release `raw/<folder>`. A draft is visible only to accounts that can push,
 has no git tag, and is not a pack release (releases.parse_tag reads only `<slug>/v<N>`), so the catalog,
 RELEASES.md and publish_pack's next version never see it. Its assets:
-    cache.json         {"key", "parts": [{"name", "size", "sha256"}]}: the set restore reads
+    cache.json         {"key", "stages", "parts": [{"name", "size", "sha256"}]}: the set restore reads;
+                       `stages` holds the folder's build_resort.json fingerprints of the data stages
+                       (build_resort.DATA_STAGES; `fetch` is the manifest_items_sha of the manifest the fetch used)
     <key>.tar.NNN      a plain tar of the folder (TIFF and LAZ are compressed already), split at PART bytes, under
                        the 2 GiB asset limit
-`key` is a hash of the data files (path and size) and fetch_index.json (pipeline/fetch_index.py: what each file
-was fetched for); logs and stage state are saved but left out of it, so a restored folder that downloaded nothing
-new uploads nothing. The fetch stage then decides what to fetch again: build_resort.py's stage state skips a
+`key` is a hash of the data files (path and size), fetch_index.json (pipeline/fetch_index.py: what each file
+was fetched for) and `stages`; logs and the later stages' state are saved but left out of it, so a restored folder
+that downloaded nothing new uploads nothing, and the build_resort.json a restore puts back is the one `stages` names. The fetch stage then decides what to fetch again: build_resort.py's stage state skips a
 manifest that didn't change, and fetch_index.prune fetches again only the items whose key changed.
 
 restore streams each part into tarfile (filter "data": no absolute paths, no `..`, no links out of the folder) and
@@ -26,6 +30,15 @@ deletes the parts the previous cache.json named: a save that dies halfway leaves
 parts stay as orphans until a later save of the same key overwrites them).
 Neither ever fails the build: a miss or any error is a warning, and the fetch downloads what is missing.
 FRESH_DATA=true (Build pack's `fresh_data`) skips the restore, so everything is downloaded again and saved.
+
+covered (FEAT-347) reads only each folder's cache.json, never a part. A folder is covered when its `stages` are the
+data stages' fingerprints on this checkout of main (build_resort.py would skip every one of them on the restored
+folder: the same config, node lists, MANIFEST_VERSION and manifest items) and the node lists and manifest are
+there. When every folder the build reads is covered and the run restores (a rebuild, on the free runner,
+FRESH_DATA not true), FILE gets {"covers": [folders], "keep": STILL_NEEDED}, and probe_hosts.py --raw-cache FILE
+lets every other host warn instead of fail. Anything else (a new resort, a changed manifest, no cache, any error)
+writes no FILE, and the probe is as before. Overpass warns with the rest: FEAT-348's change check
+and a failed fetch of OpenStreetMap again keep the cached copy, so a covered build never needs it.
 Env: GH_TOKEN (the App's, contents: write: drafts need push access), GH_REPO, SBA_RAW_ROOT."""
 import argparse, hashlib, json, os, shutil, subprocess, sys, tarfile, tempfile
 
@@ -33,6 +46,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import build_pack_ci  # noqa: E402
 sys.path.insert(0, build_pack_ci.PIPELINE)
+import build_resort  # noqa: E402
 import fetch_index  # noqa: E402
 import paths  # noqa: E402
 
@@ -41,6 +55,13 @@ CACHE = "cache.json"
 UNSAVED = {"fetch_log.txt", "env.txt"}                                  # this run's logs
 UNKEYED = UNSAVED | {"build_resort.json", "FETCH_COMPLETE.txt"}         # saved, but not data
 CHUNK = 1 << 20
+# FEAT-347: the probed hosts a covered rebuild still calls. With every data stage skipped (nodes: ept_select.py;
+# manifest: gen_manifest.py, offline; fetch: fetch.ps1; landfire: fetch_landfire.mjs, whose clips are in the raw
+# folder; grooming: fetch_grooming.py, likewise), only the published stage reaches a probed host: OpenSkiData's
+# index (published.py through resort.index_file). build_pack.py, gen_content.py, pack_content.py and pack_report.py
+# read local files; the menu carry, publish and this cache are GitHub. resolve and plan (resort.py: Geofabrik,
+# Entwine, TNM, WESM, STAC, Mapterhorn attribution) run only for a new resort, which is never covered.
+STILL_NEEDED = ("tiles.openskimap.org",)
 
 
 def tag(folder: str) -> str:
@@ -67,6 +88,16 @@ def saved_files(raw: str) -> list[str]:
     return sorted(out)
 
 
+def stages(raw: str) -> dict:
+    """the data stages' input fingerprints in the folder's build_resort.json ({} without one)"""
+    try:
+        with open(os.path.join(raw, build_resort.STATE), encoding="utf-8") as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return {s: state[s] for s in build_resort.DATA_STAGES if s in state} if isinstance(state, dict) else {}
+
+
 def data_key(raw: str, files: list[str]) -> str:
     h = hashlib.sha256()
     for rel in files:
@@ -77,6 +108,7 @@ def data_key(raw: str, files: list[str]) -> str:
             h.update(f.read())
     except OSError:
         pass
+    h.update(json.dumps(stages(raw), sort_keys=True).encode())
     return h.hexdigest()[:16]
 
 
@@ -214,7 +246,7 @@ def save_one(folder: str, raw: str) -> str:
             for rel in files:
                 tar.add(os.path.join(raw, rel), arcname=rel, recursive=False)
         writer.close()
-        new = {"key": key, "parts": writer.parts}
+        new = {"key": key, "stages": stages(raw), "parts": writer.parts}
         cache_path = os.path.join(work, CACHE)
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump(new, f, indent=1)
@@ -229,6 +261,69 @@ def save_one(folder: str, raw: str) -> str:
     return f"saved {size / 2**20:,.0f} MB in {len(writer.parts)} part(s) (key {key})"
 
 
+# ------------------------------------------------------------------------------------------------ coverage
+
+def uncovered(folder: str, cache: dict | None, resorts_dir=None, manifests_dir=None) -> str | None:
+    """FEAT-347: None when `cache` (the folder's cache.json) covers a build of `folder` from this checkout, so the
+    restored folder skips every data stage and downloads nothing; else why it does not"""
+    if not cache:
+        return "no cache yet"
+    if not os.path.isfile(paths.config_path(folder, resorts_dir)):
+        return "no config"
+    recorded = cache.get("stages") or {}
+    r = build_resort.Resort(folder, os.path.join(paths.raw_root(), folder), os.path.join(paths.PACKS, folder),
+                            resorts_dir, manifests_dir)
+    for stage in build_resort.DATA_STAGES:
+        inputs, present, _ = build_resort.STAGE_FN[stage]
+        if stage not in recorded:
+            return f"the cache has no {stage} fingerprint"
+        if recorded[stage] != inputs(r):
+            return "the manifest changed" if stage == "fetch" else f"the {stage} stage's inputs changed"
+        if stage in ("nodes", "manifest") and not present(r):     # in git: the build would make them again
+            return f"the {stage} stage would run again"
+    return None
+
+
+def covered(out: str) -> list[str]:
+    """the folders the cache covers, written to `out` when it covers them all; [] (and no `out`) otherwise"""
+    if os.path.exists(out):
+        os.remove(out)
+    why = None
+    if (os.environ.get("FRESH_DATA") or "").strip().lower() == "true":
+        why = "fresh data asked for"
+    elif (os.environ.get("BUILD_ON") or "cloud").strip() != "cloud":
+        why = "the build runs on Drew's PC, which restores nothing"
+    if why:
+        build_pack_ci.summary(f"Raw cache not used ({why}): every data host is required.\n")
+        return []
+    try:
+        cfg = build_pack_ci.from_env()
+        if cfg["mode"] != "rebuild":
+            build_pack_ci.summary("Raw cache: a new resort has none, so every data host is required.\n")
+            return []
+        names = folders(cfg["slug"], cfg["deps"])
+    except (build_pack_ci.Refused, OSError, ValueError) as e:
+        build_pack_ci.summary(f"Raw cache not checked ({build_pack_ci.md(str(e))}): every data host is required.\n")
+        return []
+    gaps = []
+    for folder in names:
+        try:
+            cache = read_cache(folder)
+            why = uncovered(folder, cache)
+        except Exception as e:      # any error: not covered, and the probe is as before
+            why = f"not read: {e}"
+        if why:
+            gaps.append(f"{folder} ({why})")
+    if gaps:
+        build_pack_ci.summary(f"Raw cache does not cover {build_pack_ci.md(', '.join(gaps))}: every data host is "
+                              "required.\n")
+        return []
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump({"covers": names, "keep": list(STILL_NEEDED)}, f)
+    build_pack_ci.summary(f"Raw cache covers {', '.join(names)}: the build fetches nothing.\n")
+    return names
+
+
 # ------------------------------------------------------------------------------------------------ the run
 
 def folders(slug: str, dep_slugs: list[str]) -> list[str]:
@@ -238,8 +333,14 @@ def folders(slug: str, dep_slugs: list[str]) -> list[str]:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("action", choices=["restore", "save"])
+    ap.add_argument("action", choices=["restore", "save", "covered"])
+    ap.add_argument("--out", help="covered: the file probe_hosts.py --raw-cache reads")
     a = ap.parse_args(argv)
+    if a.action == "covered":
+        if not a.out:
+            ap.error("covered needs --out FILE")
+        covered(a.out)
+        return 0
     if a.action == "restore" and (os.environ.get("FRESH_DATA") or "").strip().lower() == "true":
         build_pack_ci.summary("| restore | skip: fresh data asked for | |")
         return 0

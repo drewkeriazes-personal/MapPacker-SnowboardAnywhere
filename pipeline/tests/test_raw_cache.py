@@ -91,7 +91,7 @@ def test_the_same_data_uploads_nothing(rel, tmp_path):
     raw = raw_folder(str(tmp_path))
     C.save_one("demo", raw)
     before = len(rel.calls)
-    open(os.path.join(raw, "build_resort.json"), "w").write('{"fetch": "new"}')     # stage state: not data
+    open(os.path.join(raw, "build_resort.json"), "w").write('{"build": "new"}')     # a later stage's state: not data
     open(os.path.join(raw, "fetch_log.txt"), "w").write("another run")
     assert C.save_one("demo", raw).startswith("skip: the cache already holds this data")
     assert not any(c[1] == "upload" for c in rel.calls[before:])
@@ -186,3 +186,127 @@ def test_a_cache_failure_never_fails_the_build(run_env, monkeypatch, capsys):
     monkeypatch.setattr(C, "save_one", boom)
     assert C.main(["save"]) == 0
     assert "::warning::raw cache save bm: gh is down" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------------------------------------ FEAT-347
+
+DATA = ("nodes", "manifest", "fetch", "landfire", "grooming")
+
+
+def test_save_records_the_data_stages_and_a_new_fingerprint_saves_again(rel, tmp_path):
+    """cache.json's `stages` are the folder's data-stage fingerprints (fetch: the manifest the fetch used), and they
+    are in the key, so the build_resort.json a restore puts back is always the one cache.json names"""
+    raw = raw_folder(str(tmp_path))
+    state = {**{s: f"{s}-1" for s in DATA}, "build": "b1"}
+    open(os.path.join(raw, "build_resort.json"), "w").write(json.dumps(state))
+    C.save_one("demo", raw)
+    cache = json.loads(rel.releases["raw/demo"]["cache.json"])
+    assert cache["stages"] == {s: f"{s}-1" for s in DATA}
+    open(os.path.join(raw, "build_resort.json"), "w").write(json.dumps({**state, "fetch": "fetch-2"}))
+    assert C.save_one("demo", raw).startswith("saved")
+    assert json.loads(rel.releases["raw/demo"]["cache.json"])["stages"]["fetch"] == "fetch-2"
+
+
+@pytest.fixture
+def main_checkout(tmp_path, monkeypatch):
+    """a resort `demo` on "main": its config and manifest in temp folders, and the cache.json a save of a fetch of
+    exactly them writes"""
+    import build_resort, gen_manifest
+    resorts, manifests = tmp_path / "resorts", tmp_path / "manifests"
+    (resorts / "demo").mkdir(parents=True)
+    manifests.mkdir()
+    cfg = {"name": "Demo", "crs": "EPSG:32613", "utm_bbox": [0, 0, 1000, 1000], "lonlat_bbox": [-106, 39, -105.9, 39.1],
+           "terrain_status_url": "https://example.com/status"}
+    (resorts / "demo" / "demo.json").write_text(json.dumps(cfg), encoding="utf-8")
+    man = {"manifestVersion": gen_manifest.MANIFEST_VERSION, "items": [{"url": "https://x.org/a.tif", "path": "dem1m/a.tif"}]}
+    (manifests / "demo.json").write_text(json.dumps(man), encoding="utf-8")
+    monkeypatch.setenv("SBA_RAW_ROOT", str(tmp_path / "raw"))
+    r = build_resort.Resort("demo", str(tmp_path / "raw" / "demo"), str(tmp_path / "packs" / "demo"), str(resorts),
+                            str(manifests))
+    cache = {"key": "k", "parts": [], "stages": {s: build_resort.STAGE_FN[s][0](r) for s in DATA}}
+
+    def check(c=cache):
+        return C.uncovered("demo", c, str(resorts), str(manifests))
+    return check, cache, resorts / "demo" / "demo.json", manifests / "demo.json"
+
+
+def test_a_cache_of_the_same_manifest_covers_the_build(main_checkout):
+    check, *_ = main_checkout
+    assert check() is None
+
+
+def test_a_changed_manifest_is_not_covered(main_checkout):
+    check, _, _, man = main_checkout
+    d = json.loads(man.read_text(encoding="utf-8"))
+    d["items"].append({"url": "https://x.org/b.tif", "path": "dem1m/b.tif"})
+    man.write_text(json.dumps(d), encoding="utf-8")
+    assert check() == "the manifest changed"
+
+
+def test_a_changed_config_or_an_old_manifest_is_not_covered(main_checkout):
+    check, _, cfg, man = main_checkout
+    d = json.loads(man.read_text(encoding="utf-8"))
+    man.write_text(json.dumps({**d, "manifestVersion": -1}), encoding="utf-8")   # the build would make it again
+    assert check() == "the manifest stage would run again"
+    man.write_text(json.dumps(d), encoding="utf-8")
+    c = json.loads(cfg.read_text(encoding="utf-8"))
+    cfg.write_text(json.dumps({**c, "name": "Demo 2"}), encoding="utf-8")
+    assert check() == "the manifest stage's inputs changed"
+
+
+def test_no_cache_an_old_cache_or_a_new_resort_is_not_covered(main_checkout, tmp_path):
+    check, cache, *_ = main_checkout
+    assert check(None) == "no cache yet"
+    assert check({"key": "k", "parts": []}) == "the cache has no nodes fingerprint"     # saved before FEAT-347
+    assert C.uncovered("new-one", cache, str(tmp_path / "resorts")) == "no config"
+
+
+@pytest.fixture
+def covered_env(monkeypatch, tmp_path):
+    for k in ("FRESH_DATA", "BUILD_ON", "GITHUB_STEP_SUMMARY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(C.build_pack_ci, "from_env", lambda: {"slug": "ohio", "deps": ["bm", "mad"], "mode": "rebuild"})
+    monkeypatch.setattr(C.build_pack_ci, "data_slug", lambda s: ({"ohio": "bm"}.get(s, s), {}))
+    caches = {"bm": {"key": "1"}, "mad": {"key": "2"}}
+    monkeypatch.setattr(C, "read_cache", lambda folder: caches[folder])
+    gaps = {}
+    monkeypatch.setattr(C, "uncovered", lambda folder, cache: gaps.get(folder))
+    out = tmp_path / "covers.json"
+    out.write_text("stale", encoding="utf-8")         # a file from before is never left behind
+    return out, gaps
+
+
+def test_covered_writes_the_file_only_when_every_folder_is_covered(covered_env, capsys):
+    out, gaps = covered_env
+    assert C.main(["covered", "--out", str(out)]) == 0
+    assert json.loads(out.read_text(encoding="utf-8")) == {"covers": ["bm", "mad"], "keep": ["tiles.openskimap.org"]}
+    assert "Raw cache covers bm, mad" in capsys.readouterr().out
+    gaps["mad"] = "the manifest changed"
+    assert C.main(["covered", "--out", str(out)]) == 0
+    assert not out.exists()
+    assert "does not cover mad (the manifest changed)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("env,want", [({"FRESH_DATA": "true"}, "fresh data asked for"),
+                                      ({"BUILD_ON": "pc"}, "Drew's PC")])
+def test_fresh_data_or_the_pc_is_never_covered(covered_env, monkeypatch, capsys, env, want):
+    out, _ = covered_env
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    assert C.main(["covered", "--out", str(out)]) == 0
+    assert not out.exists() and want in capsys.readouterr().out
+
+
+def test_a_new_resort_or_any_error_is_never_covered(covered_env, monkeypatch, capsys):
+    out, _ = covered_env
+    monkeypatch.setattr(C.build_pack_ci, "from_env", lambda: {"slug": "new", "deps": [], "mode": "new"})
+    assert C.main(["covered", "--out", str(out)]) == 0
+    assert not out.exists() and "a new resort has none" in capsys.readouterr().out
+
+    monkeypatch.setattr(C.build_pack_ci, "from_env", lambda: {"slug": "ohio", "deps": ["bm", "mad"], "mode": "rebuild"})
+
+    def boom(folder):
+        raise RuntimeError("gh is down")
+    monkeypatch.setattr(C, "read_cache", boom)
+    assert C.main(["covered", "--out", str(out)]) == 0
+    assert not out.exists() and "not read: gh is down" in capsys.readouterr().out

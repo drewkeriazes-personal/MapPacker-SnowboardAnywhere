@@ -319,3 +319,47 @@ def test_a_build_run_probes_its_resorts_naip_items(monkeypatch, capsys):
     assert ph.main(["--only", "NAIP"], fetch=fetch) == 1
     out = capsys.readouterr().out
     assert gone in out and "resort.py plan vail" in out and "unreachable: planetarycomputer.microsoft.com" in out
+
+
+def covers_file(tmp_path, covers=("bm", "mad"), keep=("tiles.openskimap.org",)):
+    p = tmp_path / "raw-cache-covers.json"
+    p.write_text(json.dumps({"covers": list(covers), "keep": list(keep)}), encoding="utf-8")
+    return str(p)
+
+
+DOWN = {"interpreter": (0, b"curl: (7) Failed to connect"), "geofabrik": (0, b"curl: (7) Failed to connect")}
+
+
+def test_a_covering_raw_cache_lets_the_fetch_hosts_warn(tmp_path, monkeypatch, capsys):
+    """FEAT-347: Overpass and Geofabrik down, and the raw cache covers every folder: the probe passes and says why"""
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    assert ph.main(["--raw-cache", covers_file(tmp_path)], fetch=fake(DOWN)) == 0
+    out, text = capsys.readouterr().out, summary.read_text(encoding="utf-8")
+    assert "Raw cache covers bm, mad" in out and "Raw cache covers bm, mad" in text
+    (line,) = [ln for ln in text.splitlines() if ln.startswith("Raw cache covers")]
+    assert "download.geofabrik.de" in line and "Overpass" in line and "tiles.openskimap.org" not in line
+    assert "warning: Overpass, download.geofabrik.de unreachable (not needed: the raw cache covers the build)" in out
+
+
+def test_the_hosts_a_covered_build_still_calls_stay_required(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    down = {"openskimap": (0, b"curl: (7) Failed to connect")}
+    assert ph.main(["--raw-cache", covers_file(tmp_path)], fetch=fake(down)) == 1
+    assert "unreachable: tiles.openskimap.org" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("content", [None, "not json", '{"covers": []}', '{"covers": [], "keep": []}'])
+def test_no_covering_file_means_the_probe_as_before(tmp_path, monkeypatch, capsys, content):
+    """no file (a miss, a changed manifest, fresh_data: raw_cache.py covered writes none), a bad one, or one that
+    covers nothing: every host is required"""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(ph.time, "sleep", lambda s: None)
+    path = tmp_path / "raw-cache-covers.json"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    assert ph.main(["--raw-cache", str(path)], fetch=fake(DOWN)) == 1
+    out = capsys.readouterr().out
+    assert "unreachable: Overpass, download.geofabrik.de" in out and "Raw cache covers" not in out
