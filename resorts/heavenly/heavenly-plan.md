@@ -1,6 +1,6 @@
 # Heavenly Mountain: data plan
 
-Planned 2026-11-13 by `pipeline/resort.py plan heavenly` (FEAT-223). EPSG:26911 (11N), origin 247600, 4314200. Ski area 8.5 km across, buffer 1000 m, box 7.8 x 8.4 km, elevation 1761 to 3065 m (Mapterhorn z12).
+Planned 2026-11-22 by `pipeline/resort.py plan heavenly` (FEAT-223). EPSG:26911 (11N), origin 247600, 4314200. Ski area 8.5 km across, buffer 1000 m, box 7.8 x 8.4 km, elevation 1761 to 3065 m (Mapterhorn z12).
 
 **Tier: gold**
 
@@ -12,7 +12,7 @@ Planned 2026-11-13 by `pipeline/resort.py plan heavenly` (FEAT-223). EPSG:26911 
 | Lidar | EPT CA_SierraNevada_8_2022 (87% of the box, QL 1, 25.1 pts/m2) | 2021-11 to 2022-08, mixed | depth 10: 1.7 m | 1264, 58 M points | 512 MB | gold |
 | Lidar (extra) | EPT NV_WestCentralEarthMRI_3_2020 (13% of the box, QL 2, 5.3 pts/m2) | 2020-10 to 2020-11, mixed | depth 9: 2.4 m | 278, 11 M points | 99 MB |  |
 | Lidar, far tree ring | same, 5000 m round the box | | depth 9: 3.4 m | 1767 | 591 MB | |
-| Imagery | Planetary Computer naip 2024 60cm (5 quarter quads from 2022 where 2024 has none) | 2024, 2022 | 1 m | 26 | 286 MB | gold |
+| Imagery | Planetary Computer naip 2022 60cm | 2022 | 1 m | 26 | 286 MB | gold |
 | Land cover, far terrain | ESA WorldCover 2021 + ETH canopy height 2020 (3 degree tiles) | 2021, 2020 | 10 m | 8 | 1,492 MB |  |
 | Vegetation type | LANDFIRE EVT, EVC, EVH (`fetch_landfire.mjs`) | | 30 m | | 2 MB | |
 | Runs, lifts, buildings | OSM via Overpass (Geofabrik extract: us/nevada) |  |  | 5 | 19 MB |  |

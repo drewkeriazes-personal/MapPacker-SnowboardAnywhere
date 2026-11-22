@@ -6,7 +6,7 @@ list of {url, path, method?, body?} items that fetch.ps1 downloads on the PC.
 
 Sources:
   - USGS 3DEP ImageServer exportImage  -> 1 m DEM chunks (F32 GeoTIFF, UTM) + 10 m mid ring (the US)
-  - Microsoft Planetary Computer       -> NAIP 4-band 1 m crops per quarter-quad (GeoTIFF, UTM), when the config has `naip`
+  - Microsoft Planetary Computer       -> NAIP 4-band crops per quarter-quad (GeoTIFF, UTM, at most 2048 px a side), when the config has `naip`
   - Mapterhorn                         -> z11 Terrarium WebP tiles for the far ring; outside the US (FEAT-225,
                                           `dem.source` / `mid_ring.source` "Mapterhorn") also the resort box at
                                           `dem.zoom` and the mid ring at `mid_ring.zoom`, in place of 3DEP
@@ -24,8 +24,24 @@ import paths  # noqa: E402
 # Bump when the manifest gains or changes a layer, so raw data fetched from an older manifest is known to lack it
 # (DATA-022 item 3: Breckenridge was fetched before land cover existed). Written into every manifest.
 # 2: names/ (FEAT-235: GNIS for every state the far ring touches, Census towns)
-MANIFEST_VERSION = 2
+# 3: NAIP from Planetary Computer's /item/bbox/ route (BUG-169: /item/crop/ answers 404 since 2026-11)
+MANIFEST_VERSION = 3
 MAPTERHORN_URL = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
+# BUG-169: Planetary Computer's NAIP route, and the most pixels it sends per side. The old /item/crop/ route capped
+# each side at 2048 on its own (Breckenridge's 1799 x 2691 m crop came back 1799 x 2048); /item/bbox/ sends the size
+# asked for, so the manifest asks for at most this much to keep the downloads (and naip_calib's input) as they were.
+NAIP_BBOX_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item/bbox/"
+NAIP_MAX_SIDE_PX = 2048
+
+
+def naip_url(bbox, w, h, item, crs, max_size=4000):
+    """the URL of one NAIP request: the 4 bands (plus the mask the route adds) of `item` over the `crs` box `bbox`,
+    at most NAIP_MAX_SIDE_PX per side. tools/ci/probe_hosts.py probes with the same URL."""
+    bx0, by0, bx1, by1 = bbox
+    q = urlencode({"collection": "naip", "item": item, "assets": "image", "asset_bidx": "image|1,2,3,4",
+                   "coord_crs": crs, "dst_crs": crs, "resampling": "average", "max_size": str(max_size)})
+    return (f"{NAIP_BBOX_URL}{bx0},{by0},{bx1},{by1}/"
+            f"{min(w, NAIP_MAX_SIDE_PX)}x{min(h, NAIP_MAX_SIDE_PX)}.tif?{q}")
 
 
 def lonlat_to_tile(lon, lat, z):
@@ -108,7 +124,6 @@ def manifest_items(cfg, resorts_dir=None):
 
     # ---------------------------------------------------------------- NAIP crops
     # FEAT-225: no `naip` (outside the US): the masks come from WorldCover, fetched with the land cover below
-    CROP = "https://planetarycomputer.microsoft.com/api/data/v1/item/crop/"
     naip = cfg.get("naip") or {"res_m": 1, "max_px": 4000, "item_bboxes_ll": {}}
     nres = naip["res_m"]; maxpx = naip["max_px"]
     for item, (ilon0, ilat0, ilon1, ilat1) in naip["item_bboxes_ll"].items():
@@ -127,9 +142,8 @@ def manifest_items(cfg, resorts_dir=None):
                 bx0 = ix0 + i * maxpx * nres; by0 = iy0 + j * maxpx * nres
                 bx1 = min(bx0 + maxpx * nres, ix1); by1 = min(by0 + maxpx * nres, iy1)
                 w = int(round((bx1 - bx0) / nres)); h = int(round((by1 - by0) / nres))
-                q = urlencode({"collection": "naip", "item": item, "assets": "image", "asset_bidx": "image|1,2,3,4",
-                               "coord_crs": crs, "dst_crs": crs, "resampling": "average", "max_size": str(maxpx)})
-                add(f"{CROP}{bx0},{by0},{bx1},{by1}/{w}x{h}.tif?{q}", f"naip1m/{item}_{i}_{j}.tif",
+                # `meta` keeps the box's full 1 m size: build_pack.py resamples each crop onto the box at 2 m
+                add(naip_url((bx0, by0, bx1, by1), w, h, item, crs, maxpx), f"naip1m/{item}_{i}_{j}.tif",
                     meta={"bbox": [bx0, by0, bx1, by1], "size": [w, h], "res": nres, "item": item})
 
     # ---------------------------------------------------------------- Mapterhorn far ring
