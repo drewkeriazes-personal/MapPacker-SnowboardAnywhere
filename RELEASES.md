@@ -100,7 +100,8 @@ Not in the resort picker: the game's CI downloads them (FEAT-241).
 
 ### Synthetic test mountain
 
-- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v4) (latest for pack format 1) 48 MB, 2026-11-13
+- [v5](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v5) (latest for pack format 1) 49 MB, 2026-11-22
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v4) 48 MB, 2026-11-13
 - [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v3) 46 MB, 2026-11-12
 - [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v2) 46 MB, 2026-11-12
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/synth/v1) 45 MB, 2026-11-12
