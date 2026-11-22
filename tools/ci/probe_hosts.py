@@ -1,6 +1,7 @@
 """Probe every data host a pack build calls (FEAT-245): one small request each, before the build job spends hours.
 
     python tools/ci/probe_hosts.py [--only NAME] [--timeout SECONDS] [--tuning host-tuning.json]
+                                   [--raw-cache covered.json]
 
 Each probe fetches one small item from a host the pipeline uses, with the URL the pipeline itself builds where it
 can (constants imported from pipeline/, Vail's dataset and NAIP item for the per-resort ones), and checks what came
@@ -18,6 +19,9 @@ BUG-169: in a build-pack run (REBUILD or SLUG set, as build_pack_ci.py reads the
 asks Planetary Computer's STAC whether every NAIP item the slug's config (and the configs it builds on) names is still
 in the catalog; items do leave it. A new resort has no config yet (resort.py plan picks current items), and a local
 run names no slug: no row then.
+
+FEAT-347: --raw-cache names the file `raw_cache.py covered` writes when the raw-data cache covers every folder the
+build reads, so the build fetches nothing: every host but its `keep` list then warns instead of failing.
 
 Prints a table, appends it to $GITHUB_STEP_SUMMARY as Markdown when that is set, and exits 1 when a required host
 failed. Uses curl (on ubuntu-latest and Windows 10+): Python's ssl rejects web.archive.org's chain (resort.py
@@ -386,11 +390,23 @@ def load_tuning(path) -> dict:
         return {}
 
 
+def raw_cache_covers(path) -> tuple:
+    """FEAT-347: (the folders the raw cache covers, the hosts still required) from `raw_cache.py covered`'s file;
+    ([], set()) when there is none or it can't be read"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return [str(x) for x in d["covers"]], {str(x) for x in d["keep"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        return [], set()
+
+
 def main(argv=None, fetch: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--only", action="append", help="probe only rows or hosts whose name contains this (repeatable)")
     ap.add_argument("--timeout", type=int, default=60, help="seconds per request (default 60)")
     ap.add_argument("--tuning", help="JSON {host: {timeout, tries}} (FEAT-314); a missing or bad file is ignored")
+    ap.add_argument("--raw-cache", help="raw_cache.py covered's file (FEAT-347); a missing or bad file is ignored")
     a = ap.parse_args(argv)
     tune = load_tuning(a.tuning)
     for h, t in tune.items():
@@ -402,6 +418,15 @@ def main(argv=None, fetch: Callable | None = None) -> int:
         if not todo:
             print(f"no probe matches {a.only}")
             return 2
+    covers, keep = raw_cache_covers(a.raw_cache) if a.raw_cache else ([], set())
+    downgraded = sorted({p.host for p in todo if covers and p.required and p.host not in keep})
+    for p in todo:
+        if p.host in downgraded:
+            p.required = False
+    cached = (f"Raw cache covers {', '.join(covers)}: {', '.join(downgraded)} only warn, as the build does not call "
+              "them (FEAT-347)." if downgraded else "")
+    if cached:
+        print(cached)
     results = []
     tally, budget = retry.Tally(), [retry.RULES["probe"]["budget_s"]]
     for p in todo:
@@ -415,6 +440,7 @@ def main(argv=None, fetch: Callable | None = None) -> int:
         results.append((p, ok, detail, s))
         print(f"{'ok  ' if ok else 'FAIL'} {p.name}: {detail}", flush=True)
     bad, warn = failed_hosts(results)
+    why = "not needed: the raw cache covers the build" if set(warn) & set(downgraded) else "grooming only"
     tally.save("probe")
     rec = sorted(h for h, t in tally.hosts.items() if t["recovered"])
     inline = (f"Recovered inline: {', '.join(rec)}. " if rec else "") + retry.caps_md()
@@ -423,12 +449,14 @@ def main(argv=None, fetch: Callable | None = None) -> int:
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
             f.write("### Data hosts\n\n" + table(results, markdown=True) + "\n\n" + inline + "\n\n")
+            if cached:
+                f.write(cached + "\n\n")
             if bad:
                 f.write(f"**Unreachable:** {', '.join(bad)}. The build needs every one of them.\n\n")
             if warn:
-                f.write(f"Warning: {', '.join(warn)} unreachable (grooming only).\n\n")
+                f.write(f"Warning: {', '.join(warn)} unreachable ({why}).\n\n")
     if warn:
-        print(f"\nwarning: {', '.join(warn)} unreachable (only grooming uses it)")
+        print(f"\nwarning: {', '.join(warn)} unreachable ({why})")
     if bad:
         print(f"\nunreachable: {', '.join(bad)}")
         return 1
