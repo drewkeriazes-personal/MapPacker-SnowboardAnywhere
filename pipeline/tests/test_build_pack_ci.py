@@ -133,6 +133,21 @@ def test_a_stage_writes_a_summary_line_and_stops_on_failure(tmp_path, monkeypatc
     assert len(calls) == 1
 
 
+
+def test_the_fetch_summary_says_what_the_osm_check_found(tmp_path, monkeypatch):
+    """FEAT-348"""
+    config(tmp_path, "vail")
+    summ = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
+    monkeypatch.setattr(ci, "from_env", lambda: ci.check_inputs("", "", "vail", "", tmp_path))
+    log = ("[fetch] run: OpenStreetMap to fetch again (osm/ski.json)\n"
+           "  osm: 12 elements edited since 2026-11-08, fetched again (osm/ski.json)\n"
+           "::warning::osm: fetch again failed, kept the cached copy (osm/ski.json)\n")
+    assert ci.main(["fetch"], runner=lambda cmd: (0, log)) == 0
+    assert ("| fetch | done; osm: 12 elements edited since 2026-11-08, fetched again (osm/ski.json); osm: fetch "
+            "again failed, kept the cached copy (osm/ski.json) |") in summ.read_text(encoding="utf-8")
+
+
 def test_refused_inputs_fail_every_stage(tmp_path, monkeypatch):
     summ = tmp_path / "summary.md"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
