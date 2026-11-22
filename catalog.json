@@ -443,15 +443,15 @@
    "tier": "bronze",
    "status": "playable",
    "pack": {
-    "version": 2,
+    "version": 3,
     "formatVersion": 1,
-    "build": "20261121T065407Z-90350b",
-    "built": "2026-11-21",
-    "pipeline": "ca9f339",
-    "bytes": 221255035,
-    "sha256": "9b1a0651c6b9e32e45628004c40b7648a2b1599b6b36175f614f9ba2c474c796",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/whistler-blackcomb/v2/whistler-blackcomb.zip",
-    "content": "9cd811ea90677514"
+    "build": "20261122T154852Z-07094a",
+    "built": "2026-11-22",
+    "pipeline": "874dd77",
+    "bytes": 221258667,
+    "sha256": "d847c5d6f6078d8f907aa3a89c256344e492e3a8f9f927ef6c2006e39f2d5995",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/whistler-blackcomb/v3/whistler-blackcomb.zip",
+    "content": "9b5ede3974d16e3f"
    },
    "report": "reports/whistler-blackcomb.md"
   }
