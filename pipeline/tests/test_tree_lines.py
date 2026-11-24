@@ -106,12 +106,12 @@ def test_lines_merge_down_the_slope(tmp_path):
                 if (ay - y) * (by - y) < 0 and min(sa, sb) > 0.3 and abs(ax + (bx - ax) * (y - ay) / (by - ay) + 100) > 12:
                     out.append(min(sa, sb))
         return out
-    # riders join the lines below them: no more separate lines low down than up top (FEAT-378: riders turning back and
-    # forth meet a ridden line sooner, so the lines up top are fewer than before), and the busiest low ones carry the
-    # most riders (STR_RIDERS or more)
-    up, low = across(400), across(-300)
-    assert len(up) >= 4 and len(low) <= len(up)
-    assert sorted(low)[-2:] == [1.0, 1.0] and np.mean(low) >= np.mean(up)
+    # riders join the lines below them: the 60-odd riders seeded on this slope come down a handful of lines low down
+    # (FEAT-378: riders turning back and forth, and the odd fork round a trunk, make the count up top no guide), and
+    # the busiest low one carries STR_RIDERS riders or more, and others two or more
+    low = across(-300)
+    assert 2 <= len(low) <= 8
+    assert max(low) == 1.0 and sum(v >= 0.7 for v in low) >= 2
 
 
 def test_same_lines_every_build(tmp_path):
@@ -180,3 +180,35 @@ def test_straightness_report(tmp_path):
     far = straight.copy(); far[:, 0] += 1000
     assert tree_lines.straightness([{"p": far.ravel().tolist()}, {"p": straight.ravel().tolist()}], tree_lines.Heights(d, meta),
                                    near=[[[100.0, 0.0], [100.0, 500.0]]])["lines"] == 1
+
+
+def middling(x, y):
+    """falls 0.25 m per m to the south (14 degrees), no gully"""
+    return 2000 + 0.25 * y + 0 * x
+
+
+def test_no_long_straight_lane_in_the_trees(tmp_path):
+    """FEAT-378 v2: on a 14 degree glade the lines break a straight lane with S-turns round the trunks"""
+    d, _ = make_pack(str(tmp_path / "p"), [run_down(ground=middling)], ground=middling)
+    tree_lines.main([d])
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    st = meta["treeLines"]["checks"]["straightness"]
+    assert st["sTurnsPerKm"] > 0.5
+    from scipy.spatial import cKDTree
+    t = np.fromfile(os.path.join(d, "trees", "0_0.bin"), "<f4").reshape(-1, 6)
+    s = tree_lines.straightness(json.load(open(os.path.join(d, "treeLines.json")))["lines"], tree_lines.Heights(d, meta),
+                                trunks=cKDTree(t[:, :2]))
+    cap = tree_lines.STRAIGHT_MAX[0] * (1 + tree_lines.STRAIGHT_JITTER)
+    assert s["straightInTrees"]["0-15"]["p90"] <= cap + 10
+
+
+def test_lines_keep_out_of_tree_wells(tmp_path):
+    """FEAT-378 v2: a line's centreline keeps a conifer's crown radius (2.3 m here) from its trunk (Sun Peaks glade safety:
+    out of the tree well and the low boughs)"""
+    d, trunks = make_pack(str(tmp_path / "p"), [run_down()])
+    tree_lines.main([d])
+    from scipy.spatial import cKDTree
+    kd = cKDTree(trunks[:, :2].astype(np.float64))
+    dd = np.concatenate([kd.query(p[p[:, 3] > 0.15, :2])[0] for p in lines_of(d)])
+    # all clear of the trunk by BLOCK (a line squeezing past one, where it fades round a break), nearly all of the well
+    assert dd.min() > tree_lines.BLOCK - 0.3 and np.mean(dd > 2.3 - 0.3) > 0.98

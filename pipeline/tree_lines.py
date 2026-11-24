@@ -30,9 +30,12 @@ Per run that gets lines (gladed, or advanced / expert / freeride / extreme), on 
      again or a quick dodge round a trunk, a straight shot down a clear gap then a hard finish (on the steep, SHOT_*), a
      traverse across or slightly up the hill (TRAVERSE_*, more in tight trees, and the way round where no turn gets
      through), each costed by how near it passes the trunks; a run-up to a flat ahead (RUNUP_*) straightens it. Where no
-     plan gets through it takes a few of the field's own steps. It rides until it gets out, stalls or meets a line
-     already ridden (within JOIN cells): then it joins it, and that line carries one more rider from there down. So lines
-     merge in gullies and funnel at flats by themselves, and the busy ones are the deep ones.
+     plan gets through it takes a few of the field's own steps. In the trees no lane runs straight past STRAIGHT_MAX m
+     (a run-up excepted): an S-turn pair round a trunk ahead breaks it (`weave`, the biggest crown first, alternating
+     sides), now and then with a second rider forking round the other side (FORK_P). The line keeps a conifer's crown
+     radius from its trunk (the tree well, WELL_SPECIES). It rides until it gets out, stalls or meets a line already
+     ridden below it (within JOIN cells): then it joins it, and that line carries one more rider from there down. So
+     lines merge in gullies and funnel at flats by themselves, and the busy ones are the deep ones.
   5. Smooth. Resampled every STEP m, smoothed lightly (SMOOTH_PASSES) with the ends held, curvature clamped to R_MIN
      (the tightest turn the game's trench draws), then the corridor checked
      against the trunks: squeezed to SQUEEZE_HW past one closer than its rim, broken for a step (ramped over RAMP_STEPS)
@@ -40,7 +43,7 @@ Per run that gets lines (gladed, or advanced / expert / freeride / extreme), on 
      game gates by its cover levels too). Each point carries its half-width and strength (riders: STR_LO at one rider
      up to 1 at STR_RIDERS or more), fading in at a seed and out at an exit.
   6. Validate. No trunk inside a corridor; stall stretches (flatter than STALL_TAN for over STALL_M m) counted; the
-     spacing between neighbouring lines in the glades; how straight they run (`straightness`). Logged, and kept in meta
+     spacing between neighbouring lines in the glades; how straight they run (`straightness.py`). Logged, and kept in meta
      `treeLines.checks`. --straightness reports it on a pack's lines as they are, round one run.
 Pure: the same pack gives the same lines.
 
@@ -53,6 +56,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from straightness import FALL_DEG, TREES_D, off_chord, straightness  # noqa: E402
 
 FILE = "treeLines.json"
 VERSION = 1
@@ -80,6 +84,8 @@ EDGE_M, EDGE_K = 6.0, 0.6   # m: a cell this close to a run's corridor costs up 
 JOIN = 1             # cells: a rider this close to a ridden line joins it, on a steep pitch
 JOIN_FLAT = 4        # cells: on the flats (under STALL_TAN, from JOIN at FUNNEL_TAN): nobody breaks trail where they bog down
 FUNNEL_TAN = 0.36
+JOIN_CLIMB = 0.5     # m: a ridden line's point higher than the rider by more than this is not joined onto
+JOIN_SPAN = 12       # points either side of where a rider meets a ridden line that it may join onto
 MAX_LEN = 5000.0     # m: the longest ride
 MIN_LEN = 30.0       # m: a shorter line is left out (its rider still counts on the line it joined)
 STEP = 3.0           # m between exported points
@@ -117,7 +123,7 @@ PLAN_NOISE = 0.4     # a rider's whim on each plan's cost
 SHOT_PITCH, SHOT_M, SHOT_P, SHOT_CLEAR, SHOT_FINISH = 22.0, (6.0, 14.0), 0.3, 3.0, 15.0
 # run-ups: the course's ground over the next RUNUP_M m flatter than RUNUP_DEG[0] is pointed straight, as usual from RUNUP_DEG[1]
 # (its finish cut to RUNUP_KEEP of the usual)
-RUNUP_M, RUNUP_DEG, RUNUP_KEEP = 36.0, (10.0, 17.0), 0.15
+RUNUP_M, RUNUP_DEG, RUNUP_KEEP = 36.0, (7.0, 11.0), 0.15
 # traverses: TRAVERSE_P of the turns (open trees, tight ones) cross the hill TRAVERSE_DEG off the course (past 90 is
 # slightly up) for TRAVERSE_M m to reach the next opening
 TRAVERSE_P, TRAVERSE_DEG, TRAVERSE_M = (0.02, 0.08), (80.0, 98.0), (8.0, 20.0)
@@ -127,6 +133,25 @@ TRAVERSE_COST = 4.0  # a traverse's cost when the rider isn't after one (it take
 CLIMB_M = 0.8        # m: the most a rider climbs above the lowest it has been (a traverse slightly up)
 WALL_M = 1.0         # m: the rider keeps this far off a run's wall
 STALL_RIDE = 60.0    # m ridden without getting nearer the way out: the rider has stalled
+# tree wells (Sun Peaks glade safety): the rider's line keeps a conifer's crown radius from its trunk (BLOCK at least),
+# read from the nearest WELL_K trunks; spruce, subalpine fir, Douglas-fir, hemlock
+WELL_SPECIES, WELL_K = (0, 3, 5, 9), 4
+# FEAT-378 v2 (Drew: "you don't get to just point downhill and go in a glade run"): in the trees (TREES_D) a lane never
+# runs straight (within STRAIGHT_TOL of its chord) for more than STRAIGHT_MAX m (by pitch STRAIGHT_PITCH degrees: long on
+# the gentle, short on the steep; each rider's own +- STRAIGHT_JITTER); then an S-turn pair breaks it (`weave`)
+STRAIGHT_MAX, STRAIGHT_PITCH, STRAIGHT_JITTER = (40.0, 18.0), (10.0, 30.0), 0.25
+WEAVE_TOL = 2.5      # m: the rider's own track this near its chord counts as a lane (its gentle wiggles smooth out
+                     # under STRAIGHT_TOL in the exported line)
+WEAVE_AHEAD = (4.0, 16.0)   # m ahead the trunk an S goes round may stand
+WEAVE_LAT = 4.0      # m: and this far either side of the path
+WEAVE_CENTRE = 1.0   # m: a trunk nearer the path than this stands dead ahead (the S goes the other way from the last)
+WEAVE_DEG = (35.0, 50.0)    # off the course, out round the trunk and back across below it
+WEAVE_BACK = 4.0     # m held after the turn back across
+WEAVE_COST = -3.0    # an S's cost against the usual turn (it wins wherever it gets through)
+WEAVE_FREE_P, WEAVE_FREE_DEG = 0.25, 25.0   # no trunk to go round: a gentler S, this share of the time
+# forks: FORK_P of the S-turns round a trunk dead ahead send a second rider round its other side, rejoining below (no
+# source gives how often; kept occasional); it joins no line for its first FORK_FREE m
+FORK_P, FORK_FREE = 0.25, 12.0
 STR_LO, STR_RIDERS = 0.6, 4
 HW_NEAR, HW_FAR = 1.7, 0.9
 WIDTH_VAR, WIDTH_L = 0.3, 25.0
@@ -135,13 +160,6 @@ TRENCH_WALL, SQUEEZE_HW, RAMP_STEPS = 1.1, 0.5, 3   # as game/src/pack/treeLines
 OPEN_D = 30.0        # m from any trunk: no forest
 STALL_M = 30.0
 SPACING_BAND = (3.0, 10.0)
-# the straightness report (FEAT-378, `straightness`)
-SINUOSITY_W = (30.0, 90.0)   # m: stretches whose path over chord is measured
-DRIFT_W = 60.0       # m: a stretch's most sideways stray off its chord
-FALL_DEG = 15.0      # a step this close to the fall line counts as down it
-PITCH_BANDS = (15.0, 25.0, 35.0)   # degrees
-PITCH_SMOOTH = 8.0   # m: the ground's smoothing for the report's fall line and pitch
-NEAR_M = 150.0       # m: --straightness keeps the lines this close to the run
 
 DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
@@ -243,12 +261,18 @@ class Planner:
         self.log = log
         self.meta, self.runs = meta, features.get("runs", [])
         self.hts = Heights(pack_dir, meta)
-        tr = [t[:, :2] for t in cover.tree_records(pack_dir, meta)]
-        self.trunks = np.concatenate(tr).astype(np.float64) if tr else np.zeros((0, 2))
+        tr = list(cover.tree_records(pack_dir, meta))
+        self.trunks = np.concatenate([t[:, :2] for t in tr]).astype(np.float64) if tr else np.zeros((0, 2))
+        self.crowns = np.concatenate([t[:, 4] for t in tr]).astype(np.float64) if tr else np.zeros(0)   # crown radius, m
+        sp = np.concatenate([t[:, 5] for t in tr]).astype(np.int64) if tr else np.zeros(0, np.int64)
+        # the tree well a rider keeps out of: a conifer's crown radius (low boughs, the well under them), past BLOCK
+        self.wells = np.where(np.isin(sp, WELL_SPECIES), np.maximum(self.crowns - BLOCK, 0), 0.0)
         self.kd = cKDTree(self.trunks) if len(self.trunks) else None
         b = meta["bounds"]
         self.gx0, self.gy1 = float(b["minX"]), float(b["maxY"])
-        self.kinds = {}     # metres ridden by each kind of plan (turn, shot, traverse, field), for the log
+        self.kinds = {}     # metres ridden by each kind of plan (turn, shot, traverse, s-tree, s-free, field), for the log
+        self.s_turns = {}   # S-turn pairs ridden: round a trunk beside the path (s-tree) or dead ahead (s-centre), with
+                            # none (s-free); and the forks round a trunk dead ahead
         self.occ = {}       # global cell (col, row) -> (line id, point index)
         self.lines = []     # each: dict(xy=[(x, y)...], riders=np.array, join=(id, idx) or None, seed kind)
 
@@ -261,12 +285,23 @@ class Planner:
         return x0, y1, w, h
 
     def trunk_dist(self, x0, y1, w, h):
+        """the distance from each cell to the nearest trunk, m (FEAT-378 v2: less a conifer's well, `wells`)"""
         xs = x0 + (np.arange(w) + 0.5) * RES; ys = y1 - (np.arange(h) + 0.5) * RES
         X, Y = np.meshgrid(xs, ys)
         if self.kd is None:
             return np.full((h, w), np.inf)
         d, _ = self.kd.query(np.column_stack([X.ravel(), Y.ravel()]), distance_upper_bound=OPEN_D + 5)
-        return d.reshape(h, w)
+        dist = d.reshape(h, w)
+        if self.wells.max() > 0:
+            # a conifer's well counts as nearer: the clearance from the nearest few trunks, less each one's well
+            near = np.nonzero((dist <= BLOCK + self.wells.max() + RES).ravel())[0]
+            X = np.column_stack([x0 + (near % w + 0.5) * RES, y1 - (near // w + 0.5) * RES])
+            d, k = self.kd.query(X, k=WELL_K, distance_upper_bound=BLOCK + self.wells.max() + RES)
+            wl = np.concatenate([self.wells, [0.0]])[np.minimum(k, len(self.wells))]
+            flat = dist.ravel().copy()
+            flat[near] = np.minimum(flat[near], np.min(np.where(np.isfinite(d), d - wl, np.inf), axis=1))
+            dist = flat.reshape(h, w)
+        return dist
 
     def run_masks(self, ri, x0, y1, w, h, foot_z):
         """walls (every run corridor but a gladed run's) and exits (this run's foot, any run lower than its foot)"""
@@ -411,6 +446,7 @@ class Planner:
         L = np.maximum(np.hypot(cx, cy), 1e-9)
         cx, cy = ndimage.gaussian_filter(cx / L, 1.0), ndimage.gaussian_filter(cy / L, 1.0)
         L = np.maximum(np.hypot(cx, cy), 1e-9)
+        trees = (dist <= TREES_D).ravel().tolist()
         if walls.any():
             dist = np.minimum(dist, ndimage.distance_transform_edt(~walls) * RES - RES / 2 + BLOCK - WALL_M)
         dens = np.zeros((h, w))
@@ -423,7 +459,7 @@ class Planner:
                    "cy": (cy / L).ravel().tolist(), "pitch": g.tolist(), "ahead": (acc / max(k_run, 1)).tolist(),
                    "tight": smooth(*TIGHT, dens).ravel().tolist(), "dist": np.minimum(dist, OPEN_D).ravel().tolist(),
                    "exit": exits.ravel().tolist(), "nxt": nxt.tolist(), "join": self.join_r.ravel().tolist(),
-                   "z": zs.ravel().tolist(), "fall": np.arctan2(gr, -gc).ravel().tolist()}
+                   "z": zs.ravel().tolist(), "fall": np.arctan2(gr, -gc).ravel().tolist(), "trees": trees}
 
     def probe(self, x, y):
         """the cell under (x, y) (-1 outside the window), and the ground and the clearance there, bilinear between cell
@@ -495,8 +531,11 @@ class Planner:
     def finish(self, pitch_tan, ahead_tan):
         """the finish angle off the course for this pitch (radians), straightened for a run-up to a flat ahead"""
         phi = float(np.interp(math.degrees(math.atan(pitch_tan)), [k for k, _ in FINISH_DEG], [v for _, v in FINISH_DEG]))
-        runup = float(smooth(math.tan(math.radians(RUNUP_DEG[0])), math.tan(math.radians(RUNUP_DEG[1])), ahead_tan))
-        return math.radians(phi) * (RUNUP_KEEP + (1 - RUNUP_KEEP) * runup)
+        return math.radians(phi) * (RUNUP_KEEP + (1 - RUNUP_KEEP) * self.runup(ahead_tan))
+
+    def runup(self, ahead_tan):
+        """0 where the ground ahead along the course runs out flat (point it), 1 where it keeps its pitch"""
+        return float(smooth(math.tan(math.radians(RUNUP_DEG[0])), math.tan(math.radians(RUNUP_DEG[1])), ahead_tan))
 
     def plans(self, i, side, rng):
         """the rider's choices for its next turn from cell i, having finished on `side`: (kind, segments it rides,
@@ -534,9 +573,46 @@ class Planner:
             out.append(("traverse", [(s * a, max(R_MIN, ARC_R[0]), m)], [(-s * phi0, r0, hold0)], -1.0 if fav else TRAVERSE_COST, BLOCK))
         return out
 
-    def ride(self, sx, sy, rng):
+    def weave(self, x, y, hd, i, s_side, rng, force=None):
+        """FEAT-378 v2: an S-turn pair to break a straight lane in the trees, as plans (see `plans`). Round a detected
+        trunk WEAVE_AHEAD m ahead within WEAVE_LAT m of the path, the biggest crown first: out to one side (away from it,
+        or the other way from the last S where it stands dead ahead) WEAVE_DEG off the course until abreast, then a
+        tight turn back across below it. Where no trunk stands there, a gentler S with none, WEAVE_FREE_P of the time."""
+        f = self.rf
+        r0 = max(R_MIN, ARC_R[1] + (ARC_R[0] - ARC_R[1]) * f["tight"][i])
+        phi0 = self.finish(f["pitch"][i], f["ahead"][i])
+        ux, uy = math.cos(hd), math.sin(hd)
+        best = None
+        if self.kd is not None:
+            mx, my = x + ux * sum(WEAVE_AHEAD) / 2, y + uy * sum(WEAVE_AHEAD) / 2
+            for t in self.kd.query_ball_point((mx, my), (WEAVE_AHEAD[1] - WEAVE_AHEAD[0]) / 2 + WEAVE_LAT):
+                dx, dy = self.trunks[t, 0] - x, self.trunks[t, 1] - y
+                fwd, lat = dx * ux + dy * uy, dx * uy - dy * ux   # lat > 0: the trunk is to the right
+                if WEAVE_AHEAD[0] <= fwd <= WEAVE_AHEAD[1] and abs(lat) <= WEAVE_LAT:
+                    score = self.crowns[t] / (1 + abs(lat) / WEAVE_LAT)
+                    if best is None or score > best[0]:
+                        best = (score, fwd, lat)
+        out = []
+        if best:
+            _, fwd, lat = best
+            # out to the left (+) of a trunk on the right, and the other way; dead ahead, the other way from the last S
+            centre = abs(lat) < WEAVE_CENTRE
+            s = force or ((1 if lat > 0 else -1) if not centre else -s_side)
+            for deg in WEAVE_DEG:
+                a = math.radians(deg)
+                out.append(("s-centre" if centre else "s-tree", [(s * a, r0, max(1.0, fwd - r0 * a)), (-s * a, max(R_MIN, ARC_R[0]), WEAVE_BACK)],
+                            [(s * phi0, r0, HOLD_M[0])], WEAVE_COST, BLOCK))
+        elif force is None and rng.uniform() < WEAVE_FREE_P:
+            a, s = math.radians(WEAVE_FREE_DEG), -s_side
+            out.append(("s-free", [(s * a, r0, WEAVE_BACK), (-s * a, r0, WEAVE_BACK)], [(s * phi0, r0, HOLD_M[0])], WEAVE_COST, BLOCK))
+        return out
+
+    def ride(self, sx, sy, rng, fork=None):
         """one rider from (sx, sy) down the field in linked turns until it gets out, stalls or meets a ridden line (then
-        it joins it). Returns its points every DS m (about) and the (line id, point index) it joined, or None."""
+        it joins it). Returns its points every DS m (about) and the (line id, point index) it joined, or None. A `fork`
+        (heading, side) starts it on another rider's line, round the trunk ahead on the other side; it joins no line for
+        its first FORK_FREE m. It may ask for a fork of its own line (`self.fork`)."""
+        self.fork = None
         f = self.rf
         i = self.probe(sx, sy)[0]
         if i < 0 or f["T"][i] == math.inf:
@@ -554,15 +630,26 @@ class Planner:
             sx, sy = f["x0"] + (best[2] + 0.5) * RES, f["y1"] - (best[1] + 0.5) * RES
             i = self.probe(sx, sy)[0]
         x, y = sx, sy
-        hd = math.atan2(f["cy"][i], f["cx"][i])
+        hd = math.atan2(f["cy"][i], f["cx"][i]) if fork is None else fork[0]
         side = 1 if rng.uniform() < 0.5 else -1
         pts = [(x, y)]
         gc0 = int(round((f["x0"] - self.gx0) / RES)); gr0 = int(round((self.gy1 - f["y1"]) / RES))
         t_best, since, zlow = f["T"][i], 0.0, self.probe(x, y)[1]
+        free = FORK_FREE if fork else 0.0
+        cap_k, since_s, s_side = 1 + STRAIGHT_JITTER * (2 * rng.uniform() - 1), 0.0, side
         while len(pts) * DS < MAX_LEN:
             i = self.probe(x, y)[0]
             best = None
-            for kind, ex, lk, bias, cmin in self.plans(i, side, rng):
+            plans = self.plans(i, side, rng) if fork is None else self.weave(x, y, hd, i, s_side, rng, fork[1])
+            fork_at = fork and (x, y, hd)
+            fork = None
+            # FEAT-378 v2: no long straight lane in the trees (a run-up to a flat ahead stays straight)
+            cap = cap_k * float(np.interp(math.degrees(math.atan(f["pitch"][i])), STRAIGHT_PITCH, STRAIGHT_MAX))
+            n = int(cap / DS)
+            if (since_s >= cap and len(pts) > n and f["trees"][i] and self.runup(f["ahead"][i]) > 0.5
+                    and off_chord(np.asarray(pts[-n:])) <= WEAVE_TOL):
+                plans += self.weave(x, y, hd, i, s_side, rng)
+            for kind, ex, lk, bias, cmin in plans:
                 p, hs, first, near, t_end, ok = self.sim(x, y, hd, ex + lk, LOOK_M + sum(e[2] for e in ex), cmin, zlow + CLIMB_M, len(ex))
                 if not first or not (ok or len(p) >= first + LOOK_SURE / DS):
                     continue
@@ -584,25 +671,36 @@ class Planner:
                     step += [(a[0] + (b[0] - a[0]) * k / nn, a[1] + (b[1] - a[1]) * k / nn) for k in range(1, nn + 1)]
                 hd = math.atan2(cells[-1][1] - cells[0][1], cells[-1][0] - cells[0][0]) if len(set(cells)) > 1 else hd
             else:
+                if best[1] == "s-centre" and not fork_at and not self.fork and rng.uniform() < FORK_P:
+                    # a trunk dead ahead: now and then a second rider goes round it the other way (rejoining below)
+                    self.fork = (x, y, hd, -(1 if best[4] < 0 else -1))
                 _, kind, step, hd, rel = best
                 side = 1 if rel > 0 else -1   # the side the plan finished on
+                if kind.startswith("s-"):
+                    since_s, s_side = -len(step) * DS, -s_side
             self.kinds[kind] = self.kinds.get(kind, 0) + len(step) * DS
+            since_s += len(step) * DS
+            if kind.startswith("s-"):
+                self.s_turns[kind] = self.s_turns.get(kind, 0) + 1
             for (px, py) in step:
                 j, zp, _ = self.probe(px, py)
                 pts.append((px, py))
-                jr, c, r = f["join"][j], j % f["w"], j // f["w"]
+                jr, c, r = (f["join"][j] if len(pts) * DS > free else -1), j % f["w"], j // f["w"]
                 for dr in range(-jr, jr + 1):
                     for dc in range(-jr, jr + 1):
                         if dr * dr + dc * dc <= jr * jr + 1:
                             o = self.occ.get((gc0 + c + dc, gr0 + r + dr))
                             if o is not None:
-                                # onto the ridden line's furthest point down still within reach (not back up it)
+                                # onto the ridden line's lowest point within reach (not back up it)
                                 lid, k = o
                                 xy, reach = self.lines[lid]["xy"], (jr + 1.5) * RES
-                                while k + 1 < len(xy) and math.hypot(xy[k + 1][0] - px, xy[k + 1][1] - py) <= reach:
-                                    k += 1
-                                self.why = "join"
-                                return pts, (lid, k)
+                                near = [q for q in range(max(0, k - JOIN_SPAN), min(len(xy), k + JOIN_SPAN + 1))
+                                        if math.hypot(xy[q][0] - px, xy[q][1] - py) <= reach]
+                                k = min(near, key=lambda q: (self.probe(*xy[q])[1], -q)) if near else k
+                                if self.probe(*xy[k])[1] <= zp + JOIN_CLIMB:
+                                    self.why = "join"
+                                    return pts, (lid, k)
+                                # it lies above: ride on alongside (it joins further down)
                 if f["exit"][j]:
                     self.why = "exit"
                     return pts, None
@@ -643,9 +741,13 @@ class Planner:
             gc0 = int(round((x0 - self.gx0) / RES)); gr0 = int(round((self.gy1 - y1) / RES))
             n0 = len(self.lines)
             self.whys = {}
-            for k in np.argsort(-np.asarray(zsd), kind="stable"):
-                sx, sy, op = sd[k]
-                xy, join = self.ride(sx, sy, rng)
+            todo = [(sd[k], None) for k in np.argsort(-np.asarray(zsd), kind="stable")][::-1]
+            while todo:
+                (sx, sy, op), fork = todo.pop()
+                xy, join = self.ride(sx, sy, rng, fork)
+                if self.fork:
+                    self.s_turns["fork"] = self.s_turns.get("fork", 0) + 1
+                    todo.append(((self.fork[0], self.fork[1], 0.0), self.fork[2:]))
                 if not xy:
                     continue
                 if join is not None and len(xy) * DS < MIN_LEN:
@@ -824,58 +926,6 @@ def validate(lines, planner):
     return {"km": round(km, 1), "trunksInCorridor": inside, "stalls": stalls, "spacing": spacing}
 
 
-def straightness(lines, hts, near=None):
-    """FEAT-378: how straight the lines run. Path over chord on every SINUOSITY_W m stretch (1 is a ruler), the most a
-    DRIFT_W m stretch strays from its chord (m), and the share of the line within FALL_DEG of the fall line by pitch band
-    (PITCH_BANDS, degrees; the ground smoothed over PITCH_SMOOTH m). Medians and p90s over all stretches of all lines;
-    `near` (runs' points) keeps the lines with a point within NEAR_M m of one."""
-    from scipy import ndimage
-    from scipy.spatial import cKDTree
-    from pack_report import resample
-    sin = {w: [] for w in SINUOSITY_W}
-    drift, kept = [], 0
-    bands = np.zeros((len(PITCH_BANDS) + 1, 2))
-    kd = cKDTree(np.concatenate([resample(np.asarray(q, np.float64)[:, :2], 5.0) for q in near])) if near else None
-    for ln in lines:
-        p = np.asarray(ln["p"], np.float64).reshape(-1, 4)[:, :2]
-        if len(p) < 3 or (kd is not None and not np.isfinite(kd.query(p, distance_upper_bound=NEAR_M)[0]).any()):
-            continue
-        kept += 1
-        s = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(p, axis=0).T))])
-        for w in SINUOSITY_W:
-            j = np.searchsorted(s, s + w)
-            i = np.nonzero(j < len(s))[0]
-            ch = np.hypot(*(p[j[i]] - p[i]).T)
-            sin[w] += list((s[j[i]] - s[i]) / np.maximum(ch, 1e-6))
-        j = np.searchsorted(s, s + DRIFT_W)
-        for i in np.nonzero(j < len(s))[0]:
-            a, b = p[i], p[j[i]]
-            d = b - a; n = np.array([-d[1], d[0]]) / max(np.hypot(*d), 1e-6)
-            drift.append(float(np.abs((p[i:j[i] + 1] - a) @ n).max()))
-        x0, y1 = p[:, 0].min() - 12, p[:, 1].max() + 12
-        w, h = int(math.ceil((p[:, 0].max() + 12 - x0) / RES)), int(math.ceil((y1 - p[:, 1].min() + 12) / RES))
-        z = hts.window(x0, y1, w, h, RES)
-        if not np.isfinite(z).any():
-            continue
-        zs = ndimage.gaussian_filter(np.where(np.isfinite(z), z, np.nanmean(z)).astype(np.float64), PITCH_SMOOTH / RES, mode="nearest")
-        gr, gc = np.gradient(zs, RES)
-        m = 0.5 * (p[:-1] + p[1:]); d = np.diff(p, axis=0); L = np.hypot(*d.T)
-        c = np.clip(((m[:, 0] - x0) / RES).astype(int), 0, w - 1); r = np.clip(((y1 - m[:, 1]) / RES).astype(int), 0, h - 1)
-        fx, fy = -gc[r, c], gr[r, c]   # downhill, x east / y north
-        g = np.hypot(fx, fy)
-        cos = (d[:, 0] * fx + d[:, 1] * fy) / np.maximum(L * g, 1e-9)
-        pitch = np.degrees(np.arctan(g))
-        band = np.searchsorted(PITCH_BANDS, pitch)
-        on = cos >= math.cos(math.radians(FALL_DEG))
-        np.add.at(bands, (band, 0), L * on); np.add.at(bands, (band, 1), L)
-    q = lambda v: {"median": round(float(np.median(v)), 3), "p90": round(float(np.percentile(v, 90)), 3)} if len(v) else None
-    edges = [0, *PITCH_BANDS, 90]
-    return {"lines": kept, **{f"sinuosity{w:g}": q(sin[w]) for w in SINUOSITY_W}, f"drift{DRIFT_W:g}": q(drift),
-            "fallLine": {f"{edges[k]:g}-{edges[k + 1]:g}": (round(float(bands[k, 0] / bands[k, 1]), 3) if bands[k, 1] > 0 else None)
-                         for k in range(len(edges) - 1)},
-            "km": {f"{edges[k]:g}-{edges[k + 1]:g}": round(float(bands[k, 1] / 1000), 2) for k in range(len(edges) - 1)}}
-
-
 def build_tree_lines(pack_dir, meta, features=None, only=None, log=print):
     """write treeLines.json and return the meta entry (None when no run gets lines)"""
     if features is None:
@@ -890,9 +940,11 @@ def build_tree_lines(pack_dir, meta, features=None, only=None, log=print):
             os.remove(p)
         return None
     chk = validate(lines, pl)
-    sl = straightness(lines, pl.hts)
+    sl = straightness(lines, pl.hts, trunks=pl.kd)
     chk["straightness"] = {"sinuosity30": sl["sinuosity30"]["median"], "sinuosity90": sl["sinuosity90"]["median"],
-                           "drift60": sl["drift60"]["median"], "fallLine": sl["fallLine"]}
+                           "drift60": sl["drift60"]["median"], "fallLine": sl["fallLine"],
+                           "straightInTrees": {k: v and v["median"] for k, v in sl["straightInTrees"].items()},
+                           "sTurnsPerKm": round(sum(v for k, v in pl.s_turns.items() if k != "fork") / max(chk["km"], 1e-6), 1)}
     path = os.path.join(pack_dir, FILE)
     with open(path, "w") as f:
         json.dump({"version": VERSION, "step": STEP, "lines": lines}, f, separators=(",", ":"))
@@ -903,7 +955,8 @@ def build_tree_lines(pack_dir, meta, features=None, only=None, log=print):
         f"{SPACING_BAND[0]:g} to {SPACING_BAND[1]:g} m); {os.path.getsize(path) / 1e3:.0f} KB")
     log(f"  tree lines ridden: " + ", ".join(f"{k} {v / 1000:.1f} km" for k, v in sorted(pl.kinds.items())) +
         f"; path over chord {sl['sinuosity30']['median']} over 30 m, {sl['sinuosity90']['median']} over 90 m, drift "
-        f"{sl['drift60']['median']} m over 60 m; within {FALL_DEG:g} degrees of the fall line by pitch {sl['fallLine']}")
+        f"{sl['drift60']['median']} m over 60 m; within {FALL_DEG:g} degrees of the fall line by pitch {sl['fallLine']}; "
+        f"longest straight in the trees by pitch (median) {chk['straightness']['straightInTrees']}; S-turns {pl.s_turns}")
     return {"file": FILE, "lines": len(lines), "km": chk["km"], "checks": chk}
 
 
@@ -920,7 +973,11 @@ def main(argv):
         runs = json.load(open(os.path.join(pack_dir, "features.json"), encoding="utf-8")).get("runs", [])
         near = [r["points"] for r in runs if name and name.lower() in (r.get("name") or "").lower()]
         lines = json.load(open(os.path.join(pack_dir, FILE)))["lines"]
-        print(json.dumps(straightness(lines, Heights(pack_dir, meta), near), indent=1))
+        import cover
+        from scipy.spatial import cKDTree
+        tr = [t[:, :2] for t in cover.tree_records(pack_dir, meta)]
+        kd = cKDTree(np.concatenate(tr)) if tr else None
+        print(json.dumps(straightness(lines, Heights(pack_dir, meta), near, kd), indent=1))
         return
     e = build_tree_lines(pack_dir, meta, only=only)
     if e:
