@@ -48,7 +48,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tree_lines import smooth as smoothstep, Heights   # noqa: E402
+from pack_geom import smooth as smoothstep, Heights   # noqa: E402
 
 KIND = "traffic"
 RES = 4.0            # m per texel

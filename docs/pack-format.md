@@ -301,6 +301,21 @@ over 348 runs (108 km of groomer line, 64 km of cat track, 87 km off-piste), 2.6
 (0.9 %), 10 to 14 s on Drew's PC (other builds running). Add it to a built pack
 without a rebuild: `python pipeline/traffic.py packs/<slug>` (`--view x0,y0,x1,y1 out.png` draws it over the hillshade).
 
+Below, from `--view` on that Vail build: density as colour (blue, orange, red) over the hillshade, a tick from a dot the
+way riders go as long as the coherence, the run lines white.
+
+![Cat track lanes](images/feat-379-cat-track.png)
+
+The cat track below Steep and Deep's start (x 1540 to 1900, y -4140 to -3960): riders along the track in lanes, cutting the inside of the bend.
+
+![Busy groomer](images/feat-379-ramshorn.png)
+
+A busy groomer, Ramshorn (x -1750 to -1250, y 800 to 1650): a broad peak across each run, merging at junctions and funnelling into the narrow stretch.
+
+![Steep and Deep](images/feat-379-steep-and-deep.png)
+
+Steep and Deep (x 1500 to 1950, y -4100 to -3100): the run between its tree lines, Cloud 9 on the right, the cat track along the bottom.
+
 ## Instances
 
 `trees/<tx>_<ty>.bin`: little-endian Float32 records of 6:
