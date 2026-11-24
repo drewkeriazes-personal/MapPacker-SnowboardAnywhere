@@ -198,7 +198,8 @@ and fetches no tree cells for them (they are already clear of the detected trunk
 
 ```
 "treeLines": { "file": "treeLines.json", "lines": 2383, "km": 319.3,
-               "checks": { "km": 319.3, "trunksInCorridor": 0, "stalls": 169, "spacing": { "median": 10.7, "inBand": 0.4 } } }
+               "checks": { "km": 319.3, "trunksInCorridor": 0, "stalls": 169, "spacing": { "median": 10.7, "inBand": 0.4 },
+                           "straightness": { "sinuosity30": 1.074, ... } } }
 ```
 
 ```
@@ -219,13 +220,34 @@ run's box plus 160 m: a cost field from the fine heights (smoothed over 3 m for 
 line, times more on the flat (under 9 degrees) and near a run's edge, plus a cost per metre climbed; the runs are walls
 (a gladed run is trees) except the exits, the run's last 80 m and any run lower than its foot. One backward Dijkstra from
 the exits, then riders: seeds 28 m apart beside a tree run (45 m beside an advanced one), 12 to 130 m off it on both sides
-over its upper 85 %, plus three entrances across a tree run's top edge, walk down the field highest first and join a
-line already ridden when they come within 2 m of it (8 m on the flat, where nobody breaks trail), so lines merge in
-gullies and funnel at the runouts, and a line's strength grows with the riders on it (0.6 for one, 1 from four).
-Then each line is resampled every 3 m, smoothed, its turns held to a 15 m radius, squeezed past any trunk nearer than its
-rim (half-width plus 1.1 m) and broken for a step where even 0.5 m does not pass, and left out more than 30 m from any
-trunk (no forest). Vail (2026-11-17): 2,383 lines, 319 km, 2.9 MB, about 50 s; beside Steep and Deep up to 9 lines
-within 120 m of the run on its steep middle, 6 at the Lower Pete's Bowl runout with the strongest gathered into one or two.
+over its upper 85 %, plus three entrances across a tree run's top edge. Highest first, each rider (FEAT-378) rides the
+field's route out (where the cheapest way out goes 24 m ahead) in linked turns of 4 to 8 m radius (tighter where the
+detected trunks are dense) and controls its speed by how far across the hill each turn finishes: 16 degrees off at a
+10 degree pitch, 24 at 15, 50 at 25, 70 at 35 (no source gives these; they are the tuning, `FINISH_DEG`), held 9 m on
+the gentle down to 1.5 m on the steep, so it runs nearly straight with gentle wiggles on gentle ground and cuts well
+across on the steep. It plans each turn 24 m ahead through the gaps between the trunks (the usual turn, a shorter,
+harder or tighter one, the same way again, a quick dodge, each costed by how close it passes a trunk); on the steep it
+sometimes shoots a clear gap straight for 6 to 14 m then finishes hard, before a flat it points it, now and then (more in
+tight trees, and where no turn gets through) it traverses across or slightly up the hill to the next opening, and it
+never climbs more than 0.8 m. In the trees (within 12 m of a detected trunk) no lane runs straight (within 1.5 m of
+its chord) past 40 m at a 10 degree pitch down to 18 m at 30 (each rider its own +-25 %; a run-up to a flat excepted):
+an S-turn pair breaks it, out round a trunk 4 to 16 m ahead within 4 m of the path (the biggest crown first, a trunk
+dead ahead passed on the other side from the last S) and back across below it, or now and then a gentler S with no
+trunk; a quarter of the S-turns round a trunk dead ahead send a second rider round its other side, rejoining below (a
+fork). The line keeps a conifer's (spruce, fir, Douglas-fir, hemlock) crown radius from its trunk, out of the tree well
+(FEAT-378 v2). It joins a line already ridden when it comes within 2 m of it (never onto a point above it) (8 m on the flat, where
+nobody breaks trail), so lines merge in gullies and funnel at the runouts, and a line's strength grows with the riders
+on it (0.6 for one, 1 from four). Then each line is resampled every 3 m, lightly smoothed, its turns held to a 4 m
+radius (the tightest the game's trench draws: past a full corridor's rim, 3.3 m), squeezed past any trunk nearer than
+its rim (half-width plus 1.1 m) and broken for a step where even 0.5 m does not pass, and left out more than 30 m from
+any trunk (no forest). `checks.straightness` (a log) has the path over chord over 30 and 90 m, the drift off the chord
+over 60 m (medians) and the share within 15 degrees of the fall line by pitch band; `python pipeline/tree_lines.py
+packs/<slug> --straightness <run name>` reports them round one run. Vail (2026-11-24, v2): 2,240 lines, 312 km, 2.9 MB, about
+120 s, 1.7 S-turns per km; round Steep and Deep path over chord 1.05 over 30 m (1.004 before FEAT-378), drift 5.1 m over
+60 m (2.8), 26 % of the line within 15 degrees of the fall line on 25 to 35 degree ground (62 %), and each line's
+longest straight in the trees on ground under 15 degrees 25 m median (43 m before), 38 m p90 (84 m).
+`checks.straightness` also has `straightInTrees` (each line's longest straight in the trees by pitch band, median) and
+`sTurnsPerKm`; the report is `pipeline/straightness.py`.
 Add them to a built pack without a rebuild: `python pipeline/tree_lines.py packs/<slug>` (`--only <run name>` for one run).
 
 ## Instances
