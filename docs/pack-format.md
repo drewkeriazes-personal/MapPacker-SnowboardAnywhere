@@ -273,7 +273,7 @@ Vail (2026-11-24, sampled along the lines every 8 m, 10th / 50th / 90th percenti
 Lionshead Catwalk) 0.28 / 0.61 / 0.80, Steep and Deep 0.40 / 0.44 / 0.57, the tree lines 0.23 / 0.27 / 0.42; median
 coherence 0.97 on those cat tracks, 0.99 on the tree lines, 0.84 on the groomers and 0.80 on Steep and Deep. 10,040 riders
 over 348 runs (108 km of groomer line, 64 km of cat track, 87 km off-piste), 2.6 MB in 144 tiles against a 291 MB pack
-(0.9 %), about 10 s on Drew's PC. Add it to a built pack
+(0.9 %), 10 to 14 s on Drew's PC (other builds running). Add it to a built pack
 without a rebuild: `python pipeline/traffic.py packs/<slug>` (`--view x0,y0,x1,y1 out.png` draws it over the hillshade).
 
 ## Instances
