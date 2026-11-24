@@ -1,7 +1,8 @@
 """FEAT-334: glade tree lines from the terrain (tree_lines.py) on a small pack: a slope falling south into a gully, a
 lattice of trunks with jitter, one expert run down it. The lines run downhill, keep every trunk out of their corridors,
-merge as they go down, come out the same every build, and a pack with no line runs gets none."""
-import json, os, sys
+merge as they go down, come out the same every build, and a pack with no line runs gets none. FEAT-378: they cut back
+and forth on the steep and run nearly straight on the gentle, and never turn tighter than the trench draws."""
+import json, math, os, sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -17,7 +18,7 @@ def ground(x, y):
     return 2000 + 0.5 * y - 15 * np.exp(-((x - GULLY) / 30) ** 2) * (600 - y) / 1200
 
 
-def make_pack(d, runs):
+def make_pack(d, runs, ground=ground):
     os.makedirs(os.path.join(d, "trees"), exist_ok=True)
     xs = np.arange(B["minX"], B["maxX"]) + 0.5
     ys = np.arange(B["maxY"], B["minY"], -1) - 0.5
@@ -41,7 +42,7 @@ def make_pack(d, runs):
     return d, t
 
 
-def run_down(diff="expert"):
+def run_down(diff="expert", ground=ground):
     y = np.arange(560, -560, -40.0)
     return {"name": "Glade", "difficulty": diff, "gladed": False, "area": False, "osmId": 7,
             "points": [[-100.0, float(v), float(ground(-100.0, v))] for v in y]}
@@ -105,10 +106,12 @@ def test_lines_merge_down_the_slope(tmp_path):
                 if (ay - y) * (by - y) < 0 and min(sa, sb) > 0.3 and abs(ax + (bx - ax) * (y - ay) / (by - ay) + 100) > 12:
                     out.append(min(sa, sb))
         return out
-    # riders join the lines below them: fewer separate lines low down than up top, and the low ones carry more riders
-    up, low = across(200), across(-300)
-    assert len(up) >= 5 and len(low) < len(up)
-    assert np.mean(low) > np.mean(up)
+    # riders join the lines below them: the 60-odd riders seeded on this slope come down a handful of lines low down
+    # (FEAT-378: riders turning back and forth, and the odd fork round a trunk, make the count up top no guide), and
+    # the busiest low one carries STR_RIDERS riders or more, and others two or more
+    low = across(-300)
+    assert 2 <= len(low) <= 8
+    assert max(low) == 1.0 and sum(v >= 0.7 for v in low) >= 2
 
 
 def test_same_lines_every_build(tmp_path):
@@ -125,3 +128,122 @@ def test_no_line_runs_no_lines(tmp_path):
     tree_lines.main([d])
     assert "treeLines" not in json.load(open(os.path.join(d, "meta.json")))
     assert not os.path.exists(os.path.join(d, "treeLines.json"))
+
+
+def gentle(x, y):
+    """falls 0.15 m per m to the south (8.5 degrees), no gully"""
+    return 2000 + 0.15 * y + 0 * x
+
+
+def test_lines_turn_on_the_steep_and_run_straight_on_the_gentle(tmp_path):
+    d, _ = make_pack(str(tmp_path / "steep"), [run_down()])
+    tree_lines.main([d])
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    lines = json.load(open(os.path.join(d, "treeLines.json")))["lines"]
+    st = tree_lines.straightness(lines, tree_lines.Heights(d, meta))
+    # 27 degrees: linked turns finishing well across the hill, most of each line off the fall line
+    assert st["sinuosity30"]["median"] > 1.05 and st["sinuosity90"]["median"] > 1.1
+    assert st["drift60"]["median"] > 5
+    assert st["fallLine"]["25-35"] < 0.5
+    g, _ = make_pack(str(tmp_path / "gentle"), [run_down(ground=gentle)], ground=gentle)
+    tree_lines.main([g])
+    meta = json.load(open(os.path.join(g, "meta.json")))
+    lines = json.load(open(os.path.join(g, "treeLines.json")))["lines"]
+    sg = tree_lines.straightness(lines, tree_lines.Heights(g, meta))
+    # 8.5 degrees: nearly straight, gentle wiggles
+    assert sg["sinuosity30"]["median"] < 1.03 and sg["sinuosity30"]["median"] < st["sinuosity30"]["median"]
+    assert sg["fallLine"]["0-15"] > st["fallLine"]["25-35"]
+
+
+def test_no_turn_tighter_than_the_trench_draws(tmp_path):
+    d, _ = make_pack(str(tmp_path / "p"), [run_down()])
+    tree_lines.main([d])
+    for p in lines_of(d):
+        v = np.diff(p[:, :2], axis=0)
+        a = np.abs(np.arctan2(v[:-1, 0] * v[1:, 1] - v[:-1, 1] * v[1:, 0], (v[:-1] * v[1:]).sum(1)))
+        # the turn between two STEP m segments of a circle of radius R is STEP / R
+        assert np.all(a <= tree_lines.STEP / tree_lines.R_MIN + 0.02)
+
+
+def test_straightness_report(tmp_path):
+    d, _ = make_pack(str(tmp_path / "p"), [run_down()])
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    y = np.arange(500, 0, -3.0)
+    straight = np.stack([np.full(len(y), 100.0), y, np.ones(len(y)), np.ones(len(y))], 1)
+    zig = straight.copy(); zig[:, 0] += 24 * np.abs(((y / 24) % 2) - 1)   # 45 degrees off the fall line, back and forth
+    st = tree_lines.straightness([{"p": straight.ravel().tolist()}], tree_lines.Heights(d, meta))
+    assert st["lines"] == 1 and st["sinuosity30"]["median"] < 1.001 and st["drift60"]["median"] < 0.01
+    assert st["fallLine"]["25-35"] > 0.99
+    sz = tree_lines.straightness([{"p": zig.ravel().tolist()}], tree_lines.Heights(d, meta))
+    assert 1.2 < sz["sinuosity30"]["median"] < 1.5 and sz["fallLine"]["25-35"] < 0.01
+    # near a run: only the lines that come within NEAR_M of it
+    far = straight.copy(); far[:, 0] += 1000
+    assert tree_lines.straightness([{"p": far.ravel().tolist()}, {"p": straight.ravel().tolist()}], tree_lines.Heights(d, meta),
+                                   near=[[[100.0, 0.0], [100.0, 500.0]]])["lines"] == 1
+
+
+def middling(x, y):
+    """falls 0.25 m per m to the south (14 degrees), no gully"""
+    return 2000 + 0.25 * y + 0 * x
+
+
+def test_no_long_straight_lane_in_the_trees(tmp_path):
+    """FEAT-378 v2: on a 14 degree glade the lines break a straight lane with S-turns round the trunks"""
+    d, _ = make_pack(str(tmp_path / "p"), [run_down(ground=middling)], ground=middling)
+    tree_lines.main([d])
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    st = meta["treeLines"]["checks"]["straightness"]
+    assert st["sTurnsPerKm"] > 0.5
+    from scipy.spatial import cKDTree
+    t = np.fromfile(os.path.join(d, "trees", "0_0.bin"), "<f4").reshape(-1, 6)
+    s = tree_lines.straightness(json.load(open(os.path.join(d, "treeLines.json")))["lines"], tree_lines.Heights(d, meta),
+                                trunks=cKDTree(t[:, :2]))
+    cap = tree_lines.STRAIGHT_MAX[0] * (1 + tree_lines.STRAIGHT_JITTER)
+    assert s["straightInTrees"]["0-15"]["p90"] <= cap + 10
+
+
+def test_lines_keep_out_of_tree_wells(tmp_path):
+    """FEAT-378 v2: a line's centreline keeps a conifer's crown radius (2.3 m here) from its trunk (Sun Peaks glade safety:
+    out of the tree well and the low boughs)"""
+    d, trunks = make_pack(str(tmp_path / "p"), [run_down()])
+    tree_lines.main([d])
+    from scipy.spatial import cKDTree
+    kd = cKDTree(trunks[:, :2].astype(np.float64))
+    dd = np.concatenate([kd.query(p[p[:, 3] > 0.15, :2])[0] for p in lines_of(d)])
+    # all clear of the trunk by BLOCK (a line squeezing past one, where it fades round a break), nearly all of the well
+    assert dd.min() > tree_lines.BLOCK - 0.3 and np.mean(dd > 2.3 - 0.3) > 0.98
+
+
+def planner_on(d, ri=0):
+    """a planner with the run's fields ready, as `plan` makes them"""
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    pl = tree_lines.Planner(d, meta, json.load(open(os.path.join(d, "features.json"))), log=lambda *a: None)
+    p, _ = tree_lines.run_line(pl.runs[ri])
+    x0, y1, w, h = pl.window(p)
+    z = pl.hts.window(x0, y1, w, h, tree_lines.RES)
+    dist = pl.trunk_dist(x0, y1, w, h)
+    walls, exits = pl.run_masks(ri, x0, y1, w, h, float(p[-1, 2]))
+    T, _ = pl.field(z, dist, walls, exits)
+    pl.rider_fields(T, z, dist, walls & ~exits, exits & np.isfinite(T), x0, y1)
+    return pl
+
+
+def test_a_tree_ahead_is_passed_on_its_downhill_side(tmp_path):
+    """FEAT-378 v3: where the lane runs across the slope (its course 50 degrees east of the fall line, south), the tree
+    dead ahead is passed on its downhill side (clockwise, toward the fall line), and no fork goes round its uphill side"""
+    d, _ = make_pack(str(tmp_path / "p"), [run_down()])
+    pl = planner_on(d)
+    hd = math.radians(-90 + 50)   # the fall line is south (-90 degrees from east); 50 degrees round toward the east
+    pl.rf["cx"] = [math.cos(hd)] * len(pl.rf["cx"]); pl.rf["cy"] = [math.sin(hd)] * len(pl.rf["cy"])
+    t = pl.trunks[np.argmin(np.hypot(pl.trunks[:, 0] + 250, pl.trunks[:, 1] - 100))]
+    x, y = t[0] - 8 * math.cos(hd), t[1] - 8 * math.sin(hd)
+    i = pl.probe(x, y)[0]
+    for last in (1, -1):   # whichever way the last weave went
+        plans, info = pl.weave(x, y, hd, i, last, np.random.default_rng(1))
+        cheapest = min(plans, key=lambda q: q[3])
+        assert cheapest[0] == "s-centre" and cheapest[1][0][0] < 0
+        # the uphill way round swings 85 degrees off the fall line: past FORK_MAX_OFF, so no fork, through or not
+        assert info["off"][1] > math.radians(tree_lines.FORK_MAX_OFF)
+        assert not tree_lines.fork_ok(info, -1, {1, -1})
+    # on the fall line both ways are fine
+    assert tree_lines.fork_ok({"off": {1: 0.6, -1: 0.6}}, 1, {1, -1}) and not tree_lines.fork_ok({"off": {1: 0.6, -1: 0.6}}, 1, {1})
