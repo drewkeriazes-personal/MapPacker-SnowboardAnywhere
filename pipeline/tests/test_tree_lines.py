@@ -2,7 +2,7 @@
 lattice of trunks with jitter, one expert run down it. The lines run downhill, keep every trunk out of their corridors,
 merge as they go down, come out the same every build, and a pack with no line runs gets none. FEAT-378: they cut back
 and forth on the steep and run nearly straight on the gentle, and never turn tighter than the trench draws."""
-import json, os, sys
+import json, math, os, sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -212,3 +212,38 @@ def test_lines_keep_out_of_tree_wells(tmp_path):
     dd = np.concatenate([kd.query(p[p[:, 3] > 0.15, :2])[0] for p in lines_of(d)])
     # all clear of the trunk by BLOCK (a line squeezing past one, where it fades round a break), nearly all of the well
     assert dd.min() > tree_lines.BLOCK - 0.3 and np.mean(dd > 2.3 - 0.3) > 0.98
+
+
+def planner_on(d, ri=0):
+    """a planner with the run's fields ready, as `plan` makes them"""
+    meta = json.load(open(os.path.join(d, "meta.json")))
+    pl = tree_lines.Planner(d, meta, json.load(open(os.path.join(d, "features.json"))), log=lambda *a: None)
+    p, _ = tree_lines.run_line(pl.runs[ri])
+    x0, y1, w, h = pl.window(p)
+    z = pl.hts.window(x0, y1, w, h, tree_lines.RES)
+    dist = pl.trunk_dist(x0, y1, w, h)
+    walls, exits = pl.run_masks(ri, x0, y1, w, h, float(p[-1, 2]))
+    T, _ = pl.field(z, dist, walls, exits)
+    pl.rider_fields(T, z, dist, walls & ~exits, exits & np.isfinite(T), x0, y1)
+    return pl
+
+
+def test_a_tree_ahead_is_passed_on_its_downhill_side(tmp_path):
+    """FEAT-378 v3: where the lane runs across the slope (its course 50 degrees east of the fall line, south), the tree
+    dead ahead is passed on its downhill side (clockwise, toward the fall line), and no fork goes round its uphill side"""
+    d, _ = make_pack(str(tmp_path / "p"), [run_down()])
+    pl = planner_on(d)
+    hd = math.radians(-90 + 50)   # the fall line is south (-90 degrees from east); 50 degrees round toward the east
+    pl.rf["cx"] = [math.cos(hd)] * len(pl.rf["cx"]); pl.rf["cy"] = [math.sin(hd)] * len(pl.rf["cy"])
+    t = pl.trunks[np.argmin(np.hypot(pl.trunks[:, 0] + 250, pl.trunks[:, 1] - 100))]
+    x, y = t[0] - 8 * math.cos(hd), t[1] - 8 * math.sin(hd)
+    i = pl.probe(x, y)[0]
+    for last in (1, -1):   # whichever way the last weave went
+        plans, info = pl.weave(x, y, hd, i, last, np.random.default_rng(1))
+        cheapest = min(plans, key=lambda q: q[3])
+        assert cheapest[0] == "s-centre" and cheapest[1][0][0] < 0
+        # the uphill way round swings 85 degrees off the fall line: past FORK_MAX_OFF, so no fork, through or not
+        assert info["off"][1] > math.radians(tree_lines.FORK_MAX_OFF)
+        assert not tree_lines.fork_ok(info, -1, {1, -1})
+    # on the fall line both ways are fine
+    assert tree_lines.fork_ok({"off": {1: 0.6, -1: 0.6}}, 1, {1, -1}) and not tree_lines.fork_ok({"off": {1: 0.6, -1: 0.6}}, 1, {1})

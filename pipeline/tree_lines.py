@@ -31,8 +31,9 @@ Per run that gets lines (gladed, or advanced / expert / freeride / extreme), on 
      traverse across or slightly up the hill (TRAVERSE_*, more in tight trees, and the way round where no turn gets
      through), each costed by how near it passes the trunks; a run-up to a flat ahead (RUNUP_*) straightens it. Where no
      plan gets through it takes a few of the field's own steps. In the trees no lane runs straight past STRAIGHT_MAX m
-     (a run-up excepted): an S-turn pair round a trunk ahead breaks it (`weave`, the biggest crown first, alternating
-     sides), now and then with a second rider forking round the other side (FORK_P). The line keeps a conifer's crown
+     (a run-up excepted): a weave round a trunk ahead breaks it (`weave`, the biggest crown first, on the side nearest
+     the fall line), now and then with a second rider forking round the other side where both ways are good lines
+     (FORK_P, FORK_MAX_OFF). The line keeps a conifer's crown
      radius from its trunk (the tree well, WELL_SPECIES). It rides until it gets out, stalls or meets a line already
      ridden below it (within JOIN cells): then it joins it, and that line carries one more rider from there down. So
      lines merge in gullies and funnel at flats by themselves, and the busy ones are the deep ones.
@@ -57,6 +58,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from straightness import FALL_DEG, TREES_D, off_chord, straightness  # noqa: E402
+from pack_geom import Heights, along, h01, run_line, seg_dist, smooth  # noqa: E402,F401
 
 FILE = "treeLines.json"
 VERSION = 1
@@ -152,6 +154,11 @@ WEAVE_FREE_P, WEAVE_FREE_DEG = 0.25, 25.0   # no trunk to go round: a gentler S,
 # forks: FORK_P of the S-turns round a trunk dead ahead send a second rider round its other side, rejoining below (no
 # source gives how often; kept occasional); it joins no line for its first FORK_FREE m
 FORK_P, FORK_FREE = 0.25, 12.0
+FORK_MAX_OFF = 60.0  # degrees: a fork only where both ways round go no further than this off the fall line
+WEAVES = ("s-tree", "s-centre", "s-free")   # the weaves' kinds
+# v3 (Drew: riders take the side that keeps them nearer the fall line): a weave costs WEAVE_OFF_K per radian its swings
+# go off the fall line; going the same way as the last weave costs WEAVE_ALT_COST (a tie-breaker)
+WEAVE_OFF_K, WEAVE_ALT_COST = 2.0, 0.1
 STR_LO, STR_RIDERS = 0.6, 4
 HW_NEAR, HW_FAR = 1.7, 0.9
 WIDTH_VAR, WIDTH_L = 0.3, 25.0
@@ -162,92 +169,6 @@ STALL_M = 30.0
 SPACING_BAND = (3.0, 10.0)
 
 DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-
-
-def smooth(e0, e1, v):
-    t = np.clip((np.asarray(v, np.float64) - e0) / (e1 - e0), 0, 1)
-    return t * t * (3 - 2 * t)
-
-
-def h01(*k):
-    """a stable hash of integers to 0..1"""
-    h = 2166136261
-    for v in k:
-        for b in int(v).to_bytes(8, "little", signed=True):
-            h = ((h ^ b) * 16777619) & 0xFFFFFFFF
-    h ^= h >> 13; h = (h * 1274126177) & 0xFFFFFFFF; h ^= h >> 16
-    return (h & 0xFFFFFF) / 0x1000000
-
-
-class Heights:
-    """the fine height set, read a tile at a time"""
-    def __init__(self, pack_dir, meta):
-        from packwriter import decode_terrarium
-        self.dec = decode_terrarium
-        t = meta["terrain"]
-        self.m = t.get("fine") or t["coarse"]
-        self.dir = os.path.join(pack_dir, "fine" if t.get("fine") else "coarse")
-        self.cache = {}
-
-    def tile(self, tx, ty):
-        k = (tx, ty)
-        if k not in self.cache:
-            p = os.path.join(self.dir, f"{tx}_{ty}.png")
-            T = self.m["tileSize"]
-            self.cache[k] = self.dec(np.asarray(Image.open(p).convert("RGB"))) if os.path.exists(p) else np.full((T, T), np.nan, np.float32)
-        return self.cache[k]
-
-    def window(self, x0, y1, w, h, res):
-        """heights at cell centres of a w x h grid of `res` m cells from (x0, y1) (its north-west corner), row 0 = north"""
-        m, T = self.m, self.m["tileSize"]
-        r = m["res"]
-        xs = x0 + (np.arange(w) + 0.5) * res
-        ys = y1 - (np.arange(h) + 0.5) * res
-        out = np.full((h, w), np.nan, np.float32)
-        # the nearest fine sample of each sub-cell, averaged over the cell (k x k sub-samples)
-        k = max(1, int(round(res / r)))
-        acc = np.zeros((h, w), np.float64); cnt = np.zeros((h, w), np.float64)
-        for a in range(k):
-            for b in range(k):
-                sx = xs - res / 2 + (a + 0.5) * res / k
-                sy = ys - res / 2 + (b + 0.5) * res / k
-                gc = np.floor((sx - m["minX"]) / r).astype(np.int64)
-                gr = np.floor((sy - m["minY"]) / r).astype(np.int64)   # from the south
-                txs, tys = gc // T, gr // T
-                for ty in np.unique(tys):
-                    for tx in np.unique(txs):
-                        if tx < 0 or ty < 0 or tx >= m["tilesX"] or ty >= m["tilesY"]:
-                            continue
-                        cj = np.nonzero(txs == tx)[0]; ri = np.nonzero(tys == ty)[0]
-                        tile = self.tile(int(tx), int(ty))
-                        v = tile[np.ix_(T - 1 - (gr[ri] - ty * T), gc[cj] - tx * T)]
-                        ok = np.isfinite(v)
-                        sub = acc[np.ix_(ri, cj)]; sub[ok] += v[ok]; acc[np.ix_(ri, cj)] = sub
-                        sc = cnt[np.ix_(ri, cj)]; sc[ok] += 1; cnt[np.ix_(ri, cj)] = sc
-        good = cnt > 0
-        out[good] = (acc[good] / cnt[good]).astype(np.float32)
-        return out
-
-
-def run_line(r):
-    """a run's centreline downhill first, with its arc length, or None"""
-    p = np.asarray(r["points"], np.float64)
-    if len(p) < 2:
-        return None
-    if p[0, 2] < p[-1, 2]:
-        p = p[::-1]
-    s = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(p[:, 0]), np.diff(p[:, 1])))])
-    return (p, s) if s[-1] > 20 else None
-
-
-def along(p, s, q):
-    """point and unit tangent at arc length q"""
-    q = min(max(q, 0.0), s[-1])
-    i = min(int(np.searchsorted(s, q, side="right")) - 1, len(s) - 2)
-    i = max(i, 0)
-    sl = max(s[i + 1] - s[i], 1e-9); t = (q - s[i]) / sl
-    a, b = p[i], p[i + 1]
-    return a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, (b[0] - a[0]) / sl, (b[1] - a[1]) / sl
 
 
 def eligible(r):
@@ -271,8 +192,10 @@ class Planner:
         b = meta["bounds"]
         self.gx0, self.gy1 = float(b["minX"]), float(b["maxY"])
         self.kinds = {}     # metres ridden by each kind of plan (turn, shot, traverse, s-tree, s-free, field), for the log
-        self.s_turns = {}   # S-turn pairs ridden: round a trunk beside the path (s-tree) or dead ahead (s-centre), with
-                            # none (s-free); and the forks round a trunk dead ahead
+        self.s_turns = {}   # weaves ridden (WEAVES): round a trunk beside the path (s-tree) or dead ahead (s-centre), with
+                            # none (s-free); the forks round a trunk dead ahead and those the gate left out (fork-gated);
+                            # the weaves that went the other side from the v2 rule (side-changed)
+        self.weave_off = [0.0, 0.0]   # metres of weave, and of those more than FORK_MAX_OFF off the fall line
         self.occ = {}       # global cell (col, row) -> (line id, point index)
         self.lines = []     # each: dict(xy=[(x, y)...], riders=np.array, join=(id, idx) or None, seed kind)
 
@@ -574,14 +497,23 @@ class Planner:
         return out
 
     def weave(self, x, y, hd, i, s_side, rng, force=None):
-        """FEAT-378 v2: an S-turn pair to break a straight lane in the trees, as plans (see `plans`). Round a detected
-        trunk WEAVE_AHEAD m ahead within WEAVE_LAT m of the path, the biggest crown first: out to one side (away from it,
-        or the other way from the last S where it stands dead ahead) WEAVE_DEG off the course until abreast, then a
-        tight turn back across below it. Where no trunk stands there, a gentler S with none, WEAVE_FREE_P of the time."""
+        """FEAT-378 v2/v3: turns to break a straight lane in the trees, as plans (see `plans`), and an info dict: each
+        side's swing off the fall line (radians) and the side the v2 rule took (for the log); None when there are none.
+        Round a detected trunk WEAVE_AHEAD m ahead within WEAVE_LAT m of the path, the biggest crown first, on either side
+        (`force`: that one only): out WEAVE_DEG off the course until abreast, then a tight turn back across below it (an S)
+        or on down that side (one turn). Each costs WEAVE_OFF_K per radian its swings go off the fall line, so the
+        downhill side wins where the lane runs across the slope; a swing past FINISH_MAX is no plan, and going the same
+        way as the last weave costs WEAVE_ALT_COST (a tie-breaker). With no trunk there, a gentler S, WEAVE_FREE_P of the
+        time."""
         f = self.rf
         r0 = max(R_MIN, ARC_R[1] + (ARC_R[0] - ARC_R[1]) * f["tight"][i])
         phi0 = self.finish(f["pitch"][i], f["ahead"][i])
         ux, uy = math.cos(hd), math.sin(hd)
+        course, fall, sloped = math.atan2(f["cy"][i], f["cx"][i]), f["fall"][i], f["pitch"][i] > ANGLE_LO
+
+        def off(rel):
+            return abs((course + rel - fall + math.pi) % (2 * math.pi) - math.pi) if sloped else 0.0
+
         best = None
         if self.kd is not None:
             mx, my = x + ux * sum(WEAVE_AHEAD) / 2, y + uy * sum(WEAVE_AHEAD) / 2
@@ -592,20 +524,30 @@ class Planner:
                     score = self.crowns[t] / (1 + abs(lat) / WEAVE_LAT)
                     if best is None or score > best[0]:
                         best = (score, fwd, lat)
-        out = []
+        out, lim = [], math.radians(FINISH_MAX)
         if best:
             _, fwd, lat = best
-            # out to the left (+) of a trunk on the right, and the other way; dead ahead, the other way from the last S
             centre = abs(lat) < WEAVE_CENTRE
-            s = force or ((1 if lat > 0 else -1) if not centre else -s_side)
-            for deg in WEAVE_DEG:
-                a = math.radians(deg)
-                out.append(("s-centre" if centre else "s-tree", [(s * a, r0, max(1.0, fwd - r0 * a)), (-s * a, max(R_MIN, ARC_R[0]), WEAVE_BACK)],
-                            [(s * phi0, r0, HOLD_M[0])], WEAVE_COST, BLOCK))
+            kind, v2 = ("s-centre", -s_side) if centre else ("s-tree", 1 if lat > 0 else -1)
+            for s in (force,) if force else (1, -1):
+                for a in map(math.radians, WEAVE_DEG):
+                    if off(s * a) > lim:
+                        continue
+                    hold, tie = max(1.0, fwd - r0 * a), WEAVE_ALT_COST * (s == s_side)
+                    out.append((kind, [(s * a, r0, hold), (-s * a, max(R_MIN, ARC_R[0]), WEAVE_BACK)], [(s * phi0, r0, HOLD_M[0])],
+                                WEAVE_COST + WEAVE_OFF_K * (off(s * a) + off(-s * a)) / 2 + tie, BLOCK))
+                    out.append((kind, [(s * a, r0, hold + WEAVE_BACK)], [(-s * phi0, r0, HOLD_M[0])],
+                                WEAVE_COST + WEAVE_OFF_K * off(s * a) + tie, BLOCK))
+            a = math.radians(WEAVE_DEG[0])
         elif force is None and rng.uniform() < WEAVE_FREE_P:
-            a, s = math.radians(WEAVE_FREE_DEG), -s_side
-            out.append(("s-free", [(s * a, r0, WEAVE_BACK), (-s * a, r0, WEAVE_BACK)], [(s * phi0, r0, HOLD_M[0])], WEAVE_COST, BLOCK))
-        return out
+            kind, v2, a = "s-free", -s_side, math.radians(WEAVE_FREE_DEG)
+            for s in (1, -1):
+                if off(s * a) <= lim:
+                    out.append((kind, [(s * a, r0, WEAVE_BACK), (-s * a, r0, WEAVE_BACK)], [(s * phi0, r0, HOLD_M[0])],
+                                WEAVE_COST + WEAVE_OFF_K * (off(s * a) + off(-s * a)) / 2 + WEAVE_ALT_COST * (s == s_side), BLOCK))
+        else:
+            return out, None
+        return out, {"v2": v2, "off": {1: off(a), -1: off(-a)}}
 
     def ride(self, sx, sy, rng, fork=None):
         """one rider from (sx, sy) down the field in linked turns until it gets out, stalls or meets a ridden line (then
@@ -640,7 +582,11 @@ class Planner:
         while len(pts) * DS < MAX_LEN:
             i = self.probe(x, y)[0]
             best = None
-            plans = self.plans(i, side, rng) if fork is None else self.weave(x, y, hd, i, s_side, rng, fork[1])
+            info = None
+            if fork is None:
+                plans = self.plans(i, side, rng)
+            else:
+                plans, info = self.weave(x, y, hd, i, s_side, rng, fork[1])
             fork_at = fork and (x, y, hd)
             fork = None
             # FEAT-378 v2: no long straight lane in the trees (a run-up to a flat ahead stays straight)
@@ -648,14 +594,21 @@ class Planner:
             n = int(cap / DS)
             if (since_s >= cap and len(pts) > n and f["trees"][i] and self.runup(f["ahead"][i]) > 0.5
                     and off_chord(np.asarray(pts[-n:])) <= WEAVE_TOL):
-                plans += self.weave(x, y, hd, i, s_side, rng)
+                more, info = self.weave(x, y, hd, i, s_side, rng)
+                plans += more
+            ok_sides = set()   # the sides a weave round a trunk dead ahead gets through on (for a fork)
             for kind, ex, lk, bias, cmin in plans:
                 p, hs, first, near, t_end, ok = self.sim(x, y, hd, ex + lk, LOOK_M + sum(e[2] for e in ex), cmin, zlow + CLIMB_M, len(ex))
                 if not first or not (ok or len(p) >= first + LOOK_SURE / DS):
                     continue
+                if kind == "s-centre" and ok:
+                    ok_sides.add(1 if ex[0][0] > 0 else -1)
                 cost = bias + (0 if ok else BLOCKED_COST) + (CLEAR_K * near - PROG_K * (f["T"][i] - t_end)) / len(p) + PLAN_NOISE * rng.standard_normal()
                 if best is None or cost < best[0]:
-                    best = (cost, kind, p[:first], hs[first - 1], ex[-1][0])
+                    best = (cost, kind, p[:first], hs[first - 1], ex[-1][0], ex[0][0])
+            if best is None and fork_at:
+                self.why = "fork-blocked"   # a fork goes round its side or not at all
+                return [], None
             if best is None:
                 # no plan gets through: a few of the field's own cheapest steps (round the trunk), then plan again
                 cells, j = [], i
@@ -671,14 +624,28 @@ class Planner:
                     step += [(a[0] + (b[0] - a[0]) * k / nn, a[1] + (b[1] - a[1]) * k / nn) for k in range(1, nn + 1)]
                 hd = math.atan2(cells[-1][1] - cells[0][1], cells[-1][0] - cells[0][0]) if len(set(cells)) > 1 else hd
             else:
-                if best[1] == "s-centre" and not fork_at and not self.fork and rng.uniform() < FORK_P:
+                _, kind, step, hd, rel, rel0 = best
+                went = 1 if rel0 > 0 else -1
+                if kind == "s-centre" and not fork_at and not self.fork and rng.uniform() < FORK_P:
                     # a trunk dead ahead: now and then a second rider goes round it the other way (rejoining below)
-                    self.fork = (x, y, hd, -(1 if best[4] < 0 else -1))
-                _, kind, step, hd, rel = best
+                    if fork_ok(info, went, ok_sides):
+                        self.fork = (x, y, hd, -went)
+                    else:
+                        self.s_turns["fork-gated"] = self.s_turns.get("fork-gated", 0) + 1
                 side = 1 if rel > 0 else -1   # the side the plan finished on
                 if kind.startswith("s-"):
-                    since_s, s_side = -len(step) * DS, -s_side
+                    since_s, s_side = -len(step) * DS, went
+                    if info and went != info["v2"]:
+                        self.s_turns["side-changed"] = self.s_turns.get("side-changed", 0) + 1
             self.kinds[kind] = self.kinds.get(kind, 0) + len(step) * DS
+            if kind.startswith("s-"):
+                # how far off the fall line the weaves go, for the log
+                for (ax, ay), (bx, by) in zip([(x, y)] + step[:-1], step):
+                    k = self.probe(bx, by)[0]
+                    if f["pitch"][k] > ANGLE_LO:
+                        off = abs((math.atan2(by - ay, bx - ax) - f["fall"][k] + math.pi) % (2 * math.pi) - math.pi)
+                        self.weave_off[0] += DS
+                        self.weave_off[1] += DS * (off > math.radians(FORK_MAX_OFF))
             since_s += len(step) * DS
             if kind.startswith("s-"):
                 self.s_turns[kind] = self.s_turns.get(kind, 0) + 1
@@ -872,11 +839,11 @@ class Planner:
         return out, stats
 
 
-def seg_dist(pt, a, b):
-    d = b - a; l2 = float(d @ d)
-    t = 0.0 if l2 <= 0 else min(1.0, max(0.0, float((pt - a) @ d) / l2))
-    e = a + d * t - pt
-    return math.hypot(e[0], e[1])
+def fork_ok(info, went, ok_sides):
+    """a fork round a trunk dead ahead only where both ways are lines a rider would take: each swing within FORK_MAX_OFF
+    of the fall line (`info` from `weave`), and the other way (-went) gets through (`ok_sides`)"""
+    gate = math.radians(FORK_MAX_OFF)
+    return -went in ok_sides and info["off"][went] <= gate and info["off"][-went] <= gate
 
 
 def validate(lines, planner):
@@ -944,7 +911,8 @@ def build_tree_lines(pack_dir, meta, features=None, only=None, log=print):
     chk["straightness"] = {"sinuosity30": sl["sinuosity30"]["median"], "sinuosity90": sl["sinuosity90"]["median"],
                            "drift60": sl["drift60"]["median"], "fallLine": sl["fallLine"],
                            "straightInTrees": {k: v and v["median"] for k, v in sl["straightInTrees"].items()},
-                           "sTurnsPerKm": round(sum(v for k, v in pl.s_turns.items() if k != "fork") / max(chk["km"], 1e-6), 1)}
+                           "sTurnsPerKm": round(sum(pl.s_turns.get(k, 0) for k in WEAVES) / max(chk["km"], 1e-6), 1),
+                           "weaveOffFall": round(pl.weave_off[1] / max(pl.weave_off[0], 1e-6), 3)}
     path = os.path.join(pack_dir, FILE)
     with open(path, "w") as f:
         json.dump({"version": VERSION, "step": STEP, "lines": lines}, f, separators=(",", ":"))

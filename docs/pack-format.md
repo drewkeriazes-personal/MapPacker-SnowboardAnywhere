@@ -231,10 +231,11 @@ sometimes shoots a clear gap straight for 6 to 14 m then finishes hard, before a
 tight trees, and where no turn gets through) it traverses across or slightly up the hill to the next opening, and it
 never climbs more than 0.8 m. In the trees (within 12 m of a detected trunk) no lane runs straight (within 1.5 m of
 its chord) past 40 m at a 10 degree pitch down to 18 m at 30 (each rider its own +-25 %; a run-up to a flat excepted):
-an S-turn pair breaks it, out round a trunk 4 to 16 m ahead within 4 m of the path (the biggest crown first, a trunk
-dead ahead passed on the other side from the last S) and back across below it, or now and then a gentler S with no
-trunk; a quarter of the S-turns round a trunk dead ahead send a second rider round its other side, rejoining below (a
-fork). The line keeps a conifer's (spruce, fir, Douglas-fir, hemlock) crown radius from its trunk, out of the tree well
+a weave breaks it, round a trunk 4 to 16 m ahead within 4 m of the path (the biggest crown first): out round one side
+and back across below it (an S), or on down that side (one turn), on the side whose swings stay nearest the fall line
+(the downhill side where the lane runs across the slope; the other way from the last weave only breaks a tie; v3), or
+now and then a gentler S with no trunk. A quarter of the weaves round a trunk dead ahead send a second rider round its
+other side, rejoining below (a fork), but only where both ways stay within 60 degrees of the fall line and get through. The line keeps a conifer's (spruce, fir, Douglas-fir, hemlock) crown radius from its trunk, out of the tree well
 (FEAT-378 v2). It joins a line already ridden when it comes within 2 m of it (never onto a point above it) (8 m on the flat, where
 nobody breaks trail), so lines merge in gullies and funnel at the runouts, and a line's strength grows with the riders
 on it (0.6 for one, 1 from four). Then each line is resampled every 3 m, lightly smoothed, its turns held to a 4 m
@@ -242,12 +243,14 @@ radius (the tightest the game's trench draws: past a full corridor's rim, 3.3 m)
 its rim (half-width plus 1.1 m) and broken for a step where even 0.5 m does not pass, and left out more than 30 m from
 any trunk (no forest). `checks.straightness` (a log) has the path over chord over 30 and 90 m, the drift off the chord
 over 60 m (medians) and the share within 15 degrees of the fall line by pitch band; `python pipeline/tree_lines.py
-packs/<slug> --straightness <run name>` reports them round one run. Vail (2026-11-24, v2): 2,240 lines, 312 km, 2.9 MB, about
-120 s, 1.7 S-turns per km; round Steep and Deep path over chord 1.05 over 30 m (1.004 before FEAT-378), drift 5.1 m over
-60 m (2.8), 26 % of the line within 15 degrees of the fall line on 25 to 35 degree ground (62 %), and each line's
-longest straight in the trees on ground under 15 degrees 25 m median (43 m before), 38 m p90 (84 m).
+packs/<slug> --straightness <run name>` reports them round one run. Vail (2026-11-24, v3): 2,236 lines, 311 km, 2.9 MB, about
+120 s, 2.0 weaves per km, 15 % of the weaves' length over 60 degrees off the fall line; round Steep and Deep path over
+chord 1.05 over 30 m (1.004 before FEAT-378), drift 5.2 m over 60 m (2.8), 27 % of the line within 15 degrees of the fall
+line on 25 to 35 degree ground (62 %), and each line's longest straight in the trees on ground under 15 degrees 24 m
+median (43 m before), 41 m p90 (84 m).
 `checks.straightness` also has `straightInTrees` (each line's longest straight in the trees by pitch band, median) and
-`sTurnsPerKm`; the report is `pipeline/straightness.py`.
+`sTurnsPerKm` and `weaveOffFall` (the share of the weaves' length over 60 degrees off the fall line); the report is
+`pipeline/straightness.py`.
 Add them to a built pack without a rebuild: `python pipeline/tree_lines.py packs/<slug>` (`--only <run name>` for one run).
 
 ## Instances
