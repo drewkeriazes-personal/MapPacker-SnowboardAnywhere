@@ -21,6 +21,7 @@ pack/<slug>/
   cover/<level>.png         RGBA forest cover for the terrain at a distance, one image per level (optional)
   canopy.png                10 m greyscale canopy score over the pack bounds (optional, FEAT-331)
   treeLines.json            the glade tree lines traced from the terrain (optional, FEAT-334)
+  traffic/<tx>_<ty>.png     4 m RGB traffic map: where riders go, which way and how much, 256 x 256 per tile (optional, FEAT-379)
   trees/<tx>_<ty>.bin       tree instances per 1 km cell (the detected crowns)
   stands/<tx>_<ty>.png      stand density per 4 m cell, one RGB image per 1 km tree cell (optional, FEAT-074)
   farTrees/<tx>_<ty>.bin    the crowns on the ridges round the resort, outside the bounds (optional, BUG-081, FEAT-257)
@@ -227,6 +228,53 @@ rim (half-width plus 1.1 m) and broken for a step where even 0.5 m does not pass
 trunk (no forest). Vail (2026-11-17): 2,383 lines, 319 km, 2.9 MB, about 50 s; beside Steep and Deep up to 9 lines
 within 120 m of the run on its steep middle, 6 at the Lower Pete's Bowl runout with the strongest gathered into one or two.
 Add them to a built pack without a rebuild: `python pipeline/tree_lines.py packs/<slug>` (`--only <run name>` for one run).
+
+## Traffic map (optional, FEAT-379)
+
+`traffic/<tx>_<ty>.png` (`pipeline/traffic.py`): where riders go, which way and how much, for the game's old tracks
+(SnowboardAnywhere FEAT-380), so they run along a cat track instead of across it, follow the runs and feed into the tree
+lines. Described by `meta.traffic`, the shape of `meta.dir` on the mask's tile grid at its own resolution:
+
+```
+"traffic": { "res": 4.0, "tileSize": 256, "minX": -5800.0, "minY": -5850.0, "tilesX": 12, "tilesY": 12 }
+```
+
+`minX`, `minY` are the mask's, and a 256 px tile at 4 m covers the same 1024 m as a mask tile's 512 px at 2 m, so tile
+`<tx>_<ty>` is the mask tile of the same name. Pixel (0,0) is the tile's north-west corner, as in every tile set; tiles
+past the bounds are padding. RGB, no alpha (a canvas decode premultiplies alpha, BUG-087):
+
+- R, G: the mean travel direction as a vector, x east and y north, each byte `(v * 0.5 + 0.5) * 255`. Its length is the
+  coherence: 1 = every rider goes the same way (a cat track), short = directions spread (an open bowl, riders turning),
+  0 = no preferred direction. A reader interpolates the vector (angles would not interpolate safely).
+- B: traffic density 0..255, 0 = nobody rides there (R = G = 128 there). `255 * (1 - exp(-sqrt(c / c_ref)))`, `c` the
+  blurred rider steps per cell and `c_ref` the pack's 90th percentile of its ridden cells, so the busiest runs saturate
+  and the square root lifts the quiet ones.
+
+The key and the tiles are optional and additive (no `formatVersion` bump): a pack without `meta.traffic` gets the
+game's fallback (tracks along `dir` on groomed snow, the fall line elsewhere), and a game from before FEAT-380 ignores both.
+
+How it is made, on the 4 m grid: riders are released at every lift's top in proportion to its capacity (by lift type
+where OSM has none), shared between the runs that start within 150 m (each first heads for the start it picked: the lift
+exit; past the bounds, it starts where the run comes in), plus 3 at every run's top. Each 4 m step a rider steers for a point 10 m down the nearest run's line at its own
+lateral lane: on a groomer a Gaussian lane of 0.42 times the ridden half-width (measured on the mask, from the line to the
+edge of the corduroy, and centred on the corduroy rather than the OSM line), on a cat track one of three lanes (a
+stretch whose line drops less than 0.45 of the ground's slope and under 14 %, or under 6 %, over 40 m) moved to the
+inside of bends, off-piste 0.7 times the open width (to the canopy), fanning out over 120 m from the entry and narrowing
+over the last 150 m to the exit. So riders merge where runs join and funnel where a run narrows. Off-piste riders also
+lean to the fall line, riders in an outer lane are drawn onto a baked tree line near them, and riders off the network
+follow the fall line. Within 100 m of a lift's bottom station a rider that takes it (55 %; always the lowest quarter of
+the lifts and where no run goes on) is drawn in and stops there. Every step deposits the travel direction swung by the
+rider's turns (45 degrees either way on a groomer, 50 off-piste, 10 on a cat track) and the tree lines in
+`treeLines.json` add their own (3 riders at strength 1, downhill whichever way the file lists them); density and
+direction are blurred with a 5 m Gaussian, so density falls off smoothly. Pure: the same pack gives the same map.
+
+Vail (2026-11-24, sampled along the lines every 8 m, 10th / 50th / 90th percentile): density on the groomers 0.33 / 0.65
+/ 0.85 (Ramshorn 0.73 / 0.83 / 0.90), the cat tracks (Sleepytime Road, Post Road, Timberline Catwalk, Silk Road,
+Lionshead Catwalk) 0.28 / 0.61 / 0.80, Steep and Deep 0.40 / 0.44 / 0.57, the tree lines 0.23 / 0.27 / 0.42; median
+coherence 0.97 on those cat tracks, 0.99 on the tree lines, 0.84 on the groomers and 0.80 on Steep and Deep. 10,040 riders
+over 348 runs (108 km of groomer line, 64 km of cat track, 87 km off-piste), 2.6 MB in 144 tiles against a 291 MB pack
+(0.9 %), about 10 s on Drew's PC. Add it to a built pack
+without a rebuild: `python pipeline/traffic.py packs/<slug>` (`--view x0,y0,x1,y1 out.png` draws it over the hillshade).
 
 ## Instances
 
@@ -447,6 +495,8 @@ A hand start off every run in `features.json` (the test `pack_report.py` line 10
   "canopy": { "res": 10, "minX", "minY", "w", "h", "file": "canopy.png" },   // optional, FEAT-331 (Canopy grid); absent = 0
   "treeLines": { "file": "treeLines.json", "lines": 2383, "km": 319.3, "checks": { ... } },   // optional, FEAT-334 (Tree lines);
                                                           // absent = the game plans them from the runs
+  "traffic": { "res": 4.0, "tileSize": 256, "minX", "minY", "tilesX", "tilesY" },   // optional, FEAT-379 (Traffic map);
+                                                          // absent = the game's fallback from `dir` and the fall line
   "instances": { "cellSize": 1000, "minX", "minY", "cellsX", "cellsY", "treeCount", "rockCount", "treeCells", "rockCells",
                  "shrubCount", "shrubCells",                // shrub fields optional, DATA-020
                  "crownWidths": { "open": 0.16, "cover": [0.1, 0.5], "jitter": 0.35, "widen": [0, 3, 5, 9],
@@ -510,7 +560,8 @@ every client since DATA-020 sends a species id past its table to 0 (`speciesFor`
 draws the new ids as spruce, the conifer forest those packs showed before; western packs hold no new id at all.
 
 Not a bump: the `coarse` height set (FEAT-229) is optional and a game before it ignores it. Nor the `canopy` grid
-(FEAT-331): optional, read as score 0 when absent, ignored by a game before FEAT-330.
+(FEAT-331): optional, read as score 0 when absent, ignored by a game before FEAT-330. Nor the `traffic` map (FEAT-379):
+optional, the game falls back without it.
 
 ## Contract
 
@@ -532,6 +583,7 @@ Lines are as of 2026-11-11 (the game at `51efba2`); search for the name if they 
 | `meta.landmarks` (the `Landmark` shape) and `meta.start` `source` / `label` (FEAT-243) | `pipeline/pack_content.py` `read_landmarks`, `resolve_start` (from `resorts/<slug>/landmarks.json`, `start.json`) | `game/src/world/Landmarks.ts` `Landmark`, `game/src/pack/types.ts` `PackMeta.landmarks`, `start.label` (from SnowboardAnywhere's FEAT-243 PR) | `tests/test_pack_content.py` (the writer's side only) |
 | `catalog.json` | `pipeline/publish_pack.py:141` `catalog_entry`, `:156` `update_catalog` | `game/tools/get_pack.mjs:19` `CATALOG_URL`, `:75` `getPack`; `game/src/ui/ResortPicker.ts:42` | `tests/test_publish_pack.py` round trip |
 | `meta.canopy` and `canopy.png` (FEAT-331): the key's fields, 8-bit greyscale value / 255 = score, row 0 = north, absent = 0 | `pipeline/canopy.py` `build_canopy` (`RES`, `FILE`), `grid` | the game's FEAT-330 canopy reader (SnowboardAnywhere#757) | `tests/test_canopy.py` (the writer's side only) |
+| `meta.traffic` and `traffic/` (FEAT-379): the key's fields, RGB with R, G the direction `(v * 0.5 + 0.5) * 255` and B the density, 0 = none | `pipeline/traffic.py` `build_traffic` (`RES`, `TILE`), `encode` | the game's FEAT-380 traffic reader (SnowboardAnywhere#860, `MaskSet`) | `tests/test_traffic.py` (the writer's side only) |
 | `terrain.coarse` (FEAT-229) | `pipeline/coarse_set.py`, `pipeline/build_pack.py` stage 1 | `game/src/pack/Pack.ts` `coarse`, `skipFine`; `game/src/terrain/Terrain.ts` `update` | not checked across repos |
 | Terrarium heights | `pipeline/packwriter.py:17` `encode_terrarium` | `game/src/pack/HeightSet.ts:88` | not checked across repos |
 

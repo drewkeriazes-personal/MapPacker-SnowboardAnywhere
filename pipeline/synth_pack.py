@@ -266,6 +266,11 @@ import tree_lines
 tl_meta = tree_lines.build_tree_lines(out, meta, features)
 if tl_meta:
     meta["treeLines"] = tl_meta
+# FEAT-379: the traffic map, so the game's old tracks (FEAT-380) read a baked one in CI too
+import traffic
+tr_meta = traffic.build_traffic(out, meta, features)
+if tr_meta:
+    meta["traffic"] = tr_meta
 
 meta["start"] = {"x": 650.0, "y": -1300.0, "heading": 0.0}
 meta["sun"] = {"azimuth": 150, "elevation": 35}

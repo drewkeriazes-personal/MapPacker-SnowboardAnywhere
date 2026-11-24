@@ -17,7 +17,7 @@ from packwriter import FORMAT_VERSION  # noqa: E402
 MAX_PACK_BYTES = 600_000_000   # about twice today's largest: Vail 287 MB, 2,135 files, 39,201 per km2
 MAX_FILES = 5_000                # about twice today's largest (Vail, 2,135 files)
 MAX_TREES_PER_KM2 = 80_000       # about twice today's densest (39,201 per km2)
-TILE_SETS = ("terrain.fine", "terrain.coarse", "terrain.mid", "terrain.far", "mask", "ao", "dir", "moguls")
+TILE_SETS = ("terrain.fine", "terrain.coarse", "terrain.mid", "terrain.far", "mask", "ao", "dir", "moguls", "traffic")
 RECORD_BYTES = 24               # one instance: six float32
 INSTANCE_DIRS = (("trees", "treeCells"), ("shrubs", "shrubCells"), ("rocks", "rockCells"), ("farTrees", "farTreeCells"))
 

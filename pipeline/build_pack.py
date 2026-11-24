@@ -1568,5 +1568,14 @@ from tree_lines import build_tree_lines
 tl_meta = build_tree_lines(out, meta, {"runs": runs}, log=log)
 if tl_meta:
     meta["treeLines"] = tl_meta
+
+# ------------------------------------------------------------------ 13. traffic map (FEAT-379)
+# where riders go, which way and how much: riders released from the lift tops down the runs, cat tracks and tree lines
+# (traffic.py), for the game's old tracks (SnowboardAnywhere FEAT-380)
+log("traffic")
+from traffic import build_traffic
+tr_meta = build_traffic(out, meta, {"runs": runs, "lifts": lifts}, log=log)
+if tr_meta:
+    meta["traffic"] = tr_meta
 write_meta(out, meta)
 log("done")
