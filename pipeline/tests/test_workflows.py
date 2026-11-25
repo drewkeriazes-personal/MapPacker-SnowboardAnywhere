@@ -1,5 +1,6 @@
 """FEAT-272: static checks on the publish workflows' YAML, and the `pure` subcommand the reviewer skip runs. FEAT-266:
 the issue forms against the form schema and the build-pack inputs."""
+import json
 import os
 import re
 import sys
@@ -405,16 +406,34 @@ def test_refresh_packs_takes_a_mode_through_env_only():
 def test_refresh_packs_runs_main_and_may_only_start_runs():
     wf = load(REFRESH)
     assert wf["permissions"] == {"contents": "read"}
-    (job,) = wf["jobs"].values()
+    assert set(wf["jobs"]) == {"refresh", "pc"}
+    job = wf["jobs"]["refresh"]
     assert job["permissions"] == {"actions": "write", "contents": "read"}
     assert job["if"] == "github.ref == 'refs/heads/main'"
     assert job["runs-on"] == "ubuntu-latest"
+    assert "environment" not in job
     for step in all_steps(wf):
         if step.get("uses", "").startswith("actions/checkout"):
-            assert step["with"] == {"ref": "main", "fetch-depth": 0, "persist-credentials": False}
-    (tool,) = [s for s in all_steps(wf) if "refresh_packs.py" in s.get("run", "")]
+            assert step["with"]["ref"] == "main" and step["with"]["persist-credentials"] is False
+    (tool,) = [s for s in job["steps"] if "refresh_packs.py" in s.get("run", "")]
     assert tool["env"] == {"GH_TOKEN": "${{ github.token }}"}
-    assert "secrets." not in open(os.path.join(ROOT, REFRESH), encoding="utf-8").read()
+
+
+def test_refresh_packs_uses_the_pc_token_in_one_step_on_main():
+    """the PC runner takes only a maintainer's dispatch: Drew's token starts the PC builds, in one step of one job,
+    an environment secret of `publish` (main only), and nothing else in the file names a secret"""
+    wf = load(REFRESH)
+    pc = wf["jobs"]["pc"]
+    assert pc["needs"] == "refresh" and "github.ref == 'refs/heads/main'" in pc["if"]
+    assert pc["environment"] == {"name": "publish", "deployment": False}
+    assert pc["permissions"] == {"contents": "read"}, "the token dispatches; the job's own token only reads"
+    named = [s for s in all_steps(wf) if "secrets." in json.dumps(s)]
+    assert len(named) == 1 and named[0] in pc["steps"]
+    assert named[0]["env"] == {"GH_TOKEN": "${{ secrets.PC_DISPATCH_TOKEN }}", "PC_SLUGS": "${{ needs.refresh.outputs.pc }}"}
+    assert named[0]["run"].startswith("python tools/ci/refresh_packs.py --start-pc")
+    text = open(os.path.join(ROOT, REFRESH), encoding="utf-8").read()
+    assert text.count("secrets.") == 1
+    assert wf["jobs"]["refresh"]["outputs"] == {"pc": "${{ steps.pick.outputs.pc }}"}
 
 
 def test_refresh_packs_starts_build_pack_with_inputs_it_has():
@@ -423,7 +442,8 @@ def test_refresh_packs_starts_build_pack_with_inputs_it_has():
     import refresh_packs
     inputs = triggers(load(BUILD))["workflow_dispatch"]["inputs"]
     assert refresh_packs.WORKFLOW == os.path.basename(BUILD)
-    assert {"slug", "requested_by", "refresh_run"} <= set(inputs)
+    assert {"slug", "requested_by", "refresh_run", "build_on"} <= set(inputs)
+    assert "pc" in inputs["build_on"]["options"]
     assert build_pack_ci.REQUESTED_BY_RE.fullmatch(refresh_packs.REQUESTED_BY)
     sys.path.insert(0, os.path.join(ROOT, "pipeline"))
     import publish_merge as pm

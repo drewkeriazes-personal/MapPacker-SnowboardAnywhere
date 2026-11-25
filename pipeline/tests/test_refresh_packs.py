@@ -105,7 +105,7 @@ def test_left_out_packs_each_get_a_reason_code(tmp_path):
         return {"generated": True, "stills": ["s"], "ghosts": []} if "menu" in url else {"generated": True,
                                                                                          "stills": [], "ghosts": []}
     rows = by_slug(rp.plan(cat, "all", BASE, resorts=str(tmp_path), git=fake_git({}), attract=attract))
-    want = {"big": "too_big", "src": "no_config", "noconfig": "no_config",
+    want = {"src": "no_config", "noconfig": "no_config",
             "nourl": "no_release", "broken": "attract_unread", "synth": "test_pack"}
     assert {s: r["reason"] for s, r in rows.items() if r["action"] == "left_out"} == want
     assert rows["plain"]["action"] == "start" and rows["plain"]["reason"] is None and not rows["plain"].get("note")
@@ -113,7 +113,7 @@ def test_left_out_packs_each_get_a_reason_code(tmp_path):
     assert rows["menu"]["action"] == "start" and rows["menu"]["reason"] is None and rows["menu"]["gpu_still"] is True
     assert rows["menu"]["note"] == rp.GPU_STILL_NOTE and "still needs the PC" in rp.GPU_STILL_NOTE
     assert "still needs the PC" in rp.table(list(rows.values()), "all", "abc1234")
-    assert "30 GB" in rows["big"]["detail"]
+    assert rows["big"]["action"] == "pc" and rows["big"]["reason"] == "too_big" and not rows["big"].get("gpu_still")
     assert set(want.values()) <= set(rp.REASONS)
 
 
@@ -225,8 +225,8 @@ def test_the_real_catalog_plans_without_error():
         cat = json.load(f)
     rows = rp.plan(cat, "all", "HEAD", attract=None)
     assert len(rows) == len(cat["resorts"]) + len(cat.get("test") or [])
-    assert all(r["action"] in ("start", "left_out") for r in rows)
-    assert by_slug(rows)["vail"]["reason"] == "too_big"     # resorts/vail/runner.json
+    assert all(r["action"] in ("start", "left_out", "pc") for r in rows)
+    assert by_slug(rows)["vail"]["action"] == "pc"     # resorts/vail/runner.json
 
 
 def test_list_only_shows_the_needs_updating_plan(tmp_path):
@@ -234,3 +234,117 @@ def test_list_only_shows_the_needs_updating_plan(tmp_path):
     rows = rp.plan({"resorts": [entry("alpha")]}, "list only", BASE, resorts=str(tmp_path), git=fake_git({}),
                    attract=None)
     assert rows[0]["action"] == "up_to_date"
+
+
+# ------------------------------------------------------------------------------------------------ Drew's PC (too_big)
+
+def big(tmp_path, slug="big"):
+    config(tmp_path, slug)
+    (tmp_path / slug / "runner.json").write_text(json.dumps({"cloud": False, "reason": "too_big"}))
+
+
+def test_a_too_big_pack_goes_to_the_pc_by_the_same_pick(tmp_path):
+    big(tmp_path)
+    big(tmp_path, "fresh")
+    cat = {"resorts": [entry("big"), entry("fresh", "bbbb222")]}
+    git = fake_git({"pipeline/build_pack.py": ["aaaa111"]})
+    seen = []
+    rows = by_slug(rp.plan(cat, "needs updating", BASE, resorts=str(tmp_path), git=git,
+                           attract=lambda u, s: seen.append(u)))
+    assert rows["big"]["action"] == "pc" and rows["fresh"]["action"] == "up_to_date"
+    assert not seen, "the PC renders the menu itself: no read of the published one"
+    rows = by_slug(rp.plan(cat, "all", BASE, resorts=str(tmp_path), git=git, attract=None))
+    assert rows["big"]["action"] == rows["fresh"]["action"] == "pc"
+    assert "would go to Drew's PC" in rp.table(list(rows.values()), "list only", "abc1234")
+
+
+def test_main_hands_the_pc_packs_to_the_pc_job_and_starts_only_the_cloud_ones(tmp_path, monkeypatch):
+    cat = tmp_path / "catalog.json"
+    cat.write_text(json.dumps({"resorts": []}))
+    monkeypatch.setattr(rp, "plan", lambda *a, **k: [
+        {"slug": "a", "name": "A", "stamp": "x", "action": "start", "reason": None, "detail": ""},
+        {"slug": "vail", "name": "Vail", "stamp": "x", "action": "pc", "reason": "too_big", "detail": ""}])
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_RUN_ID", "77")
+    out = tmp_path / "out"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    started = []
+    assert rp.main(["--catalog", str(cat), "--base", "HEAD"], start=lambda *a: started.append(a) or "u") == 0
+    assert started == [("o/r", "a", "77")]
+    assert out.read_text() == 'pc=["vail"]\n'
+
+
+def pc_env(monkeypatch, tmp_path, slugs, token="tok"):
+    monkeypatch.setattr(rp.paths, "runner_path", lambda s, r=None: str(tmp_path / s / "runner.json"))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_RUN_ID", "77")
+    monkeypatch.setenv("PC_SLUGS", json.dumps(slugs))
+    monkeypatch.setenv("GH_TOKEN", token)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    return summary
+
+
+def test_start_pc_starts_build_on_pc_with_the_refresh_run_and_links_it(tmp_path, monkeypatch):
+    big(tmp_path, "vail")
+    config(tmp_path, "small")
+    summary = pc_env(monkeypatch, tmp_path, ["vail", "small", "../x"])
+    started = []
+
+    def start(repo, slug, own, build_on):
+        started.append((repo, slug, own, build_on))
+        return "https://github.com/o/r/actions/runs/5"
+    out = tmp_path / "pc.json"
+    code = rp.main(["--start-pc", "--json", str(out)], start=start, status=lambda repo: "online")
+    assert started == [("o/r", "vail", "77", "pc")], "only a pack runner.json sends to the PC"
+    assert code == 1, "a refused slug fails the job"
+    text = summary.read_text()
+    assert "building on Drew's PC ([run](https://github.com/o/r/actions/runs/5))" in text and "online" in text
+    assert {r["slug"]: r["action"] for r in json.loads(out.read_text())["packs"]} == {
+        "vail": "building", "small": "refused", "../x": "refused"}
+
+
+@pytest.mark.parametrize("status, word", [("offline", "queued: PC runner offline"),
+                                          (None, "building on Drew's PC")])
+def test_an_offline_or_unreadable_runner_still_queues_the_build(tmp_path, monkeypatch, status, word):
+    big(tmp_path, "vail")
+    summary = pc_env(monkeypatch, tmp_path, ["vail"])
+    assert rp.main(["--start-pc"], start=lambda *a: "https://r/1", status=lambda repo: status) == 0
+    text = summary.read_text()
+    assert f"{word} ([run](https://r/1))" in text
+    assert ("**offline**" in text) if status else ("Administration: read" in text)
+
+
+def test_a_missing_token_says_so_and_gives_the_hand_command(tmp_path, monkeypatch):
+    big(tmp_path, "vail")
+    summary = pc_env(monkeypatch, tmp_path, ["vail"], token="")
+    assert rp.main(["--start-pc"], start=lambda *a: 1 / 0, status=lambda repo: 1 / 0) == 1
+    text = summary.read_text()
+    assert "PC_DISPATCH_TOKEN is not set" in text and "**not started**" in text
+    assert "`gh workflow run build-pack.yml -f slug=vail -f build_on=pc`" in text
+
+
+def test_a_refused_token_says_so_and_gives_the_hand_command(tmp_path, monkeypatch):
+    big(tmp_path, "vail")
+    summary = pc_env(monkeypatch, tmp_path, ["vail"])
+
+    def start(*a):
+        raise RuntimeError("gh: Bad credentials (HTTP 401)")
+    assert rp.main(["--start-pc"], start=start, status=lambda repo: None) == 1
+    text = summary.read_text()
+    assert "GitHub refused" in text and "expired, revoked" in text
+    assert "still needs a hand build: `gh workflow run build-pack.yml -f slug=vail -f build_on=pc`" in text
+
+
+def test_dispatch_sends_build_on_only_for_the_pc(monkeypatch):
+    cmds = []
+
+    def run(cmd, **k):
+        cmds.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, '{"html_url": "https://r/9"}', "")
+    monkeypatch.setattr(rp.subprocess, "run", run)
+    assert rp.dispatch("o/r", "vail", "77", "pc") == "https://r/9"
+    assert rp.dispatch("o/r", "a", "77") == "https://r/9"
+    assert "inputs[build_on]=pc" in cmds[0] and "inputs[slug]=vail" in cmds[0] and "inputs[refresh_run]=77" in cmds[0]
+    assert not any("build_on" in c for c in cmds[1])

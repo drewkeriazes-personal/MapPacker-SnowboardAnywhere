@@ -109,7 +109,7 @@ Nothing here is done by a PR; each step is Drew's, on his PC or in the repo's se
    start. Until then `pc-setup` skips a listed root that is not a folder, and an `SBA_INDEX_DIR` whose folder is
    gone (it uses `_index` in the first root that is there instead), with a note in the run summary; it refuses
    only when no listed root is there.
-5. **Secrets:** none new. The fetch step already gets `LANDFIRE_EMAIL` and the publish step the App's secrets, environment secrets of `publish` that only a job on `main` can read (BUG-113, README, "The publish environment").
+5. **Secrets:** the fetch step already gets `LANDFIRE_EMAIL` and the publish step the App's secrets, environment secrets of `publish` that only a job on `main` can read (BUG-113, README, "The publish environment"). For Refresh packs to start PC builds, add `PC_DISPATCH_TOKEN` there too (below, "The dispatch token").
 6. **Start it** in Drew's session: `C:\actions-runner\run.cmd` (a console window; closing it takes the runner
    offline). To start it at every logon:
 
@@ -145,24 +145,66 @@ who started the first attempt (GitHub runs a re-run with the original actor's pr
 still require the actor to be a maintainer and accept the bot only as the triggering actor; lock 2 reads the same
 event and ref. A probe job that passed is not run again, and the build job keeps its `runner` output.
 
-## The queue: one machine, shared slots
+## The queue: the PC has no cloud slot
 
 The PC is one runner, so GitHub itself runs its jobs one at a time, and a job waits in GitHub's queue while the PC
-is offline, for at most 24 hours before it fails. `wait_turn.py` (the `queue` job, then "still my turn" in the build
-job) counts every Build pack run, cloud or PC: today that is one build at a time across both, and with FEAT-342's
-`BUILD_SLOTS` (#168) a PC run takes one of the slots like a cloud run. That is safe (no two builds write the same raw
-folders at once on the PC, and the PC's builds never run beside a cloud build of the same resort) but it means a PC
-run waiting for an offline PC holds a slot, and the cloud builds behind it wait (up to the queue's 5.5 hours, then
-they give up and the failure metrics retry them). Start PC builds while the PC is on.
+is busy or offline, for at most 24 hours before it fails. `wait_turn.py` (the `queue` job, then "still my turn" in
+the build job) therefore leaves the PC out of `BUILD_SLOTS`: a PC run (`build_on: pc`) never waits there, and a
+cloud run does not count the runs ahead of it whose `build` job is on the PC (the job's labels name `sba-pc`, read
+from the run's jobs). A run whose build job does not exist yet (its queue and probe jobs, a few minutes) or whose
+jobs can't be read still counts, so the error is always toward waiting. So a PC build waiting for an offline PC
+holds no cloud build back.
 
-The follow-up once #168 merges: PC runs get a slot of their own. `wait_turn.py` would count, for a cloud run, only
-the runs ahead of it that build in the cloud, and for a PC run only the PC runs (or none: the runner already
-serialises them); a run's place is known from its `build` job's labels (`sba-pc`) or, before that job exists, the
-probe job's `runner` output. The same follow-up routes FEAT-342's left-out packs to the PC: the refresh workflow
-starts Build pack with `-f build_on=pc` for the packs it leaves out with the reason code `too_big`, instead of
-listing them as "build on Drew's PC", and could do the same for the packs it starts with `gpu_still` (FEAT-345: a
-published menu still or ghost takes; their cloud build carries the riders over, but a changed pack goes out
-without its still), so the PC renders a fresh still.
+What that gives up: a PC build and a cloud build of the same resort can now run at the same time (Refresh packs
+never starts both: a pack goes to one or the other by its `runner.json`; only two hand-started runs can).
+`publish_pack.py` then publishes the second only when its content differs from the first's publish PR.
+
+## Refresh packs and the PC
+
+Refresh packs (`refresh-packs.yml`, README > Refresh packs) picks a pack whose `resorts/<slug>/runner.json` says
+`{"cloud": false, "reason": "too_big"}` (Vail) by the same rules as the rest (behind `main` in a path its build
+reads, or every pack in `all` mode), and sends it to the PC instead of leaving it out. *list only* shows it as
+"would go to Drew's PC". The PC's locks take only a maintainer's dispatch, and the refresh job's own starts are
+`github-actions[bot]`'s, so the refresh job does not start these: it hands their slugs to a second job, `pc`, which
+starts each with Drew's token (below):
+
+```
+build-pack.yml on main: slug=<slug>, build_on=pc, requested_by=refresh-packs, refresh_run=<the refresh run's id>
+```
+
+The build's actor is then Drew, so all three locks let it through (no lock changed), `publish_pack.py` labels its
+publish PR `automerge` as his, and `publish_merge.py` trusts the label through `build_run_actor` (a run on `main`
+whose triggering actor is a maintainer). The `Refresh:` time window (`REFRESH_SLACK_S`) is not needed for it, so a
+PC build that waited hours in the queue still merges itself. Its publish PR names the refresh run (`Refresh:`) like
+a cloud build's.
+
+The `pc` job's summary, "Refresh packs: Drew's PC", has a row per pack: "building on Drew's PC" with a link to the
+Build pack run, or "queued: PC runner offline" (also linked: the build waits in GitHub's queue until the PC is back,
+24 hours at most). The runner's status comes from `GET /repos/{repo}/actions/runners` with the same token, which
+needs **Administration: read**; without it the line above the table says the status is not readable and the rows
+say "building". When the token is missing or GitHub refuses it, the summary says so, each row says "not started"
+with the command for a hand build, and the job fails:
+
+```
+gh workflow run build-pack.yml -f slug=vail -f build_on=pc
+```
+
+## The dispatch token
+
+`PC_DISPATCH_TOKEN` is a fine-grained personal access token on Drew's account, with access to this repository
+only and the permission **Actions: read and write** (and, optional, **Administration: read**, only so the summary
+can say whether `sba-pc` is online). It is an environment secret of `publish` (deployment branches: `main` only,
+BUG-113), and only the one step "start on Drew's PC" in Refresh packs' `pc` job names it; that job runs nothing but
+`refresh_packs.py --start-pc` on `main`'s checkout, with the slugs the refresh job picked, each checked again
+against its `runner.json`. Everything else keeps the workflow token. With it, a holder could start or cancel any
+workflow run here as Drew, which is why it stays out of every other job.
+
+It expires (fine-grained tokens have an expiry date, a year at most). After that, the `pc` job's start fails with
+HTTP 401: the summary says GitHub refused the token, the PC packs are not built, and the job is red; cloud packs
+are not affected. To rotate it: github.com > Settings > Developer settings > Fine-grained tokens > Generate new
+token (resource owner drewkeriazes-personal, repository MapPacker-SnowboardAnywhere only, Actions: read and write),
+then Settings > Environments > publish > `PC_DISPATCH_TOKEN` > Update, and delete the old token. Or, with gh:
+`gh secret set PC_DISPATCH_TOKEN --env publish --repo drewkeriazes-personal/MapPacker-SnowboardAnywhere`.
 
 ## Later: a split build (design only, not built)
 
