@@ -1,6 +1,6 @@
 # Pack report: Mount Bohemia (`mount-bohemia`)
 
-Build `20261122T152700Z-849d7e`, pipeline `874dd77`, format 1. Report 2026-11-22T15:27:07Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T043550Z-895f12`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:35:55Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -82,16 +82,16 @@ Build `20261122T152700Z-849d7e`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 48 | 9.7 | 2026-11-22 |
-| mid heights | yes | 25 | 4.1 | 2026-11-22 |
-| far heights | yes | 16 | 0.5 | 2026-11-22 |
-| mask | yes | 12 | 0.7 | 2026-11-22 |
-| AO | yes | 12 | 0.8 | 2026-11-22 |
-| piste directions | yes | 12 | 0.0 | 2026-11-22 |
-| moguls | yes | 12 | 0.0 | 2026-11-22 |
-| cover | yes | 4 | 2.4 | 2026-11-22 |
-| trees (crowns) | yes | 12 | 1.1 | 2026-11-22 |
-| stands (stems) | yes | 12 | 1.8 | 2026-11-22 |
-| far tree ring | yes | 161 | 14.4 | 2026-11-22 |
-| shrubs | yes | 10 | 0.0 | 2026-11-22 |
-| rocks | yes | 9 | 0.0 | 2026-11-22 |
+| fine heights | yes | 48 | 9.7 | 2026-11-25 |
+| mid heights | yes | 25 | 4.1 | 2026-11-25 |
+| far heights | yes | 16 | 0.5 | 2026-11-25 |
+| mask | yes | 12 | 0.7 | 2026-11-25 |
+| AO | yes | 12 | 0.8 | 2026-11-25 |
+| piste directions | yes | 12 | 0.0 | 2026-11-25 |
+| moguls | yes | 12 | 0.0 | 2026-11-25 |
+| cover | yes | 4 | 2.4 | 2026-11-25 |
+| trees (crowns) | yes | 12 | 1.1 | 2026-11-25 |
+| stands (stems) | yes | 12 | 1.8 | 2026-11-25 |
+| far tree ring | yes | 161 | 14.4 | 2026-11-25 |
+| shrubs | yes | 10 | 0.0 | 2026-11-25 |
+| rocks | yes | 9 | 0.0 | 2026-11-25 |
