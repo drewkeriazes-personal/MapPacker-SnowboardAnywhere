@@ -64,7 +64,8 @@ REASONS = {
     "attract_unread": "could not read the published menu (attract/): build on Drew's PC, or run again",
     "no_release": "no pack url in the catalog",
 }
-GPU_STILL_NOTE = "riders carried, still needs the PC: a changed pack goes out without its menu still" # FEAT-385
+GPU_STILL_NOTE = "riders carried, still needs the PC: a changed pack goes out without its menu still"  # FEAT-345
+# FEAT-385
 PC_RUNNER = "sba-pc"                  # docs/pc-runner.md: the self-hosted runner's name and label
 TOKEN = "PC_DISPATCH_TOKEN"           # the publish environment's secret the pc job starts PC builds with
 
