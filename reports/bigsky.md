@@ -1,8 +1,8 @@
 # Pack report: Big Sky (`bigsky`)
 
-Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:43:43Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T171011Z-b5534c`, pipeline `fe446d9`, format 1. Report 2026-11-25T17:10:50Z by `pipeline/pack_report.py`.
 
-**Tier: gold** (FEAT-225: the weakest layer's)
+**Tier: gold** (the weakest layer's)
 
 | Layer | Source | Tier |
 |---|---|---|
@@ -10,7 +10,7 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | trees | lidar crowns + stands | gold |
 | surface | NAIP | gold |
 
-**Playable**: every DATA-022 MVP line passes.
+**Playable**: every MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
@@ -20,18 +20,18 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | 3 | Raw: land cover and pistes_wide | ✅ | all present |
 | 4 | Raw: LANDFIRE | ✅ | EVT, EVC and EVH; 0.0% of the forest in EVT classes the species rules don't name (west rules) |
 | 5 | Heights fine, mid, far | ✅ | 1925 to 3405 m, void 0.00% inside the bounds |
-| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 3.5% (reference 1.1%), canopy 57% : more rock than the reference by over 3x, check the thresholds (FEAT-175 step 2) |
-| 7 | Trees and shrubs with species | ✅ | 0.46 M crowns + 2.55 M stems = 26.0 k per km2 (66% of the reference) |
+| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 3.5% (reference 1.1%), canopy 57% : more rock than the reference by over 3x, check the thresholds |
+| 7 | Trees and shrubs with species | ✅ | 0.46 M crowns + 2.54 M stems = 26.0 k per km2 (66% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 0.66 M crowns in 212 cells |
-| 9 | features.json | ✅ | 40 lifts, 602 runs, 1190 buildings, 1161 roads, 43 water, 513 peaks, 58 labels (3 lifts with towers spaced by the pipeline, no OSM pylons) |
+| 9 | features.json | ✅ | 40 lifts, 602 runs, 1367 buildings, 1443 roads, 43 water, 513 peaks, 58 labels (3 lifts with towers spaced by the pipeline, no OSM pylons) |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | generated (gen_content.py) on Morningstar, top of Powder Seeker 6 |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 217 runs of 300 m and 60 m drop or more |
 | 13 | Attribution for every data set | ✅ | 9 lines |
 | 14 | Validated | ⚠️ | 15 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 10% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256) |
+| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 10% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM) |
 | 16 | Place names | ✅ | GNIS ID, MT, WY; 513 peaks, 58 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/bigsky/landmarks.json) |
@@ -44,12 +44,12 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | Measure | This pack | Reference |
 |---|---:|---:|
 | Area, km2 | 115.6 |  |
-| Trees (crowns + stems) per km2 | 26,012 | 39,201 |
+| Trees (crowns + stems) per km2 | 25,957 | 39,201 |
 | Rock share | 3.5% | 1.1% |
 | Canopy share | 57% | 66% |
 | Canopy on run centre lines | 5.6% | 3.7% |
 | Groomed share | 0.3% |  |
-| Crowns per km within 5 m of lift lines | 11.7 |  |
+| Crowns per km within 5 m of lift lines | 11.8 |  |
 | Stems per km within 5 m of lift lines | 0.0 |  |
 | Runs with a grooming record | 0% |  |
 | Runs groomed in OSM | 4% |  |
@@ -60,7 +60,7 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 
 **Advanced or harder runs never over 15 deg:** Comet (advanced, 6 deg), unnamed (advanced, 8 deg), LRT Traverse (advanced, 10 deg), Summit (advanced, 10 deg), unnamed (advanced, 10 deg), Siberia (advanced, 10 deg), unnamed (advanced, 11 deg), Iron Horse (advanced, 12 deg), and 7 more
 
-**Lifts with the most crowns on the line:** Highlands (50), One and Only (48), Southern Comfort (44), Ramcharger 8 - High Speed (42), Thunder Wolf (33)
+**Lifts with the most crowns on the line:** Highlands (48), One and Only (47), Southern Comfort (44), Ramcharger 8 - High Speed (44), Thunder Wolf (33)
 
 ## Published figures (gathered 2026-11-13 by published.py)
 
@@ -77,17 +77,17 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 
 | Band, m | Area, km2 | Crowns | Stems | Per km2 |
 |---|---:|---:|---:|---:|
-| 1900 | 0.62 | 2,453 | 4,704 | 11,521 |
-| 2000 | 5.14 | 26,582 | 58,989 | 16,656 |
-| 2100 | 11.65 | 51,359 | 236,919 | 24,743 |
-| 2200 | 17.68 | 72,066 | 495,886 | 32,127 |
-| 2300 | 19.48 | 82,214 | 583,966 | 34,195 |
-| 2400 | 18.94 | 79,763 | 550,365 | 33,263 |
-| 2500 | 16.35 | 69,215 | 414,345 | 29,576 |
-| 2600 | 11.98 | 46,718 | 179,961 | 18,920 |
-| 2700 | 5.99 | 18,793 | 19,682 | 6,424 |
-| 2800 | 3.6 | 6,263 | 3,788 | 2,792 |
-| 2900 | 1.99 | 1,455 | 452 | 960 |
+| 1900 | 0.62 | 2,453 | 4,811 | 11,694 |
+| 2000 | 5.14 | 26,582 | 59,082 | 16,674 |
+| 2100 | 11.65 | 51,352 | 236,309 | 24,690 |
+| 2200 | 17.68 | 72,058 | 494,757 | 32,063 |
+| 2300 | 19.48 | 82,168 | 583,008 | 34,143 |
+| 2400 | 18.94 | 79,712 | 548,135 | 33,142 |
+| 2500 | 16.35 | 69,192 | 413,139 | 29,500 |
+| 2600 | 11.98 | 46,698 | 179,829 | 18,908 |
+| 2700 | 5.99 | 18,793 | 19,551 | 6,402 |
+| 2800 | 3.6 | 6,263 | 3,751 | 2,782 |
+| 2900 | 1.99 | 1,455 | 450 | 959 |
 | 3000 | 1.12 | 25 | 0 | 22 |
 | 3100 | 0.57 | 0 | 0 | 0 |
 | 3200 | 0.29 | 0 | 0 | 0 |
@@ -99,7 +99,7 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | fine heights | yes | 462 | 125.9 | 2026-11-25 |
 | mid heights | yes | 25 | 11.6 | 2026-11-25 |
 | far heights | yes | 16 | 2.5 | 2026-11-25 |
-| mask | yes | 121 | 18.8 | 2026-11-25 |
+| mask | yes | 121 | 18.7 | 2026-11-25 |
 | AO | yes | 121 | 8.8 | 2026-11-25 |
 | piste directions | yes | 121 | 0.1 | 2026-11-25 |
 | moguls | yes | 121 | 0.8 | 2026-11-25 |
@@ -107,5 +107,5 @@ Build `20261125T044305Z-139a42`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | trees (crowns) | yes | 121 | 11.0 | 2026-11-25 |
 | stands (stems) | yes | 121 | 16.6 | 2026-11-25 |
 | far tree ring | yes | 212 | 15.9 | 2026-11-25 |
-| shrubs | yes | 121 | 1.9 | 2026-11-25 |
+| shrubs | yes | 121 | 1.8 | 2026-11-25 |
 | rocks | yes | 121 | 2.0 | 2026-11-25 |
