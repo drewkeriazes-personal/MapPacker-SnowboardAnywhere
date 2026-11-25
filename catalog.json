@@ -344,19 +344,20 @@
    "country": "US",
    "lonlat": [
     -81.55938846025708,
-    41.27422289088265
+    41.274222890882655
    ],
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 1,
+    "version": 2,
     "formatVersion": 1,
-    "build": "20261112T164000Z-415c56",
-    "built": "2026-11-12",
-    "pipeline": "7923e19",
-    "bytes": 41095778,
-    "sha256": "6266a81bf7b80b8a311eac3b8b288b8b66b6b88a0f46620d8cc6a545693db794",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/ohio-hills/v1/ohio-hills.zip"
+    "build": "20261125T044457Z-9d6f58",
+    "built": "2026-11-25",
+    "pipeline": "3a50d0c",
+    "bytes": 41496676,
+    "sha256": "3149ee9f87e351837fe082a931ae1cd5bb838b4932f38cca046792f177c1ed84",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/ohio-hills/v2/ohio-hills.zip",
+    "content": "cc9ab1ed08eb79ea"
    },
    "report": "reports/ohio-hills.md"
   },

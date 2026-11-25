@@ -90,7 +90,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Ohio Hills (custom mashup)
 
-- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/ohio-hills/v1) (latest) 41 MB, 2026-11-12
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/ohio-hills/v2) (latest) 41 MB, 2026-11-25
+- [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/ohio-hills/v1) 41 MB, 2026-11-12
 
 ## Park City Mountain
 
