@@ -251,3 +251,59 @@ def test_a_failure_whose_log_cannot_be_read_is_retried_not_stopped(monkeypatch, 
     row, sent, text = run_record(monkeypatch, tmp_path, jobs, 1, {})
     assert (row["reason"], row["transient"], row["outcome"]) == ("log-unreadable", True, "retrying") and sent == [1]
     assert "**log-unreadable** (transient) at build / fetch" in text
+
+
+# ---------------------------------------------------------------- FEAT-388
+
+
+HOOK_REFUSED = "\n".join(T + l for l in [
+    "##[group]Run C:/sba-runner-hook/job_started.ps1",
+    "##[error]This runner (Drew's PC) takes only Build pack from main, dispatched by a maintainer. Refused:",
+    "  - actor 'someone' is not a maintainer",
+    "##[error]Process completed with exit code 1."])
+
+
+def test_a_pc_build_gets_one_free_retry_for_a_real_cause(monkeypatch, tmp_path):
+    monkeypatch.setenv("BUILD_ON", "pc")
+    jobs = [job("queue", "success"), job("probe", "success"), job("build", "failure", "build"), job("outcome", None)]
+    log = {"build": "Traceback (most recent call last):\nKeyError: 'x'\n##[error]x"}
+    row, sent, text = run_record(monkeypatch, tmp_path, jobs, 1, log)
+    assert (row["reason"], row["transient"], row["outcome"]) == ("code-error", False, "pc retry") and sent == [1]
+    assert "a build on Drew's PC gets one re-run whatever the cause" in text
+    # the free retry is spent: the same cause on attempt 2 stops, and so does a run already re-run for a transient one
+    row, sent, _ = run_record(monkeypatch, tmp_path, jobs, 2, log)
+    assert row["outcome"] == "stopped" and sent == []
+    # a transient cause keeps its two retries on the PC too
+    row, sent, _ = run_record(monkeypatch, tmp_path, jobs, 2, {"build": QUEUE_502})
+    assert row["outcome"] == "retrying" and sent == [2]
+    # and the cloud has no free retry
+    monkeypatch.setenv("BUILD_ON", "cloud")
+    row, sent, _ = run_record(monkeypatch, tmp_path, jobs, 1, log)
+    assert row["outcome"] == "stopped" and sent == []
+
+
+def test_a_pc_build_is_not_re_run_for_a_cause_a_re_run_cannot_change(monkeypatch, tmp_path):
+    monkeypatch.setenv("BUILD_ON", "pc")
+    setup = "\n".join(["##[group]Run python tools/ci/build_pack_ci.py pc-setup",
+                       "**Refused:** no game checkout at C:/x (GAME_CHECKOUT): the attract and spots stages need it",
+                       "##[error]Process completed with exit code 1."])
+    for conclusion, log, reason in (("failure", setup, "bad-input"),
+                                    ("failure", "No space left on device\n##[error]x", "out-of-disk"),
+                                    ("failure", HOOK_REFUSED, "pc-refused"),
+                                    ("cancelled", "", "cancelled"),
+                                    ("timed_out", "x\n##[error]x", "job-timeout")):
+        jobs = [job("queue", "success"), job("probe", "success"), job("build", conclusion, "pc setup"),
+                job("outcome", None)]
+        row, sent, _ = run_record(monkeypatch, tmp_path, jobs, 1, {"build": log})
+        assert (row["reason"], row["outcome"], sent) == (reason, "stopped", []), reason
+    assert bf.classify("x", HOOK_REFUSED)["reason"] == "pc-refused"
+
+
+def test_the_summary_counts_the_pc_retry_as_a_re_run_and_a_real_failure():
+    rows = [{"run_id": 1, "attempt": 1, "job": "build", "step": "build", "host": "", "reason": "unknown",
+             "transient": False, "outcome": "pc retry"},
+            {"run_id": 1, "attempt": 2, "job": "build", "step": "build", "host": "", "reason": "", "transient": False,
+             "outcome": "passed"}]
+    assert bf.retry_stats(rows) == (1, 1)
+    text = bf.summary_md(rows, {})
+    assert "job re-runs: 1 (the PC's free retry: 1); real failures: 1" in text and "| unknown (real) | 1 |" in text
