@@ -325,15 +325,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 3,
+    "version": 4,
     "formatVersion": 1,
-    "build": "20261122T152700Z-849d7e",
-    "built": "2026-11-22",
-    "pipeline": "874dd77",
-    "bytes": 37686283,
-    "sha256": "96bf6443de48d1bcbd5dc7edae700b3fcfaebf8f62cd9e5dd1756390a650c3ab",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mount-bohemia/v3/mount-bohemia.zip",
-    "content": "9c765e05dc8dfd19"
+    "build": "20261125T043550Z-895f12",
+    "built": "2026-11-25",
+    "pipeline": "3a50d0c",
+    "bytes": 38044164,
+    "sha256": "f3cb8cca7cbc7d9788afdbd5a2255853f6693aefe7adf3c088a549baf9892cbb",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/mount-bohemia/v4/mount-bohemia.zip",
+    "content": "7f405aa1658c6301"
    },
    "report": "reports/mount-bohemia.md"
   },
