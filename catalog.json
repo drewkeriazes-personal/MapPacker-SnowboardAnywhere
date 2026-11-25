@@ -133,15 +133,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 3,
+    "version": 4,
     "formatVersion": 1,
-    "build": "20261125T043540Z-bba078",
+    "build": "20261125T165624Z-95c149",
     "built": "2026-11-25",
-    "pipeline": "3a50d0c",
-    "bytes": 129739775,
-    "sha256": "f4d45f469111bf62cf0047d3b21e64fea4635a82052d849a6f198d25a97f818b",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/copper-mountain/v3/copper-mountain.zip",
-    "content": "3f1f20a15fad311b"
+    "pipeline": "fe446d9",
+    "bytes": 129739732,
+    "sha256": "86b59e203d73ec90324721b4eff7451227b4e758d88399e543f4f1b285950949",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/copper-mountain/v4/copper-mountain.zip",
+    "content": "0880ffd928077c1a"
    },
    "report": "reports/copper-mountain.md"
   },
