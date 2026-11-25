@@ -1,6 +1,6 @@
 # Pack report: Keystone (`keystone`)
 
-Build `20261122T155016Z-5fcaa4`, pipeline `874dd77`, format 1. Report 2026-11-22T15:50:32Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T044240Z-35db2c`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:43:03Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -92,16 +92,16 @@ Build `20261122T155016Z-5fcaa4`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 300 | 75.6 | 2026-11-22 |
-| mid heights | yes | 25 | 11.7 | 2026-11-22 |
-| far heights | yes | 16 | 2.7 | 2026-11-22 |
-| mask | yes | 80 | 5.3 | 2026-11-22 |
-| AO | yes | 80 | 4.8 | 2026-11-22 |
-| piste directions | yes | 80 | 0.2 | 2026-11-22 |
-| moguls | yes | 80 | 0.2 | 2026-11-22 |
-| cover | yes | 4 | 15.6 | 2026-11-22 |
-| trees (crowns) | yes | 80 | 7.1 | 2026-11-22 |
-| stands (stems) | yes | 78 | 10.4 | 2026-11-22 |
-| far tree ring | yes | 280 | 22.4 | 2026-11-22 |
-| shrubs | yes | 79 | 0.3 | 2026-11-22 |
-| rocks | yes | 77 | 0.3 | 2026-11-22 |
+| fine heights | yes | 300 | 75.6 | 2026-11-25 |
+| mid heights | yes | 25 | 11.7 | 2026-11-25 |
+| far heights | yes | 16 | 2.7 | 2026-11-25 |
+| mask | yes | 80 | 5.3 | 2026-11-25 |
+| AO | yes | 80 | 4.8 | 2026-11-25 |
+| piste directions | yes | 80 | 0.2 | 2026-11-25 |
+| moguls | yes | 80 | 0.2 | 2026-11-25 |
+| cover | yes | 4 | 15.6 | 2026-11-25 |
+| trees (crowns) | yes | 80 | 7.1 | 2026-11-25 |
+| stands (stems) | yes | 78 | 10.4 | 2026-11-25 |
+| far tree ring | yes | 280 | 22.4 | 2026-11-25 |
+| shrubs | yes | 79 | 0.3 | 2026-11-25 |
+| rocks | yes | 77 | 0.3 | 2026-11-25 |
