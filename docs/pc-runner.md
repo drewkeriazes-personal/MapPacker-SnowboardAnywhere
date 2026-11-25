@@ -25,9 +25,9 @@ usual. On the PC the build job:
   `bash: command not found`; `install_hook.ps1` warns when it isn't.
 - builds on the raw data already on the PC: `build_pack_ci.py pc-setup` picks, from the runner's `SBA_RAW_ROOTS`,
   the root that already holds most of the resort's raw layers (Vail's full set is in
-  `C:\Users\Drew\Documents\snowboard-sim\raw`, the rest in `C:\Users\Drew\git\SnowboardAnywhere\raw`) and sets
-  `SBA_RAW_ROOT` to it. The fetch stage then skips what `build_resort.json` says is done and downloads only what is
-  missing, as on Drew's own builds. A resort whose `raw_from` or relocate source is only in another root is refused
+  `C:\Users\Drew\Documents\snowboard-sim\raw`, the runner's one root today) and sets `SBA_RAW_ROOT` to it; a
+  listed root that is not a folder is skipped with a note (step 4). The fetch stage then skips what
+  `build_resort.json` says is done and downloads only what is missing, as on Drew's own builds. A resort whose `raw_from` or relocate source is only in another root is refused
   (the fetch would download that one again): move one so they share a root. The OpenSkiData index stays in one
   place (`SBA_INDEX_DIR`). The build stage itself builds again into the job's `packs/<slug>/` (a different pack
   folder from Drew's checkout, so his next local build of that resort builds again too).
@@ -96,12 +96,19 @@ Nothing here is done by a PR; each step is Drew's, on his PC or in the repo's se
 
    ```
    ACTIONS_RUNNER_HOOK_JOB_STARTED=C:\sba-runner-hook\job_started.ps1
-   SBA_RAW_ROOTS=C:\Users\Drew\git\SnowboardAnywhere\raw;C:\Users\Drew\Documents\snowboard-sim\raw
-   SBA_INDEX_DIR=C:\Users\Drew\git\SnowboardAnywhere\raw\_index
+   SBA_RAW_ROOTS=C:\Users\Drew\Documents\snowboard-sim\raw
+   SBA_INDEX_DIR=C:\Users\Drew\Documents\snowboard-sim\raw\_index
    ```
 
-   (`-RunnerDir`, `-HookDir`, `-RawRoots`, `-IndexDir` change them; the first raw root is where a new resort's data
-   goes.) Run it again whenever `.github/maintainers.txt` changes on `main`.
+   (`-RunnerDir`, `-HookDir`, `-RawRoots`, `-IndexDir` change them; `-RawRoots` takes several roots with `;`
+   between, and the first is where a new resort's data goes.) Run it again whenever `.github/maintainers.txt`
+   changes on `main`.
+
+   **When a raw folder moves**, run it again with the new folders (`-RawRoots <root>;<root> -IndexDir
+   <root>\_index`), then close the runner's window and start `run.cmd` again: the runner reads `.env` only at
+   start. Until then `pc-setup` skips a listed root that is not a folder, and an `SBA_INDEX_DIR` whose folder is
+   gone (it uses `_index` in the first root that is there instead), with a note in the run summary; it refuses
+   only when no listed root is there.
 5. **Secrets:** the fetch step already gets `LANDFIRE_EMAIL` and the publish step the App's secrets, environment secrets of `publish` that only a job on `main` can read (BUG-113, README, "The publish environment"). For Refresh packs to start PC builds, add `PC_DISPATCH_TOKEN` there too (below, "The dispatch token").
 6. **Start it** in Drew's session: `C:\actions-runner\run.cmd` (a console window; closing it takes the runner
    offline). To start it at every logon:
