@@ -1,8 +1,8 @@
 # Pack report: Snowbird (`snowbird`)
 
-Build `20261125T044530Z-fdca15`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:45:49Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T170550Z-2b3d04`, pipeline `fe446d9`, format 1. Report 2026-11-25T17:06:10Z by `pipeline/pack_report.py`.
 
-**Tier: silver** (FEAT-225: the weakest layer's)
+**Tier: silver** (the weakest layer's)
 
 | Layer | Source | Tier |
 |---|---|---|
@@ -10,7 +10,7 @@ Build `20261125T044530Z-fdca15`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | trees | lidar crowns + stands | silver |
 | surface | NAIP | gold |
 
-**Playable**: every DATA-022 MVP line passes.
+**Playable**: every MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Build `20261125T044530Z-fdca15`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | 3 | Raw: land cover and pistes_wide | ✅ | all present |
 | 4 | Raw: LANDFIRE | ✅ | EVT, EVC and EVH; 2.1% of the forest in EVT classes the species rules don't name (west rules) |
 | 5 | Heights fine, mid, far | ✅ | 2239 to 3501 m, void 0.00% inside the bounds |
-| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 15.8% (reference 1.1%), canopy 2% : more rock than the reference by over 3x, check the thresholds (FEAT-175 step 2) |
+| 6 | Surface: mask, AO, directions, moguls, rocks | ⚠️ | rock 15.8% (reference 1.1%), canopy 2% : more rock than the reference by over 3x, check the thresholds |
 | 7 | Trees and shrubs with species | ⚠️ | 0.02 M crowns + 0.00 M stems = 0.4 k per km2 (1% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 0.45 M crowns in 176 cells |
@@ -31,12 +31,12 @@ Build `20261125T044530Z-fdca15`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | 13 | Attribution for every data set | ✅ | 9 lines |
 | 14 | Validated | ⚠️ | 12 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 3% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256) |
+| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 3% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM) |
 | 16 | Place names | ✅ | GNIS UT, WY; 668 peaks, 142 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/snowbird/landmarks.json) |
 | 19 | Compare spots against photos | ➖ | no SnowboardAnywhere checkout at /home/runner/work/MapPacker-SnowboardAnywhere/SnowboardAnywhere (--game-repo or SBA_GAME_REPO) |
-| 20 | Values derived for the resort, not copied from Vail | ❌ | no measured treeline (client uses Colorado's 3,480 m); canopy.grow_ndvi 0.08; canopy.leaf_ndvi 0.3; canopy.veg_ndvi 0.2; rock.bare_ndvi 0.2; rock.dark 90.0; rock.grey_sat 0.05; rock.ndvi 0.05; rock and canopy thresholds are Vail's (FEAT-175 step 2) |
+| 20 | Values derived for the resort, not copied from Vail | ❌ | no measured treeline (client uses Colorado's 3,480 m); canopy.grow_ndvi 0.08; canopy.leaf_ndvi 0.3; canopy.veg_ndvi 0.2; rock.bare_ndvi 0.2; rock.dark 90.0; rock.grey_sat 0.05; rock.ndvi 0.05; rock and canopy thresholds are Vail's |
 | 21 | Published figures | ✅ | 6 figures match (Wikipedia: Snowbird, Utah; table below) |
 
 ## Numbers (reference: vail `20261111T145558Z-c2847e`)
