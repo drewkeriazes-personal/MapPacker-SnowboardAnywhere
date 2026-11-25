@@ -37,15 +37,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 2,
+    "version": 3,
     "formatVersion": 1,
-    "build": "20261122T162123Z-c65c67",
-    "built": "2026-11-22",
-    "pipeline": "4d3807e",
-    "bytes": 182777731,
-    "sha256": "c43ee72d052f2a8590bdf21637af0aed1b13d6a2a9b349774dc59867a227e23e",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/beaver-creek-resort-arrowhead-mountain/v2/beaver-creek-resort-arrowhead-mountain.zip",
-    "content": "770d3705ac8e4e4a"
+    "build": "20261125T043538Z-181ecf",
+    "built": "2026-11-25",
+    "pipeline": "3a50d0c",
+    "bytes": 184715246,
+    "sha256": "d99b0f687671391195fe484109e7c39504e92275be55396253567fc6a5547ebb",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/beaver-creek-resort-arrowhead-mountain/v3/beaver-creek-resort-arrowhead-mountain.zip",
+    "content": "d6888437c977a695"
    },
    "report": "reports/beaver-creek-resort-arrowhead-mountain.md"
   },
