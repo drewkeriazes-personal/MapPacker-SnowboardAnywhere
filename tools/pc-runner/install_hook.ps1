@@ -10,12 +10,13 @@
 # - writes into <RunnerDir>\.env: ACTIONS_RUNNER_HOOK_JOB_STARTED (the hook), SBA_RAW_ROOTS (the raw roots, the
 #   first the default for a new resort; build_pack_ci.py pc-setup picks the one that holds a resort's data) and
 #   SBA_INDEX_DIR (the OpenSkiData index, one copy whichever root a resort is in). Other lines are kept.
-# Re-run it after .github/maintainers.txt changes on main. Restart the runner after (it reads .env at start).
+# Re-run it after .github/maintainers.txt changes on main, and with -RawRoots / -IndexDir when a raw folder moves.
+# Restart the runner after (it reads .env at start).
 param(
     [string]$RunnerDir = 'C:\actions-runner',
     [string]$HookDir = 'C:\sba-runner-hook',
-    [string]$RawRoots = 'C:\Users\Drew\git\SnowboardAnywhere\raw;C:\Users\Drew\Documents\snowboard-sim\raw',
-    [string]$IndexDir = 'C:\Users\Drew\git\SnowboardAnywhere\raw\_index'
+    [string]$RawRoots = 'C:\Users\Drew\Documents\snowboard-sim\raw',
+    [string]$IndexDir = 'C:\Users\Drew\Documents\snowboard-sim\raw\_index'
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)

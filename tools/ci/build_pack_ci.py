@@ -295,21 +295,33 @@ def env_out(values):
 
 
 def pc_setup(cfg, env, resorts_dir=None):
-    """FEAT-344: the variables the build steps get on Drew's PC -> ({name: value}, note). SBA_RAW_ROOTS (the
+    """FEAT-344: the variables the build steps get on Drew's PC -> ({name: value}, note, [notes]). SBA_RAW_ROOTS (the
     runner's .env) lists the raw roots, os.pathsep between; GAME_CHECKOUT is the game's main, checked out by the
-    job. Raises Refused when the runner is not set up (docs/pc-runner.md)."""
-    roots = [os.path.abspath(r.strip()) for r in (env.get("SBA_RAW_ROOTS") or env.get("SBA_RAW_ROOT") or "")
-             .split(os.pathsep) if r.strip()]
-    missing = [r for r in roots if not os.path.isdir(r)]
-    if missing:
-        raise Refused(f"raw root {missing[0]} (SBA_RAW_ROOTS) is not a folder")
+    job. A listed root that is not a folder (moved or deleted) is skipped with a note, as is an SBA_INDEX_DIR under
+    one. Raises Refused when the runner is not set up (docs/pc-runner.md)."""
+    listed = [os.path.abspath(r.strip()) for r in (env.get("SBA_RAW_ROOTS") or env.get("SBA_RAW_ROOT") or "")
+              .split(os.pathsep) if r.strip()]
+    roots = [r for r in listed if os.path.isdir(r)]
+    # BUG-181
+    notes = [f"raw root `{r}` (SBA_RAW_ROOTS) is not a folder: skipped" for r in listed if r not in roots]
+    if listed and not roots:
+        raise Refused(f"no raw root in SBA_RAW_ROOTS is a folder ({os.pathsep.join(listed)}): fix the runner's .env "
+                      f"(docs/pc-runner.md)")
     root, note = pick_raw_root(roots, cfg, resorts_dir)
     game = os.path.abspath(env.get("GAME_CHECKOUT") or ".")
     if not paths.has_game(game):
         raise Refused(f"no game checkout at {game} (GAME_CHECKOUT): the attract and spots stages need it")
-    # the OpenSkiData index (about 800 MB) stays in one place whichever root the raw data is in
-    return {"SBA_RAW_ROOT": root, "SBA_GAME_REPO": game,
-            "SBA_INDEX_DIR": env.get("SBA_INDEX_DIR") or os.path.join(roots[0], "_index")}, note
+    # the OpenSkiData index (about 800 MB) stays in one place whichever root the raw data is in; it is a cache, so a
+    # missing one is made, or, when its parent is gone too (a moved root), made in the first root that is there
+    index, fallback = env.get("SBA_INDEX_DIR"), os.path.join(roots[0], "_index")
+    if index and not os.path.isdir(os.path.dirname(os.path.abspath(index))):
+        notes.append(f"index folder `{index}` (SBA_INDEX_DIR) is under a folder that is gone: using `{fallback}`")
+        index = None
+    index = index or fallback
+    if not os.path.isdir(index):
+        os.makedirs(index)
+        notes.append(f"index folder `{index}` was not there: made it, the next fetch fills it")
+    return {"SBA_RAW_ROOT": root, "SBA_GAME_REPO": game, "SBA_INDEX_DIR": index}, note, notes
 
 
 def published_pack(slug, catalog_path=None):
@@ -388,13 +400,14 @@ def main(argv=None, runner=stream, carry=None):
                 outputs({"runner": on})
                 print(f"{cfg['slug']}: builds on " + ("the free runner" if on == "cloud" else "Drew's PC"))
                 return 0
-            values, note = pc_setup(cfg, os.environ)
+            values, note, notes = pc_setup(cfg, os.environ)
         except Refused as e:
             summary(f"**Refused:** {e}")
             return 1
         env_out(values)
         print("\n".join(f"{k}={v}" for k, v in values.items()))
-        summary(f"Built on Drew's PC: raw data in `{values['SBA_RAW_ROOT']}` ({note}).\n")
+        summary(f"Built on Drew's PC: raw data in `{values['SBA_RAW_ROOT']}` ({note}).\n"
+                + "".join(f"\n- {n}" for n in notes) + ("\n" if notes else ""))
         return 0
     if a.stage == "inputs":
         outputs({"mode": cfg["mode"], "slug": cfg["slug"]})

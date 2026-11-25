@@ -295,11 +295,52 @@ def test_pc_setup_points_the_steps_at_the_raw_root_the_game_and_one_index(tmp_pa
         ci.pc_setup(cfg, env, res)
     (game / "game").mkdir(parents=True)
     (game / "game" / "package.json").write_text("{}")
-    got, _ = ci.pc_setup(cfg, env, res)
+    got, _, notes = ci.pc_setup(cfg, env, res)
     assert got == {"SBA_RAW_ROOT": str(b), "SBA_GAME_REPO": str(game), "SBA_INDEX_DIR": os.path.join(str(a), "_index")}
-    assert ci.pc_setup(cfg, {**env, "SBA_INDEX_DIR": "X"}, res)[0]["SBA_INDEX_DIR"] == "X"
-    with pytest.raises(ci.Refused, match="is not a folder"):
+    assert os.path.isdir(got["SBA_INDEX_DIR"]) and notes == [f"index folder `{got['SBA_INDEX_DIR']}` was not there: "
+                                                             "made it, the next fetch fills it"]
+    index = str(tmp_path / "index")
+    os.makedirs(index)
+    assert ci.pc_setup(cfg, {**env, "SBA_INDEX_DIR": index}, res)[0::2] == ({**got, "SBA_INDEX_DIR": index}, [])
+    with pytest.raises(ci.Refused, match="no raw root in SBA_RAW_ROOTS is a folder"):
         ci.pc_setup(cfg, {**env, "SBA_RAW_ROOTS": str(tmp_path / "gone")}, res)
+
+
+def test_pc_setup_skips_a_raw_root_that_moved_and_its_index(tmp_path):
+    # BUG-181
+    res, b, game, gone = tmp_path / "resorts", tmp_path / "b", tmp_path / "sba-game", str(tmp_path / "gone" / "raw")
+    (game / "game").mkdir(parents=True)
+    (game / "game" / "package.json").write_text("{}")
+    config(res, "vail", lidar={"x": 1})
+    raw(str(b), "vail", "dem1m", "ept")
+    cfg = ci.check_inputs("", "", "vail", "", res)
+    env = {"SBA_RAW_ROOTS": os.pathsep.join([gone, str(b)]), "GAME_CHECKOUT": str(game),
+           "SBA_INDEX_DIR": os.path.join(gone, "_index")}
+    got, note, notes = ci.pc_setup(cfg, env, res)
+    assert got["SBA_RAW_ROOT"] == str(b) and "2 raw layers" in note
+    assert got["SBA_INDEX_DIR"] == os.path.join(str(b), "_index") and os.path.isdir(got["SBA_INDEX_DIR"])
+    assert not os.path.exists(gone)
+    assert notes[0] == f"raw root `{gone}` (SBA_RAW_ROOTS) is not a folder: skipped"
+    assert "is under a folder that is gone" in notes[1]
+    new = {"slug": "new-one", "deps": []}
+    assert ci.pc_setup(new, env, res)[0]["SBA_RAW_ROOT"] == str(b)     # a new resort: the first root that is there
+
+
+def test_pc_setup_summary_lists_the_skipped_roots(tmp_path, monkeypatch):
+    b, game, summ = tmp_path / "b", tmp_path / "sba-game", tmp_path / "summary.md"
+    b.mkdir()
+    (game / "game").mkdir(parents=True)
+    (game / "game" / "package.json").write_text("{}")
+    monkeypatch.setattr(ci, "from_env", lambda: ci.check_inputs("", "", "vail", "", tmp_path))
+    config(tmp_path, "vail")
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
+    monkeypatch.delenv("GITHUB_ENV", raising=False)
+    monkeypatch.setenv("SBA_RAW_ROOTS", os.pathsep.join([str(tmp_path / "gone"), str(b)]))
+    monkeypatch.setenv("SBA_INDEX_DIR", str(b / "_index"))
+    monkeypatch.setenv("GAME_CHECKOUT", str(game))
+    assert ci.main(["pc-setup"]) == 0
+    text = summ.read_text(encoding="utf-8")
+    assert f"raw data in `{b}`" in text and f"- raw root `{tmp_path / 'gone'}` (SBA_RAW_ROOTS) is not a folder" in text
 
 
 # ------------------------------------------------------------------------------------------------ FEAT-342
