@@ -157,15 +157,15 @@
    "tier": "silver",
    "status": "playable",
    "pack": {
-    "version": 2,
+    "version": 3,
     "formatVersion": 1,
-    "build": "20261122T153115Z-65919a",
-    "built": "2026-11-22",
-    "pipeline": "874dd77",
-    "bytes": 94936727,
-    "sha256": "7ff469d15243800762cb9c33942d81adc5a2477ba8a8ed8d96f81a83701eb897",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/crystal-mountain/v2/crystal-mountain.zip",
-    "content": "3bdc044065d5b710"
+    "build": "20261125T043558Z-bff98c",
+    "built": "2026-11-25",
+    "pipeline": "3a50d0c",
+    "bytes": 95811756,
+    "sha256": "07ab38ef8a8268e7263ae4a1121226b53d275e99e06c629c7c308d45471f4b3f",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/crystal-mountain/v3/crystal-mountain.zip",
+    "content": "6cdfda307926491b"
    },
    "report": "reports/crystal-mountain.md"
   },
