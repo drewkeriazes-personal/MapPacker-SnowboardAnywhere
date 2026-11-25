@@ -125,6 +125,26 @@ Nothing here is done by a PR; each step is Drew's, on his PC or in the repo's se
 To take the PC out: close `run.cmd` (runs then wait for it, below), or remove it for good with
 `.\config.cmd remove --token <removal token>` (Settings > Actions > Runners > sba-pc > Remove).
 
+## Retries: one free re-run on the PC
+
+A PC build takes hours of Drew's machine and runs only when he starts it, so a stop that a second try would pass
+costs a day. The outcome job (`tools/ci/build_failures.py record`, FEAT-388) therefore re-runs a `build_on: pc`
+run whose first attempt failed for a real cause (a build or code error, `unknown`, raw data missing) once, through
+`build-pack-retry.yml` as for a transient cause, 5 minutes after the attempt ends. The run summary says "a build on
+Drew's PC gets one re-run whatever the cause", the `build-failures.jsonl` row has the outcome `pc retry` (the real
+reason kept), and the `metrics` README counts it among the job re-runs and the real failures. Transient causes keep
+their own two re-runs; a run already re-run once, for any cause, gets no further free one. Not re-run, because a
+re-run can't change them (`PC_FINAL`): a **Refused** from the inputs or from `pc setup` (the runner isn't set up,
+BUG-181), out of disk, cancelled, the job-started hook's refusal (`pc-refused`), and the 24 hour job limit (a
+re-run would take another full day of the PC to hit the same limit; start it again by hand once the cause is known).
+
+The re-run passes the three locks above. `gh run rerun --failed` re-runs the same run: same event
+(`workflow_dispatch`), ref (`refs/heads/main`) and workflow file, no head ref, and `GITHUB_ACTOR` stays the person
+who started the first attempt (GitHub runs a re-run with the original actor's privileges); only
+`GITHUB_TRIGGERING_ACTOR` becomes `github-actions[bot]`. Lock 1 (`where`) and lock 3 (`job_started.ps1`) both
+still require the actor to be a maintainer and accept the bot only as the triggering actor; lock 2 reads the same
+event and ref. A probe job that passed is not run again, and the build job keeps its `runner` output.
+
 ## The queue: one machine, shared slots
 
 The PC is one runner, so GitHub itself runs its jobs one at a time, and a job waits in GitHub's queue while the PC
