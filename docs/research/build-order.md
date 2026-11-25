@@ -179,7 +179,7 @@ in the game repo, on `main` once #875 merges): its
 [proposed rules](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#proposed-rules-step-2-for-drew-to-agree),
 its [target layout for `pipeline/`](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#target-layout-for-pipeline),
 which gives the stages `building/stages/`, and its
-[pipeline refactor plan](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#pipeline-1),
+[pipeline refactor plan](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#pipeline),
 where this split is **P11**. The rules that shape it: Python modules do nothing on import (rule 10), one job per file
 and functions under 150 lines (rule 4), files under 600 (rule 5), a move PR only moves (rule 11), no build time or
 output lost (rule 12). The rules themselves are still a proposal for Drew; if he changes them, this section follows.
@@ -256,20 +256,29 @@ class Stage:
 
 ### PRs in order (P11.1 to P11.7, each a pure move, FEAT-391)
 
-Each PR proves nothing changed with FEAT-390's move proof (rule 11): `python -m pytest pipeline/tests`, then synth and
-Vail built on Drew's PC from `main` and from the branch give the same `tools/ci/pack_content_key.py` key and the same
+P11.0 goes in front and P11.8 after (FEAT-390's numbers). Each move proves nothing changed with FEAT-390's move
+proof (rule 11): `python -m pytest pipeline/tests`, then synth and Vail built on Drew's PC from `main` and from the branch give the same `tools/ci/pack_content_key.py` key and the same
 file list and sizes, and the build time is within the run-to-run spread (two builds each). When a key differs, the
-per-folder compare (this card's `bytecmp` script, kept as `tools/pack_bytes.py`) says which folder and which file.
+per-folder compare (this card's `bytecmp` script, kept as `tools/pack_bytes.py`) says which folder and which file. It
+walks the pack with `publish_pack.pack_files` and leaves out `publish_pack.STAMPS` and the report files, as
+`content_key` does, so the two agree on what a pack is.
 
+0. P11.0: delete the dead `piste_polys` and `snowfield` (follow-up 6), so the moves do not carry them. Proof as a move.
 1. P11.1: `frame.py`, `runner.py`, and 9b to 13 as stages in `post.py` (they are already modules: the smallest step,
-   and it proves the runner, the timing line and the byte check). Stages 1 to 9 stay inline, run as one stage.
+   and it proves the runner, the timing line and the byte check). Stages 1 to 9 stay at module level, as today: the
+   25 top-level defs keep reading the globals (`X0`, `W`, `SOURCES`, `REL`), and nothing imports `build_pack.py`, so
+   the block still runs only as the script. "One stage" means the runner's timing: the block's seconds since start
+   are recorded as one entry, `inline 1-9`, and the runner then runs 9b to 13 with the `meta` the block built. Rule 10
+   names `build_pack.py` as its one exception until P11.7. Each later PR takes one section out of the block into its
+   stage module, with the top-level defs it uses; those read a `Frame` in place of the globals (renamed reads, the
+   same expressions), and its entry leaves `inline 1-9` for its own.
 2. P11.2: stages 1 to 3 (`terrain.py`): raw heights only, no shared grids but `dem`.
 3. P11.3: stage 6 (`features.py`) and 6b with the mogul field from 7 (`mogul_scores.py`).
 4. P11.4: stage 7 (`masks.py`).
 5. P11.5: stage 8 (`trees.py`, `shrubs_rocks.py`): the riskiest for the bytes; trees, stands, shrubs, rocks compared.
 6. P11.6: stages 4 to 5c (`canopy_height.py`, `naip.py`, `landfire.py`).
 7. P11.7: stage 9 (`meta.py`); `build_pack.py` is now the list and `main()`.
-8. Then, not a move: the runner's freeing by declaration in place of the `del`s, proved by the same key and the peak
+8. P11.8, not a move: the runner's freeing by declaration in place of the `del`s, proved by the same key and the peak
    memory of a Vail build against `main`'s.
 
 Ordering against FEAT-390's plan: P11.1 imports `shared/geom.to_local`, so P1 goes first; P11 runs beside P2, P3 and
@@ -418,8 +427,7 @@ Marked where FEAT-390's plan (#875) already covers one.
    differ, so sharing one changes output.
 5. Run stage 12 beside 9b / 10 / 11 (about 100 s off a Vail build), after the split and a memory check. Not in
    FEAT-390.
-6. Delete `piste_polys` and `snowfield` from `build_pack.py`. Not in FEAT-390; a small PR before P11 so the move does
-   not carry dead code.
+6. Delete `piste_polys` and `snowfield` from `build_pack.py`. **Covered**: FEAT-390's P11.0, before the moves.
 7. Fix `tree_lines.py`'s docstring ("after the canopy grid": it reads none of it). **Covered**: FEAT-390's P13, the
    `routes/` comment pass (its 54-line docstring is moved to `docs/` and cut).
 8. A pack byte-compare tool (`tools/pack_bytes.py`, this card's script) for every pipeline PR that should not change
