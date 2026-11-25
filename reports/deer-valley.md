@@ -1,6 +1,6 @@
 # Pack report: Deer Valley (`deer-valley`)
 
-Build `20261122T154004Z-46bd75`, pipeline `874dd77`, format 1. Report 2026-11-22T15:40:22Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T044636Z-6467cc`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:47:02Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -24,7 +24,7 @@ Build `20261122T154004Z-46bd75`, pipeline `874dd77`, format 1. Report 2026-11-22
 | 7 | Trees and shrubs with species | ⚠️ | 0.28 M crowns + 1.15 M stems = 15.7 k per km2 (40% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 0.63 M crowns in 190 cells |
-| 9 | features.json | ⚠️ | 57 runs without a difficulty; 32 lifts, 377 runs, 2943 buildings, 2320 roads, 29 water, 678 peaks, 147 labels |
+| 9 | features.json | ⚠️ | 57 runs without a difficulty; 32 lifts, 377 runs, 2943 buildings, 2320 roads, 29 water, 684 peaks, 147 labels |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | generated (gen_content.py) on Orion, top of Empire Express |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 169 runs of 300 m and 60 m drop or more |
@@ -32,7 +32,7 @@ Build `20261122T154004Z-46bd75`, pipeline `874dd77`, format 1. Report 2026-11-22
 | 14 | Validated | ⚠️ | canopy 15% on run centre lines (trail cuts missing?); 3 advanced+ runs never over 15 deg; 24 crowns per km within 5 m of lift lines; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
 | 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 0% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256) |
-| 16 | Place names | ✅ | GNIS UT, WY; 678 peaks, 147 town labels |
+| 16 | Place names | ✅ | GNIS UT, WY; 684 peaks, 147 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/deer-valley/landmarks.json) |
 | 19 | Compare spots against photos | ➖ | no SnowboardAnywhere checkout at /home/runner/work/MapPacker-SnowboardAnywhere/SnowboardAnywhere (--game-repo or SBA_GAME_REPO) |
@@ -83,16 +83,16 @@ Build `20261122T154004Z-46bd75`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 360 | 96.8 | 2026-11-22 |
-| mid heights | yes | 25 | 11.4 | 2026-11-22 |
-| far heights | yes | 16 | 2.3 | 2026-11-22 |
-| mask | yes | 90 | 11.4 | 2026-11-22 |
-| AO | yes | 90 | 6.1 | 2026-11-22 |
-| piste directions | yes | 90 | 0.0 | 2026-11-22 |
-| moguls | yes | 90 | 0.5 | 2026-11-22 |
-| cover | yes | 4 | 14.3 | 2026-11-22 |
-| trees (crowns) | yes | 100 | 6.6 | 2026-11-22 |
-| stands (stems) | yes | 100 | 11.0 | 2026-11-22 |
-| far tree ring | yes | 190 | 15.1 | 2026-11-22 |
-| shrubs | yes | 100 | 0.6 | 2026-11-22 |
-| rocks | yes | 100 | 0.4 | 2026-11-22 |
+| fine heights | yes | 360 | 96.8 | 2026-11-25 |
+| mid heights | yes | 25 | 11.4 | 2026-11-25 |
+| far heights | yes | 16 | 2.3 | 2026-11-25 |
+| mask | yes | 90 | 11.4 | 2026-11-25 |
+| AO | yes | 90 | 6.1 | 2026-11-25 |
+| piste directions | yes | 90 | 0.0 | 2026-11-25 |
+| moguls | yes | 90 | 0.5 | 2026-11-25 |
+| cover | yes | 4 | 14.3 | 2026-11-25 |
+| trees (crowns) | yes | 100 | 6.6 | 2026-11-25 |
+| stands (stems) | yes | 100 | 11.0 | 2026-11-25 |
+| far tree ring | yes | 190 | 15.1 | 2026-11-25 |
+| shrubs | yes | 100 | 0.6 | 2026-11-25 |
+| rocks | yes | 100 | 0.4 | 2026-11-25 |
