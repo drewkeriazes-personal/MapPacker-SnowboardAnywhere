@@ -1,8 +1,8 @@
 # Pack report: Copper Mountain (`copper-mountain`)
 
-Build `20261125T043540Z-bba078`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:36:06Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T165624Z-95c149`, pipeline `fe446d9`, format 1. Report 2026-11-25T16:56:42Z by `pipeline/pack_report.py`.
 
-**Tier: gold** (FEAT-225: the weakest layer's)
+**Tier: gold** (the weakest layer's)
 
 | Layer | Source | Tier |
 |---|---|---|
@@ -10,7 +10,7 @@ Build `20261125T043540Z-bba078`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | trees | lidar crowns + stands | gold |
 | surface | NAIP | gold |
 
-**Playable**: every DATA-022 MVP line passes.
+**Playable**: every MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Build `20261125T043540Z-bba078`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | 13 | Attribution for every data set | ✅ | 9 lines |
 | 14 | Validated | ⚠️ | 1 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
-| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 4% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256) |
+| 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 4% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM) |
 | 16 | Place names | ✅ | GNIS CO; 1331 peaks, 154 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/copper-mountain/landmarks.json) |
