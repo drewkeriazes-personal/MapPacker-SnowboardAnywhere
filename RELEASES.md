@@ -67,7 +67,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Keystone
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/keystone/v2) (latest) 168 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/keystone/v3) (latest) 170 MB, 2026-11-25
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/keystone/v2) 168 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/keystone/v1) 165 MB, 2026-11-13
 
 ## Killington
