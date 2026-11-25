@@ -74,7 +74,7 @@ def index_md(releases: list[dict], catalog: dict, repo: str, own: str | None = N
     lines = ["# Releases", "",
              "Every published pack, grouped by resort, newest version first. The game downloads the version marked "
              "latest, the one `catalog.json` names. Release tags are `<slug>/v<N>`: type `vail/` in the Releases "
-             "page's search to see one resort. Written by `pipeline/releases.py` in each publish PR (FEAT-271); "
+             "page's search to see one resort. Written by `pipeline/releases.py` in each publish PR; "  # FEAT-271
              "do not edit it by hand.", ""]
 
     def name_of(slug):
@@ -104,7 +104,7 @@ def index_md(releases: list[dict], catalog: dict, repo: str, own: str | None = N
         lines.extend(["No packs published yet.", ""])
     section(resorts, "##")
     if tests:
-        lines.extend(["## Test packs", "", "Not in the resort picker: the game's CI downloads them (FEAT-241).", ""])
+        lines.extend(["## Test packs", "", "Not in the resort picker: the game's CI downloads them.", ""])  # FEAT-241
         section(tests, "###")
     return "\n".join(lines).rstrip("\n") + "\n"
 

@@ -191,7 +191,7 @@ def apply(trees, r4, c4, p4, h4, sp4, k, hash01, res=4.0):
     wd = widens(sp_t)
     rh = trees[wd, 4] / np.maximum(hgt[wd], 1e-3)
     pc = (lambda q: float(np.percentile(rh, q))) if wd.any() else (lambda q: 0.0)
-    line = (f"crown widths (FEAT-298): widened crowns r/h p10 {pc(10):.3f} p50 {pc(50):.3f} p90 {pc(90):.3f}; detected crown "
+    line = (f"crown widths: widened crowns r/h p10 {pc(10):.3f} p50 {pc(50):.3f} p90 {pc(90):.3f}; detected crown "  # FEAT-298
             f"area x{crown_area:.3f}; stems {stems0 / 1e6:.2f} M -> {p_new.sum() / 1e6:.2f} M to hold the canopy (crowns + stems "
             f"{area0 / 1e6:.2f} -> {float(drawn4.sum()) * res * res / 1e6:.2f} km2 of crown)")
     return p_new, encode_factor(f4, p_new), (drawn4, before4), meta_block(k, crown_area), line

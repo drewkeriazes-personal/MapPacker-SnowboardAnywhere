@@ -419,8 +419,8 @@ def main(argv=None, fetch: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--only", action="append", help="probe only rows or hosts whose name contains this (repeatable)")
     ap.add_argument("--timeout", type=int, default=60, help="seconds per request (default 60)")
-    ap.add_argument("--tuning", help="JSON {host: {timeout, tries}} (FEAT-314); a missing or bad file is ignored")
-    ap.add_argument("--raw-cache", help="raw_cache.py covered's file (FEAT-347); a missing or bad file is ignored")
+    ap.add_argument("--tuning", help="JSON {host: {timeout, tries}}; a missing or bad file is ignored")  # FEAT-314
+    ap.add_argument("--raw-cache", help="raw_cache.py covered's file; a missing or bad file is ignored")  # FEAT-347
     a = ap.parse_args(argv)
     tune = load_tuning(a.tuning)
     for h, t in tune.items():
@@ -443,10 +443,10 @@ def main(argv=None, fetch: Callable | None = None) -> int:
         if p.host in downgraded:
             p.required = False
     cached = " ".join(
-        ([f"A rebuild of {rebuild}: {', '.join(planned)} only warn, as only a new resort's plan calls them "
-          "(BUG-170)."] if planned else []) +
+        ([f"A rebuild of {rebuild}: {', '.join(planned)} only warn, as only a new resort's plan calls them"
+          "."] if planned else []) +
         ([f"Raw cache covers {', '.join(covers)}: {', '.join(downgraded)} only warn, as the build does not call "
-          "them (FEAT-347)."] if downgraded else []))
+          "them."] if downgraded else []))
     if cached:
         print(cached)
     results = []

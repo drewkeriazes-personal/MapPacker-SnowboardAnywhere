@@ -55,7 +55,7 @@ from packwriter import decode_terrarium, write_meta  # noqa: E402
 from PIL import Image  # noqa: E402
 from osm_filter import is_downhill  # noqa: E402
 
-GENERATOR = "gen_content.py (FEAT-175)"
+GENERATOR = "gen_content.py"  # FEAT-175
 # start
 START_FROM_TOP_M = 15.0        # the walk down the run starts this far from the top station
 START_WALK_M = 400.0           # and gives up this far down

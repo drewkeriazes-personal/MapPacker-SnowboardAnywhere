@@ -385,7 +385,7 @@ def test_a_rebuild_lets_the_plan_only_hosts_warn(monkeypatch, capsys):
     down = {"geofabrik": (0, b"curl: (7) Failed to connect"), "entwine": (0, b"curl: (7) Failed to connect")}
     assert ph.main([], fetch=fake(down)) == 0
     out = capsys.readouterr().out
-    assert "A rebuild of vail: " in out and "Geofabrik index" in out and "(BUG-170)" in out
+    assert "A rebuild of vail: " in out and "Geofabrik index" in out and "plan calls them" in out
     assert "download.geofabrik.de, usgs.entwine.io unreachable (only a new resort's plan calls them)" in out
 
 

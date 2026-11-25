@@ -607,7 +607,7 @@ class Report:
         unk_warn = unk is not None and unk > UNKNOWN_WARN
         if (cfg or {}).get("country", "US") != "US":
             self.line("4", "Raw: LANDFIRE", WARN, "outside the US, where LANDFIRE has no data: species from elevation and "
-                      "aspect only (FEAT-225)")
+                      "aspect only")  # FEAT-225
         elif raw:
             evt = self.raw_has("landfire", pattern="*.tif")
             evc, evh = self.raw_has("landfire", "evc", pattern="*.tif"), self.raw_has("landfire", "evh", pattern="*.tif")
@@ -643,7 +643,7 @@ class Report:
             detail = f"rock {rs:.1%}" + (f" (reference {ref:.1%})" if ref else "") + f", canopy {n.get('canopyShare', 0):.0%}"
             st = WARN if ref and rs > ROCK_RATIO_WARN * ref else PASS
             self.line("6", "Surface: mask, AO, directions, moguls, rocks", st,
-                      detail + (" : more rock than the reference by over 3x, check the thresholds (FEAT-175 step 2)"
+                      detail + (" : more rock than the reference by over 3x, check the thresholds"  # FEAT-175
                                 if st == WARN else ""))
 
         # 7 trees and shrubs
@@ -651,9 +651,9 @@ class Report:
         if not len(self.trees) and (self.lidar or not n.get("stems")):
             probs.append("no tree instances")       # FEAT-225: without lidar the stands are the trees
         if not meta.get("stands"):
-            probs.append("no stands/ (predates FEAT-074)")
+            probs.append("no stands/ (an older pack)")  # FEAT-074
         if meta.get("treeSpecies", 0) < 2:
-            probs.append("species ids 0 to 2 only (predates DATA-020)")
+            probs.append("species ids 0 to 2 only (an older pack)")  # DATA-020
         tk, ref = n.get("treesPerKm2", 0), self.ref.get("treesPerKm2")
         detail = f"{n['crowns'] / 1e6:.2f} M crowns + {n['stems'] / 1e6:.2f} M stems = {tk / 1000:.1f} k per km2"
         if ref:
@@ -677,14 +677,14 @@ class Report:
         detail = f"{ft / 1e6:.2f} M crowns in {len(meta['instances'].get('farTreeCells', []))} cells"
         if src == "eth":
             # FEAT-257: generated on the ETH canopy height and WorldCover tree cover, so the tier stays what it is
-            detail += " generated on the ETH canopy height and WorldCover tree cover, not lidar (FEAT-257)"
+            detail += " generated on the ETH canopy height and WorldCover tree cover, not lidar"  # FEAT-257
         elif src:
             detail += f" from {src}"
         self.line("8b", "Far tree ring (crowns round the resort)", PASS if ft else FAIL,
                   detail if ft else
-                  ("none: set lidar.far, ept_select.py, fetch, far_trees.py (BUG-081)" if self.lidar else
-                   "none: far_trees.py builds it from the ETH canopy height and WorldCover tree cover without lidar "
-                   "(FEAT-257); rebuild, or fetch the land cover (landcover.enabled)"))
+                  ("none: set lidar.far, ept_select.py, fetch, far_trees.py" if self.lidar else  # BUG-081
+                   "none: far_trees.py builds it from the ETH canopy height and WorldCover tree cover without lidar"
+                   "; rebuild, or fetch the land cover (landcover.enabled)"))  # FEAT-257
 
         # 9 features
         f = self.features
@@ -694,7 +694,7 @@ class Report:
         if not self.runs:
             probs.append("no runs")
         if self.runs and any("mogulScore" not in r for r in self.runs):
-            probs.append("runs without mogulScore (predates FEAT-059)")
+            probs.append("runs without mogulScore (an older pack)")  # FEAT-059
         no_diff = sum(1 for r in self.runs if not r.get("difficulty"))
         if self.runs and no_diff / len(self.runs) > 0.05:
             notes.append(f"{no_diff} runs without a difficulty")
@@ -781,7 +781,7 @@ class Report:
         self.line("15", "Grooming history", FAIL if not g else WARN if few else PASS,
                   f"{g:.0%} of runs with a grooming record" + ("" if graw is None else f", {graw} reports in raw") +
                   ("" if mg is None else f"; {mg:.0%} of the green and blue run length groomed") +
-                  (" (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256)" if few else ""),
+                  (" (few groomers: a grooming source missing or its names not matched to OSM)" if few else ""),  # FEAT-256
                   mvp=False)
         if raw:
             # FEAT-235: GNIS for the resort's states (names/DomesticNames_<ST>_Text.zip, or Vail's gnis.json) and
@@ -821,7 +821,7 @@ class Report:
                   for r in derived.get("relocated", [])]     # FEAT-249
         tuned = (bool(tl) or tl_none) and {"rock", "canopy"} <= {k.split(".")[0] for k in derived}
         self.line("20", "Values derived for the resort, not copied from Vail", PASS if tuned else FAIL,
-                  "; ".join(parts) + ("" if tuned else "; rock and canopy thresholds are Vail's (FEAT-175 step 2)"), mvp=False)
+                  "; ".join(parts) + ("" if tuned else "; rock and canopy thresholds are Vail's"), mvp=False)  # FEAT-175
         self.line("21", "Published figures", *self.check_published(), mvp=False)
 
     def to_lonlat(self):
@@ -946,12 +946,12 @@ class Report:
         j = self.to_json()
         out = [f"# Pack report: {j['name']} (`{j['slug']}`)", "",
                f"Build `{j['build']}`" + (f", pipeline `{j['pipeline']}`" if j["pipeline"] else "") +
-               f", format {j['formatVersion']}. Report {j['generated']} by `pipeline/pack_report.py` (FEAT-175).", "",
-               f"**Tier: {j['tier']}** (FEAT-225: the weakest layer's)", "", "| Layer | Source | Tier |", "|---|---|---|"]
+               f", format {j['formatVersion']}. Report {j['generated']} by `pipeline/pack_report.py`.", "",  # FEAT-175
+               f"**Tier: {j['tier']}** (the weakest layer's)", "", "| Layer | Source | Tier |", "|---|---|---|"]  # FEAT-225
         out += [f"| {k} | {v['source']} | {v['tier']} |" for k, v in j["sources"].items()]
         out += ["",
                f"**{'Playable' if j['playable'] else 'Preview'}**: " +
-               ("every DATA-022 MVP line passes." if j["playable"] else f"MVP lines {', '.join(j['failing'])} hold it back."),
+               ("every MVP line passes." if j["playable"] else f"MVP lines {', '.join(j['failing'])} hold it back."),
                "", "| # | Item | | Detail |", "|---|---|---|---|"]
         for ln in self.lines:
             if ln["id"] == "15":

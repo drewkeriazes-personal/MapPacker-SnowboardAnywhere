@@ -315,7 +315,7 @@ def canopy_ring(raw, pack, cfg):
     X0, Y0 = math.floor(box_l[0] / RG) * RG, math.floor(box_l[1] / RG) * RG
     X1, Y1 = math.ceil(box_l[2] / RG) * RG, math.ceil(box_l[3] / RG) * RG
     WG, HG = int((X1 - X0) / RG), int((Y1 - Y0) / RG)
-    log(f"far tree ring {CANOPY_PAD_M:g} m from the ETH canopy height (no lidar, FEAT-257): box {X0:.0f}..{X1:.0f} x "
+    log(f"far tree ring {CANOPY_PAD_M:g} m from the ETH canopy height (no lidar): box {X0:.0f}..{X1:.0f} x "  # FEAT-257
         f"{Y0:.0f}..{Y1:.0f}, {ring} cells past the pack's tree grid, {WG} x {HG} at {RG:g} m")
     ground = drawn_ground(pack, meta, X0, Y1, WG, HG)
     if ground is None:
@@ -364,7 +364,7 @@ def write_ring(pack, meta, ring, box_l, tx, ty, tz, hgt, ground, gr, gc, source=
         g = np.sqrt(max(1.0, float(cw.get("crownArea", 1.0))) / widths.draw_area())
         f = np.where(widths.widens(sp), g, 1.0) * widths.own_draw(sp, tx, ty, spc.hash01) * np.asarray(cw.get("k") or [1.0] * spc.N_SPECIES)[sp.astype(np.int64)]
         crown = (cover.species_radii(sp, hgt) * f).astype(np.float32)
-        log(f"  crown widths (FEAT-298): widening crowns x{g:.2f} (the pack's mean crown area {cw.get('crownArea', 1.0):.2f})")
+        log(f"  crown widths: widening crowns x{g:.2f} (the pack's mean crown area {cw.get('crownArea', 1.0):.2f})")  # FEAT-298
     recs = np.stack([tx, ty, tz, hgt, crown, sp.astype(np.float32)], axis=1).astype(np.float32)
     cnt = np.bincount(sp.astype(np.int64), minlength=spc.N_SPECIES)
     meta.setdefault("vegetation", {})["farTreeSpecies"] = {spc.SPECIES_NAMES[i]: round(float(cnt[i] / max(n, 1)), 4) for i in range(spc.N_SPECIES) if cnt[i]}

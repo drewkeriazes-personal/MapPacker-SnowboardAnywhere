@@ -86,7 +86,7 @@ jobs:
           [ -n "$APP_KEY" ] || missing="$missing secret:PUBLISH_APP_KEY"
           [ -n "$APP_LOGIN" ] || missing="$missing variable:PUBLISH_APP_LOGIN"
           if [ -n "$missing" ]; then
-            echo "::error::Publishing by pull request needs the GitHub App (FEAT-272). Missing:$missing. See the top of .github/workflows/publish-merge.yml."
+            echo "::error::Publishing by pull request needs the GitHub App. Missing:$missing. See the top of .github/workflows/publish-merge.yml."  # FEAT-272
             exit 1
           fi
 

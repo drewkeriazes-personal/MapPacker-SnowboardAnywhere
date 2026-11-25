@@ -102,7 +102,7 @@ def test_add_runs_every_stage_in_order_and_prints_the_gate(world, capsys):
                            ("build_resort", "report", "report"),
                            ("publish", (str(world.out), "--tier", "gold"))]
     out = capsys.readouterr().out
-    assert "DATA-022 gate: preview, held back by:" in out and "8b Far tree ring: none: set lidar.far" in out
+    assert "Pack report gate: preview, held back by:" in out and "8b Far tree ring: none: set lidar.far" in out
     assert "17 Main menu shot" not in out              # not an MVP line
 
 

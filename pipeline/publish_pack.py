@@ -289,8 +289,8 @@ def publish_branch(slug: str, version: int) -> str:
 
 
 REBUILD_LIST = ("New resort: after this merges, `python tools/ci/rebuild_choices.py --write` in a PR of its own adds "
-                "it to Build pack's rebuild list (FEAT-297; a publish PR can't change a workflow file). Until then the "
-                "`rebuild-list` check fails on main and every PR (BUG-166)")
+                "it to Build pack's rebuild list (a publish PR can't change a workflow file). Until then the "  # FEAT-297
+                "`rebuild-list` check fails on main and every PR")  # BUG-166
 
 
 def pr_body(entry: dict, *, why: str, release_url: str, started_by: str, run_url: str | None,
@@ -309,7 +309,7 @@ def pr_body(entry: dict, *, why: str, release_url: str, started_by: str, run_url
     lines += ["", REBUILD_LIST] if new_resort else []
     lines += ["",
               "Approve with the `automerge` label, not the merge button: the merge workflow publishes the draft "
-              "release before it merges, so the catalog never names a download that is not live (FEAT-272)."]
+              "release before it merges, so the catalog never names a download that is not live."]  # FEAT-272
     return "\n".join(lines) + "\n"
 
 
@@ -404,7 +404,7 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("pack_dir", nargs="?", help="the built pack (not with --synth)")
     ap.add_argument("--status", choices=["preview", "playable"],
-                    help="default from report.json; playable only when the DATA-022 report passes (EPIC-15 rule 2)")
+                    help="default from report.json; playable only when the pack report passes")  # DATA-022
     ap.add_argument("--tier", choices=["gold", "silver", "bronze"], default="gold")
     ap.add_argument("--report", help="report markdown to attach and commit (default <pack_dir>/report.md if present)")
     ap.add_argument("--test", action="store_true", help="a test pack: the catalog's `test` list, not the picker")
@@ -414,10 +414,10 @@ def main(argv=None) -> None:
                     help="publish even when the content is unchanged since the catalog's version or an open publish PR")
     ap.add_argument("--repo", default=RESORTS_REPO)
     ap.add_argument("--accept-change", action="store_true",
-                    help="label the PR accept-change: a big change from the previous version is intended (FEAT-264)")
-    ap.add_argument("--requested-by", help="the game account that asked for this build (Build it, FEAT-245)")
-    ap.add_argument("--run-url", help="the workflow run that built and publishes the pack (FEAT-245)")
-    ap.add_argument("--refresh-run", help="the Refresh packs run that started that build (FEAT-342), its url")
+                    help="label the PR accept-change: a big change from the previous version is intended")  # FEAT-264
+    ap.add_argument("--requested-by", help="the game account that asked for this build (Build it)")  # FEAT-245
+    ap.add_argument("--run-url", help="the workflow run that built and publishes the pack")  # FEAT-245
+    ap.add_argument("--refresh-run", help="the Refresh packs run that started that build, its url")  # FEAT-342
     ap.add_argument("--dry-run", action="store_true",
                     help="zip and print the catalog entry and the PR branch; no fetch, no release, no PR")
     a = ap.parse_args(argv)
@@ -450,7 +450,7 @@ def main(argv=None) -> None:
         cfg_path = paths.config_path(slug)
         cfg = json.load(open(cfg_path, encoding="utf-8")) if os.path.isfile(cfg_path) else {}
         if cfg.get("source_only"):
-            raise SystemExit(f"{slug} is a relocate source (source_only, FEAT-268), not a pack: it is not published")
+            raise SystemExit(f"{slug} is a relocate source (source_only), not a pack: it is not published")  # FEAT-268
         import pack_content     # here, not at the top: it pulls in shapely, which render-budgets' content_key import lacks
         hand = pack_content.missing(meta, slug)     # BUG-156: a hand rebuild that skipped the content stage
         if hand:
@@ -506,7 +506,7 @@ def main(argv=None) -> None:
             return
 
         if test:
-            notes = (f"{meta['name']} v{version}: a test pack for the game's CI, not in the resort picker (FEAT-241). "
+            notes = (f"{meta['name']} v{version}: a test pack for the game's CI, not in the resort picker. "  # FEAT-241
                      f"Pack format {fmt}, build {meta.get('build')}, pipeline {pipeline}, content {content}. "
                      f"{size / 1e6:.0f} MB, sha256 `{sha}`.\n\n"
                      f"Get it: `cd game && npm run get {slug}` in SnowboardAnywhere.")
