@@ -85,15 +85,15 @@
    "tier": "gold",
    "status": "playable",
    "pack": {
-    "version": 4,
+    "version": 5,
     "formatVersion": 1,
-    "build": "20261122T163143Z-0b01b7",
-    "built": "2026-11-22",
-    "pipeline": "620c171",
-    "bytes": 39098232,
-    "sha256": "34f5466685c37508b328fb390a0a2aaa1c6b97c7378e425136c51f09d18b12b0",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/boston-mills/v4/boston-mills.zip",
-    "content": "1da928da9e0580b2"
+    "build": "20261125T043223Z-aae491",
+    "built": "2026-11-25",
+    "pipeline": "3a50d0c",
+    "bytes": 39152477,
+    "sha256": "ab4aae0c495c00ed84d377e3cc26d30407c199e001e5a7774a5756591655216f",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/boston-mills/v5/boston-mills.zip",
+    "content": "b93a4b8a4dcd3f91"
    },
    "report": "reports/boston-mills.md"
   },
