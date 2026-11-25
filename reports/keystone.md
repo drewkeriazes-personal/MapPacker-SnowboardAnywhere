@@ -1,8 +1,8 @@
 # Pack report: Keystone (`keystone`)
 
-Build `20261125T044240Z-35db2c`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:43:03Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T170004Z-b6cb8f`, pipeline `fe446d9`, format 1. Report 2026-11-25T17:00:20Z by `pipeline/pack_report.py`.
 
-**Tier: gold** (FEAT-225: the weakest layer's)
+**Tier: gold** (the weakest layer's)
 
 | Layer | Source | Tier |
 |---|---|---|
@@ -10,7 +10,7 @@ Build `20261125T044240Z-35db2c`, pipeline `3a50d0c`, format 1. Report 2026-11-25
 | trees | lidar crowns + stands | gold |
 | surface | NAIP | gold |
 
-**Playable**: every DATA-022 MVP line passes.
+**Playable**: every MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
