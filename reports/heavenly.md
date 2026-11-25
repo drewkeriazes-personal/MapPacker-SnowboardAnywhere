@@ -1,6 +1,6 @@
 # Pack report: Heavenly Mountain (`heavenly`)
 
-Build `20261122T153938Z-cb97ab`, pipeline `874dd77`, format 1. Report 2026-11-22T15:40:08Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T045014Z-42e79d`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:50:40Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -24,7 +24,7 @@ Build `20261122T153938Z-cb97ab`, pipeline `874dd77`, format 1. Report 2026-11-22
 | 7 | Trees and shrubs with species | ✅ | 0.20 M crowns + 1.09 M stems = 19.7 k per km2 (50% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 0.50 M crowns in 174 cells |
-| 9 | features.json | ⚠️ | 9 runs without a difficulty; 24 lifts, 173 runs, 2089 buildings, 1841 roads, 20 water, 918 peaks, 183 labels |
+| 9 | features.json | ⚠️ | 9 runs without a difficulty; 24 lifts, 173 runs, 2090 buildings, 1841 roads, 20 water, 918 peaks, 183 labels |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | generated (gen_content.py) on Skyline Trail, top of Sky Express |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 99 runs of 300 m and 60 m drop or more |
@@ -44,7 +44,7 @@ Build `20261122T153938Z-cb97ab`, pipeline `874dd77`, format 1. Report 2026-11-22
 | Measure | This pack | Reference |
 |---|---:|---:|
 | Area, km2 | 65.5 |  |
-| Trees (crowns + stems) per km2 | 19,675 | 39,201 |
+| Trees (crowns + stems) per km2 | 19,674 | 39,201 |
 | Rock share | 2.3% | 1.1% |
 | Canopy share | 55% | 66% |
 | Canopy on run centre lines | 2.9% | 3.7% |
@@ -78,12 +78,12 @@ Build `20261122T153938Z-cb97ab`, pipeline `874dd77`, format 1. Report 2026-11-22
 | Band, m | Area, km2 | Crowns | Stems | Per km2 |
 |---|---:|---:|---:|---:|
 | 1800 | 2.23 | 1,727 | 7,215 | 4,008 |
-| 1900 | 12.98 | 37,360 | 175,965 | 16,439 |
-| 2000 | 7.55 | 24,400 | 111,884 | 18,050 |
-| 2100 | 6.89 | 21,762 | 154,129 | 25,522 |
-| 2200 | 6.52 | 18,910 | 145,544 | 25,221 |
-| 2300 | 5.08 | 16,460 | 107,890 | 24,465 |
-| 2400 | 5.49 | 18,182 | 104,986 | 22,452 |
+| 1900 | 12.98 | 37,360 | 175,953 | 16,438 |
+| 2000 | 7.55 | 24,400 | 111,883 | 18,049 |
+| 2100 | 6.89 | 21,762 | 154,124 | 25,522 |
+| 2200 | 6.52 | 18,910 | 145,542 | 25,221 |
+| 2300 | 5.08 | 16,460 | 107,902 | 24,468 |
+| 2400 | 5.49 | 18,182 | 104,985 | 22,452 |
 | 2500 | 4.99 | 17,949 | 96,998 | 23,038 |
 | 2600 | 5.4 | 17,469 | 92,306 | 20,321 |
 | 2700 | 4.12 | 14,480 | 58,890 | 17,804 |
@@ -95,16 +95,16 @@ Build `20261122T153938Z-cb97ab`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 272 | 70.8 | 2026-11-22 |
-| mid heights | yes | 25 | 8.8 | 2026-11-22 |
-| far heights | yes | 16 | 2.6 | 2026-11-22 |
-| mask | yes | 72 | 11.1 | 2026-11-22 |
-| AO | yes | 72 | 4.6 | 2026-11-22 |
-| piste directions | yes | 72 | 0.3 | 2026-11-22 |
-| moguls | yes | 72 | 0.1 | 2026-11-22 |
-| cover | yes | 4 | 15.0 | 2026-11-22 |
-| trees (crowns) | yes | 70 | 4.9 | 2026-11-22 |
-| stands (stems) | yes | 70 | 10.1 | 2026-11-22 |
-| far tree ring | yes | 174 | 12.0 | 2026-11-22 |
-| shrubs | yes | 72 | 0.2 | 2026-11-22 |
-| rocks | yes | 72 | 0.9 | 2026-11-22 |
+| fine heights | yes | 272 | 70.8 | 2026-11-25 |
+| mid heights | yes | 25 | 8.8 | 2026-11-25 |
+| far heights | yes | 16 | 2.6 | 2026-11-25 |
+| mask | yes | 72 | 11.1 | 2026-11-25 |
+| AO | yes | 72 | 4.6 | 2026-11-25 |
+| piste directions | yes | 72 | 0.3 | 2026-11-25 |
+| moguls | yes | 72 | 0.1 | 2026-11-25 |
+| cover | yes | 4 | 15.0 | 2026-11-25 |
+| trees (crowns) | yes | 70 | 4.9 | 2026-11-25 |
+| stands (stems) | yes | 70 | 10.1 | 2026-11-25 |
+| far tree ring | yes | 174 | 12.0 | 2026-11-25 |
+| shrubs | yes | 72 | 0.2 | 2026-11-25 |
+| rocks | yes | 71 | 0.9 | 2026-11-25 |
