@@ -2,20 +2,20 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-117 attempts logged, 63 failed. Recovered inline: 126 calls; job re-runs: 14; real failures: 45. Retried runs: 10, of them passed in the end: 1 (10%).
+118 attempts logged, 63 failed. Recovered inline: 126 calls; job re-runs: 14; real failures: 45. Retried runs: 10, of them passed in the end: 1 (10%).
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
 | host | calls | retried | recovered | failed |
 |---|---|---|---|---|
-| overpass-api.de | 290 | 113 | 84 | 29 |
-| elevation.nationalmap.gov | 1366 | 35 | 35 | 0 |
-| overpass.private.coffee | 14 | 14 | 1 | 13 |
-| download.geofabrik.de | 82 | 11 | 0 | 11 |
-| lz4.overpass-api.de | 13 | 11 | 2 | 9 |
-| planetarycomputer.microsoft.com | 636 | 2 | 2 | 126 |
-| libdrive.ethz.ch | 192 | 1 | 1 | 0 |
-| tnmaccess.nationalmap.gov | 82 | 1 | 1 | 0 |
+| overpass-api.de | 292 | 114 | 84 | 30 |
+| elevation.nationalmap.gov | 1367 | 35 | 35 | 0 |
+| overpass.private.coffee | 15 | 15 | 1 | 14 |
+| lz4.overpass-api.de | 14 | 12 | 2 | 10 |
+| download.geofabrik.de | 83 | 11 | 0 | 11 |
+| planetarycomputer.microsoft.com | 639 | 2 | 2 | 126 |
+| libdrive.ethz.ch | 193 | 1 | 1 | 0 |
+| tnmaccess.nationalmap.gov | 83 | 1 | 1 | 0 |
 
 **By host**
 
