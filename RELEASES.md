@@ -1,6 +1,6 @@
 # Releases
 
-Every published pack, grouped by resort, newest version first. The game downloads the version marked latest, the one `catalog.json` names. Release tags are `<slug>/v<N>`: type `vail/` in the Releases page's search to see one resort. Written by `pipeline/releases.py` in each publish PR (FEAT-271); do not edit it by hand.
+Every published pack, grouped by resort, newest version first. The game downloads the version marked latest, the one `catalog.json` names. Release tags are `<slug>/v<N>`: type `vail/` in the Releases page's search to see one resort. Written by `pipeline/releases.py` in each publish PR; do not edit it by hand.
 
 ## Aspen Snowmass
 
@@ -99,7 +99,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Park City Mountain
 
-- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v3) (latest) 253 MB, 2026-11-25
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v4) (latest) 251 MB, 2026-11-25
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v3) 253 MB, 2026-11-25
 - [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v2) 250 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/park-city-mountain/v1) 245 MB, 2026-11-12
 
@@ -129,7 +130,7 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Test packs
 
-Not in the resort picker: the game's CI downloads them (FEAT-241).
+Not in the resort picker: the game's CI downloads them.
 
 ### Synthetic test mountain
 
