@@ -2,7 +2,7 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-100 attempts logged, 60 failed. Recovered inline: 118 calls; job re-runs: 11; real failures: 45. Retried runs: 7, of them passed in the end: 0 (0%).
+101 attempts logged, 60 failed. Recovered inline: 118 calls; job re-runs: 11; real failures: 45. Retried runs: 7, of them passed in the end: 1 (14%).
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
