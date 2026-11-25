@@ -1,6 +1,6 @@
 # Pack report: Jackson Hole Mountain (`jackson-hole-mountain`)
 
-Build `20261122T162036Z-6565df`, pipeline `79e54c3`, format 1. Report 2026-11-22T16:20:47Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T043452Z-0c3d9f`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:35:02Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -84,16 +84,16 @@ Build `20261122T162036Z-6565df`, pipeline `79e54c3`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 156 | 40.5 | 2026-11-22 |
-| mid heights | yes | 25 | 11.1 | 2026-11-22 |
-| far heights | yes | 16 | 2.5 | 2026-11-22 |
-| mask | yes | 42 | 6.2 | 2026-11-22 |
-| AO | yes | 42 | 3.0 | 2026-11-22 |
-| piste directions | yes | 42 | 0.1 | 2026-11-22 |
-| moguls | yes | 42 | 0.4 | 2026-11-22 |
-| cover | yes | 4 | 9.9 | 2026-11-22 |
-| trees (crowns) | yes | 42 | 1.8 | 2026-11-22 |
-| stands (stems) | yes | 41 | 3.6 | 2026-11-22 |
-| far tree ring | yes | 121 | 5.2 | 2026-11-22 |
-| shrubs | yes | 42 | 0.5 | 2026-11-22 |
-| rocks | yes | 39 | 1.6 | 2026-11-22 |
+| fine heights | yes | 156 | 40.5 | 2026-11-25 |
+| mid heights | yes | 25 | 11.1 | 2026-11-25 |
+| far heights | yes | 16 | 2.5 | 2026-11-25 |
+| mask | yes | 42 | 6.2 | 2026-11-25 |
+| AO | yes | 42 | 3.0 | 2026-11-25 |
+| piste directions | yes | 42 | 0.1 | 2026-11-25 |
+| moguls | yes | 42 | 0.4 | 2026-11-25 |
+| cover | yes | 4 | 9.9 | 2026-11-25 |
+| trees (crowns) | yes | 42 | 1.8 | 2026-11-25 |
+| stands (stems) | yes | 41 | 3.6 | 2026-11-25 |
+| far tree ring | yes | 121 | 5.2 | 2026-11-25 |
+| shrubs | yes | 42 | 0.5 | 2026-11-25 |
+| rocks | yes | 39 | 1.6 | 2026-11-25 |
