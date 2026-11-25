@@ -51,7 +51,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Deer Valley
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v2) (latest) 194 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v3) (latest) 196 MB, 2026-11-25
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v2) 194 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/deer-valley/v1) 193 MB, 2026-11-14
 
 ## Heavenly Mountain
