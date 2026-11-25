@@ -1,6 +1,6 @@
 # Pack report: Boston Mills / Brandywine (`boston-mills`)
 
-Build `20261122T163143Z-0b01b7`, pipeline `620c171`, format 1. Report 2026-11-22T16:31:55Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T043223Z-aae491`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:32:31Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -82,16 +82,16 @@ Build `20261122T163143Z-0b01b7`, pipeline `620c171`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 16 | 3.7 | 2026-11-22 |
-| mid heights | yes | 25 | 9.7 | 2026-11-22 |
-| far heights | yes | 16 | 1.3 | 2026-11-22 |
-| mask | yes | 4 | 0.3 | 2026-11-22 |
-| AO | yes | 4 | 0.3 | 2026-11-22 |
-| piste directions | yes | 4 | 0.0 | 2026-11-22 |
-| moguls | yes | 4 | 0.0 | 2026-11-22 |
-| cover | yes | 4 | 8.7 | 2026-11-22 |
-| trees (crowns) | yes | 4 | 0.2 | 2026-11-22 |
-| stands (stems) | yes | 4 | 0.5 | 2026-11-22 |
-| far tree ring | yes | 238 | 13.0 | 2026-11-22 |
-| shrubs | yes | 3 | 0.0 | 2026-11-22 |
-| rocks | yes | 4 | 0.0 | 2026-11-22 |
+| fine heights | yes | 16 | 3.7 | 2026-11-25 |
+| mid heights | yes | 25 | 9.7 | 2026-11-25 |
+| far heights | yes | 16 | 1.3 | 2026-11-25 |
+| mask | yes | 4 | 0.3 | 2026-11-25 |
+| AO | yes | 4 | 0.3 | 2026-11-25 |
+| piste directions | yes | 4 | 0.0 | 2026-11-25 |
+| moguls | yes | 4 | 0.0 | 2026-11-25 |
+| cover | yes | 4 | 8.7 | 2026-11-25 |
+| trees (crowns) | yes | 4 | 0.2 | 2026-11-25 |
+| stands (stems) | yes | 4 | 0.5 | 2026-11-25 |
+| far tree ring | yes | 238 | 13.0 | 2026-11-25 |
+| shrubs | yes | 3 | 0.0 | 2026-11-25 |
+| rocks | yes | 4 | 0.0 | 2026-11-25 |
