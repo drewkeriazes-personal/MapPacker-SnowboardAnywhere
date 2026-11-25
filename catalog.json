@@ -397,15 +397,15 @@
    "tier": "silver",
    "status": "playable",
    "pack": {
-    "version": 3,
+    "version": 4,
     "formatVersion": 1,
-    "build": "20261125T044530Z-fdca15",
+    "build": "20261125T170550Z-2b3d04",
     "built": "2026-11-25",
-    "pipeline": "3a50d0c",
-    "bytes": 124288032,
-    "sha256": "6c09ecb4940304cc85ac07a64eb23953162d0bfd58d2be12f9f842ce5553bd74",
-    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/snowbird/v3/snowbird.zip",
-    "content": "5aa159ea5b68d3a0"
+    "pipeline": "fe446d9",
+    "bytes": 124287918,
+    "sha256": "26e25b294d98e30f10a6380ab70c9781c8347aab9eebe9caaa0e4e9ed3fca55a",
+    "url": "https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/download/snowbird/v4/snowbird.zip",
+    "content": "827ad8bad6b7a4a6"
    },
    "report": "reports/snowbird.md"
   },
