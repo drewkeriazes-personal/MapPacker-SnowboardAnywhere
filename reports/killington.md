@@ -1,6 +1,6 @@
 # Pack report: Killington (`killington`)
 
-Build `20261122T153453Z-1463c9`, pipeline `874dd77`, format 1. Report 2026-11-22T15:35:10Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T043723Z-6cc4ef`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:37:42Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -91,16 +91,16 @@ Build `20261122T153453Z-1463c9`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 224 | 58.1 | 2026-11-22 |
-| mid heights | yes | 25 | 11.1 | 2026-11-22 |
-| far heights | yes | 16 | 2.4 | 2026-11-22 |
-| mask | yes | 56 | 4.0 | 2026-11-22 |
-| AO | yes | 56 | 4.2 | 2026-11-22 |
-| piste directions | yes | 56 | 0.3 | 2026-11-22 |
-| moguls | yes | 56 | 0.2 | 2026-11-22 |
-| cover | yes | 4 | 10.9 | 2026-11-22 |
-| trees (crowns) | yes | 56 | 4.9 | 2026-11-22 |
-| stands (stems) | yes | 56 | 9.0 | 2026-11-22 |
-| far tree ring | yes | 199 | 17.4 | 2026-11-22 |
-| shrubs | yes | 50 | 0.0 | 2026-11-22 |
-| rocks | yes | 45 | 0.0 | 2026-11-22 |
+| fine heights | yes | 224 | 58.1 | 2026-11-25 |
+| mid heights | yes | 25 | 11.1 | 2026-11-25 |
+| far heights | yes | 16 | 2.4 | 2026-11-25 |
+| mask | yes | 56 | 4.0 | 2026-11-25 |
+| AO | yes | 56 | 4.2 | 2026-11-25 |
+| piste directions | yes | 56 | 0.3 | 2026-11-25 |
+| moguls | yes | 56 | 0.2 | 2026-11-25 |
+| cover | yes | 4 | 10.9 | 2026-11-25 |
+| trees (crowns) | yes | 56 | 4.9 | 2026-11-25 |
+| stands (stems) | yes | 56 | 9.0 | 2026-11-25 |
+| far tree ring | yes | 199 | 17.4 | 2026-11-25 |
+| shrubs | yes | 50 | 0.0 | 2026-11-25 |
+| rocks | yes | 45 | 0.0 | 2026-11-25 |
