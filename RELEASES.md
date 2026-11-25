@@ -37,7 +37,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Copper Mountain
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v2) (latest) 128 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v3) (latest) 130 MB, 2026-11-25
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v2) 128 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/copper-mountain/v1) 126 MB, 2026-11-13
 
 ## Crystal Mountain
