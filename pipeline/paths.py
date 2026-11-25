@@ -54,7 +54,7 @@ def start_path(slug, resorts=None) -> str:
 
 def runner_path(slug, resorts=None) -> str:
     """resorts/<slug>/runner.json, where the pack can be built (FEAT-342): {"cloud": false, "reason": "too_big",
-    "why": ...} for one the free GitHub runner can't build, so Refresh packs leaves it out. Not a build input."""
+    "why": ...} for one the free GitHub runner can't build, so Refresh packs sends it to Drew's PC. Not a build input."""
     return os.path.join(resort_dir(slug, resorts), "runner.json")
 
 

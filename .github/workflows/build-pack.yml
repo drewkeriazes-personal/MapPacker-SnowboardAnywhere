@@ -60,7 +60,9 @@
 #      no PR can edit it) fails any job that is not this workflow, from main, dispatched by a maintainer. Locks 1
 #      and 2 live in this file, so they hold only for this file on main; lock 3 also stops a fork PR that edits a
 #      workflow to ask for the sba-pc label. Fork PR runs also wait for approval (repo setting, docs/pc-runner.md).
-# The queue (wait_turn.py) counts PC runs like any other: one build at a time, cloud or PC (docs/pc-runner.md).
+# The queue (wait_turn.py): a PC run takes no BUILD_SLOTS slot and never waits there (the runner takes one job at a
+# time, GitHub queues the rest), and a cloud run does not wait for a run building on the PC (docs/pc-runner.md).
+# Refresh packs starts a too_big pack here with build_on pc, as Drew (PC_DISPATCH_TOKEN), so the locks hold as they are.
 # Setup: secrets PUBLISH_APP_ID, PUBLISH_APP_KEY, LANDFIRE_EMAIL in the environment `publish` (BUG-113: deployment
 # branches main only, so a branch's copy of this file can't read them); variable PUBLISH_APP_LOGIN (publish-merge.yml).
 

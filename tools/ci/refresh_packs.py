@@ -5,6 +5,7 @@ current pipeline, by starting one Build pack run per pack.
     python tools/ci/refresh_packs.py --mode "needs updating"   start a build for each pack behind main
     python tools/ci/refresh_packs.py --mode all                start a build for every pack it can
     [--base origin/main] [--json plan.json] [--no-attract]
+    python tools/ci/refresh_packs.py --start-pc [--json pc.json]   the workflow's `pc` job: start PC_SLUGS on Drew's PC
 
 Pick: every resort in catalog.json (and its test packs, which are always left out: `publish_pack.py --synth`
 builds and publishes the synthetic pack after a pipeline merge). In *needs updating* a pack is picked when its
@@ -14,11 +15,15 @@ Markdown, the resort's own resorts/<slug>/ and manifests/<slug>.json, and those 
 counts as behind. A wrong pick only costs runner time: publish_pack.py publishes nothing when the content is the
 published version's.
 
-Left out, each with a reason code (the JSON plan's `reason`, so FEAT-344 can route them to another runner later):
+To Drew's PC (action `pc`, reason `too_big`): a pack whose resorts/<slug>/runner.json says the free runner can't
+build it ({"cloud": false, "reason": "too_big", "why": "..."}: Vail), picked by the same rules. The refresh job
+does not start these: it hands their slugs to the workflow's `pc` job (the `pc` step output), which starts each
+with build_on pc through --start-pc, as Drew (PC_DISPATCH_TOKEN), since the PC runner's locks take only a
+maintainer's dispatch (docs/pc-runner.md > Refresh packs and the PC).
+
+Left out, each with a reason code (the JSON plan's `reason`):
   test_pack          a catalog test pack (synth): publish_pack.py --synth, not Build pack
   no_config          no resorts/<slug>/<slug>.json, or a source_only one: Build pack can't rebuild it
-  too_big            resorts/<slug>/runner.json says the free runner can't build it ({"cloud": false,
-                     "reason": "too_big", "why": "..."}): built on Drew's PC
   attract_unread     the published pack's attract/ could not be read (the release zip, by ranged reads of its
                      directory and that one file): left out rather than risk dropping a menu
   no_release         the catalog entry has no pack url
@@ -55,11 +60,14 @@ BUILD_PATHS = ["pipeline", ":(exclude)pipeline/tests", ":(exclude,glob)pipeline/
 REASONS = {
     "test_pack": "a test pack: publish_pack.py --synth builds and publishes it",
     "no_config": "no config in resorts/ that Build pack can rebuild",
-    "too_big": "too big for the free runner: build on Drew's PC",
+    "too_big": "too big for the free runner: built on Drew's PC",
     "attract_unread": "could not read the published menu (attract/): build on Drew's PC, or run again",
     "no_release": "no pack url in the catalog",
 }
 GPU_STILL_NOTE = "riders carried, still needs the PC: a changed pack goes out without its menu still (FEAT-345)"
+# FEAT-385
+PC_RUNNER = "sba-pc"                  # docs/pc-runner.md: the self-hosted runner's name and label
+TOKEN = "PC_DISPATCH_TOKEN"           # the publish environment's secret the pc job starts PC builds with
 
 
 def git(*args, cwd=ROOT) -> subprocess.CompletedProcess:
@@ -122,11 +130,7 @@ def plan(catalog: dict, mode: str, base: str, resorts=None, git=git, attract: Ca
         if not build_pack_ci.SLUG_RE.fullmatch(slug) or                 not rebuild_choices.rebuildable(slug, resorts or paths.RESORTS):
             out("no_config")
             continue
-        r = runner(slug, resorts)
-        if r.get("cloud") is False:
-            code = r.get("reason") if r.get("reason") in REASONS else "too_big"
-            out(code, REASONS[code] + (f" ({r['why']})" if r.get("why") else ""))
-            continue
+        pc = runner(slug, resorts).get("cloud") is False
         if mode != "all":         # list only shows the needs updating plan
             try:
                 changed = behind(pack.get("pipeline") or "", base, build_paths(slug, resorts), git)
@@ -144,6 +148,9 @@ def plan(catalog: dict, mode: str, base: str, resorts=None, git=git, attract: Ca
         if not pack.get("url"):
             out("no_release")
             continue
+        if pc:                    # the PC renders the menu itself
+            row.update(action="pc", reason="too_big", note=REASONS["too_big"])
+            continue
         if attract:
             try:
                 if needs_gpu(attract(pack["url"], int(pack.get("bytes") or 0))):
@@ -154,12 +161,14 @@ def plan(catalog: dict, mode: str, base: str, resorts=None, git=git, attract: Ca
     return rows
 
 
-def dispatch(repo: str, slug: str, refresh_run: str | None) -> str:
+def dispatch(repo: str, slug: str, refresh_run: str | None, build_on: str = "cloud") -> str:
     """start Build pack on main for `slug` -> the run's url (or the workflow's runs page when GitHub does not say)"""
     cmd = ["gh", "api", "-X", "POST", f"repos/{repo}/actions/workflows/{WORKFLOW}/dispatches", "-f", "ref=main",
            "-f", f"inputs[slug]={slug}", "-f", f"inputs[requested_by]={REQUESTED_BY}", "-F", "return_run_details=true"]
     if refresh_run:
         cmd += ["-f", f"inputs[refresh_run]={refresh_run}"]
+    if build_on != "cloud":
+        cmd += ["-f", f"inputs[build_on]={build_on}"]
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode:
         raise RuntimeError((p.stderr or p.stdout).strip())
@@ -171,6 +180,7 @@ def dispatch(repo: str, slug: str, refresh_run: str | None) -> str:
 
 def table(rows: list[dict], mode: str, base_sha: str) -> str:
     words = {"start": "would start" if mode == "list only" else "started", "up_to_date": "up to date",
+             "pc": "would go to Drew's PC" if mode == "list only" else "to Drew's PC (the pc job's table)",
              "left_out": "left out", "start_failed": "**start failed**"}
     lines = [f"## Refresh packs ({mode})", "",
              f"Against `{base_sha}`. " + ", ".join(f"{sum(r['action'] == a for r in rows)} {w}"
@@ -183,24 +193,104 @@ def table(rows: list[dict], mode: str, base_sha: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main(argv=None, start: Callable = dispatch) -> int:
+def runner_status(repo: str) -> str | None:
+    """sba-pc's status ("online", "offline"; "offline" when it is not registered), or None when the token can't list
+    the repo's runners (that needs Administration: read; a token with Actions only gets 403)"""
+    p = subprocess.run(["gh", "api", f"repos/{repo}/actions/runners", "--jq",
+                        f'.runners[] | select(.name == "{PC_RUNNER}") | .status'], capture_output=True, text=True)
+    return None if p.returncode else (p.stdout.strip() or "offline")
+
+
+def start_pc(slugs: list, repo: str, own: str | None, token: str, start: Callable = dispatch,
+             status: Callable = runner_status, resorts=None) -> tuple[list[dict], list[str]]:
+    """the pc job: start Build pack with build_on pc for each slug the refresh job handed over (only a slug whose
+    runner.json says cloud false), as the token's owner -> (rows, lines for above the table)"""
+    ok = [s for s in slugs if isinstance(s, str) and build_pack_ci.SLUG_RE.fullmatch(s)
+          and runner(s, resorts).get("cloud") is False]
+    rows = [{"slug": str(s), "action": "refused", "detail": "not a pack its runner.json sends to the PC"}
+            for s in slugs if s not in ok]
+    if not token:
+        return rows + [{"slug": s, "action": "not_started", "detail": f"{TOKEN} is not set"} for s in ok], [
+            f"**{TOKEN} is not set** in the `publish` environment, so nothing was started on Drew's PC "
+            "(docs/pc-runner.md > The dispatch token)."]
+    st = status(repo)
+    lines = [f"Runner `{PC_RUNNER}`: " + (
+        "online." if st == "online" else
+        "**offline**: the builds wait in GitHub's queue (24 hours at most) until it is back." if st else
+        f"status not readable ({TOKEN} has no Administration: read); a build waits in GitHub's queue while the PC "
+        "is offline.")]
+    for s in ok:
+        row = {"slug": s, "action": "queued_offline" if st == "offline" else "building", "detail": ""}
+        try:
+            row["run_url"] = start(repo, s, own, "pc")
+            print(f"started {s} on Drew's PC: {row['run_url']}", flush=True)
+        except Exception as err:   # one failed start must not stop the rest
+            refused = any(k in str(err) for k in ("HTTP 401", "HTTP 403", "Bad credentials"))
+            row.update(action="not_started", detail=f"GitHub refused {TOKEN} (expired, revoked, or without Actions: "
+                       f"read and write on this repo): {err}" if refused else str(err))
+            print(f"::error::could not start {s} on Drew's PC: {row['detail']}", flush=True)
+        rows.append(row)
+    return rows, lines
+
+
+def pc_table(rows: list[dict], lines: list[str]) -> str:
+    words = {"building": "building on Drew's PC", "queued_offline": "queued: PC runner offline",
+             "not_started": "**not started**", "refused": "**refused**"}
+    out = ["## Refresh packs: Drew's PC", "", *lines, "", "| pack | result | why |", "|---|---|---|"]
+    for r in rows:
+        res = words[r["action"]] + (f" ([run]({r['run_url']}))" if r.get("run_url") else "")
+        why = build_pack_ci.md(r.get("detail") or "") + (
+            f"; still needs a hand build: `gh workflow run {WORKFLOW} -f slug={r['slug']} -f build_on=pc`" if r["action"] == "not_started" else "")
+        out.append(f"| `{r['slug']}` | {res} | {why} |")
+    return "\n".join(out) + "\n"
+
+
+def report(text: str, path: str | None, doc: dict) -> None:
+    """print the summary, add it to the run summary, write the JSON"""
+    print(text)
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+            f.write(text)
+    if path:
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(doc, f, indent=1)
+            f.write("\n")
+
+
+def main(argv=None, start: Callable = dispatch, status: Callable = runner_status) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--mode", choices=MODES, default=os.environ.get("MODE") or "needs updating")
     ap.add_argument("--base", default=None, help="the commit packs are compared with (default origin/main, else HEAD)")
     ap.add_argument("--catalog", default=os.path.join(ROOT, "catalog.json"))
     ap.add_argument("--json", help="write the plan here as JSON (rows with a reason code each)")
     ap.add_argument("--no-attract", action="store_true", help="don't read the published packs' attract/")
+    ap.add_argument("--start-pc", action="store_true",
+                    help="start the PC_SLUGS packs (a JSON list) on Drew's PC with GH_TOKEN (the pc job)")
     a = ap.parse_args(argv)
+    repo, own = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_RUN_ID")
+    if not repo and (a.start_pc or a.mode != "list only"):
+        print("GITHUB_REPOSITORY must be set to start builds (this runs inside a workflow); use --mode 'list only'")
+        return 2
+    if a.start_pc:
+        try:
+            slugs = json.loads(os.environ.get("PC_SLUGS") or "[]")
+        except ValueError:
+            slugs = None
+        if not isinstance(slugs, list):
+            print(f"PC_SLUGS is not a JSON list: {os.environ.get('PC_SLUGS')!r}")
+            return 2
+        rows, lines = start_pc(slugs, repo, own, os.environ.get("GH_TOKEN") or "", start, status)
+        report(pc_table(rows, lines), a.json, {"packs": rows})
+        return 1 if any(r["action"] in ("not_started", "refused") for r in rows) else 0
     base = a.base or ("origin/main" if git("rev-parse", "--verify", "-q", "origin/main").returncode == 0 else "HEAD")
     base_sha = git("rev-parse", "--short", base).stdout.strip() or base
     with open(a.catalog, encoding="utf-8") as f:
         catalog = json.load(f)
     rows = plan(catalog, a.mode, base, attract=None if a.no_attract else published_attract)
     if a.mode != "list only":
-        repo, own = os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_RUN_ID")
-        if not repo:
-            print("GITHUB_REPOSITORY must be set to start builds (this runs inside a workflow); use --mode 'list only'")
-            return 2
+        if os.environ.get("GITHUB_OUTPUT"):     # the pc job's packs, written first so a failed cloud start keeps them
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+                f.write(f"pc={json.dumps([r['slug'] for r in rows if r['action'] == 'pc'])}\n")
         for r in rows:
             if r["action"] != "start":
                 continue
@@ -210,16 +300,8 @@ def main(argv=None, start: Callable = dispatch) -> int:
             except Exception as err:   # one failed start must not stop the rest
                 r.update(action="start_failed", detail=str(err))
                 print(f"::error::could not start {r['slug']}: {err}", flush=True)
-    text = table(rows, a.mode, base_sha)
-    print(text)
-    if os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
-            f.write(text)
-    if a.json:
-        with open(a.json, "w", encoding="utf-8", newline="\n") as f:
-            json.dump({"mode": a.mode, "base": base_sha, "packs": rows,
-                       "left_out": [r for r in rows if r["action"] == "left_out"]}, f, indent=1)
-            f.write("\n")
+    report(table(rows, a.mode, base_sha), a.json, {"mode": a.mode, "base": base_sha, "packs": rows,
+                                                   "left_out": [r for r in rows if r["action"] == "left_out"]})
     return 1 if any(r["action"] == "start_failed" for r in rows) else 0
 
 
