@@ -173,9 +173,16 @@ ungroomed runs better. A tuning card, not a reason to keep the flag.
 ## Q5. Split `build_pack.py` into stage modules
 
 The split is worth doing for readability on its own; traffic does not need it (one call after the mask is written is
-enough, Q2). The layout below is **provisional**: FEAT-390 (MapPacker #259, game #871) sets the rules and each repo's
-package layout, and had no draft yet when this was written. Reconcile the names with it before FEAT-391 builds any of
-this.
+enough, Q2). It follows FEAT-390's rules and pipeline layout ([game PR #875](https://github.com/drewkeriazes-personal/SnowboardAnywhere/pull/875),
+[`docs/research/code-architecture.md`](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md)
+in the game repo, on `main` once #875 merges): its
+[proposed rules](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#proposed-rules-step-2-for-drew-to-agree),
+its [target layout for `pipeline/`](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#target-layout-for-pipeline),
+which gives the stages `building/stages/`, and its
+[pipeline refactor plan](https://github.com/drewkeriazes-personal/SnowboardAnywhere/blob/main/docs/research/code-architecture.md#pipeline-1),
+where this split is **P11**. The rules that shape it: Python modules do nothing on import (rule 10), one job per file
+and functions under 150 lines (rule 4), files under 600 (rule 5), a move PR only moves (rule 11), no build time or
+output lost (rule 12). The rules themselves are still a proposal for Drew; if he changes them, this section follows.
 
 ### What the split has to carry
 
@@ -188,29 +195,35 @@ this.
   traffic seed per run): moving code does not move a draw. Float results depend on the order of operations, so a
   move PR copies expressions as they are.
 
-### Package layout (provisional)
+### Package layout
 
 ```
 pipeline/
-  build_pack.py              orders the stages, nothing else (CLI unchanged: build_pack.py <slug> <raw> <out>)
-  build/
-    frame.py                 Frame: the pack box, origin, 2 m grid, CRS transforms; read from the config once
-    stage.py                 Stage, Grids and the runner (below)
+  build_pack.py              entry script: the stage list and main(), nothing at import (CLI unchanged:
+                             build_pack.py <slug> <raw> <out>)
+  building/stages/
+    frame.py                 Frame: the pack box, origin, 2 m grid, CRS transforms (to_local from shared/geom);
+                             read from the config once, in place of the module globals X0, W, SOURCES, REL
+    runner.py                Stage, Grids and the runner (below)
     terrain.py               1 fine + coarse, 2 mid, 3 far (raw heights -> height sets)
     canopy_height.py         4 (lidar or ETH -> chm, dem2)
     naip.py                  5 (NAIP or WorldCover classes -> canopy, rock, scree, slope)
     landfire.py              5b, 5c
     features.py              6 (OSM, grooming, names -> runs, lifts, ... features.json)
+    mogul_scores.py          6b + the mogul field of 7, calling building/moguls.py
     masks.py                 7 (mask, dir, ao)
-    moguls_stage.py          6b + the mogul field of 7, calling moguls.py
     trees.py                 8 trees and stands
     shrubs_rocks.py          8 shrubs and rocks
     meta.py                  9
-    post.py                  9b to 13: thin wrappers round far_trees, cover, canopy, tree_lines, traffic
+    post.py                  9b to 13: the call sites of the stages that read the pack back (far ring, cover,
+                             canopy grid, tree lines, traffic)
 ```
 
-The existing domain modules (`moguls.py`, `stands.py`, `species.py`, `cover.py`, `tree_lines.py`, `traffic.py` ...)
-stay where they are until FEAT-390 says where domain modules go; the stage modules call them.
+The domain modules the stages call go where FEAT-390 puts them: `moguls` to `building/` (P3); `species`, `stands`,
+`cover`, `canopy`, `canopy_spots`, `far_trees` to `forest/` (P2); `tree_lines` and `traffic` to `routes/` (P4);
+`smoothstep` and `to_local` to `shared/` (P1). The package is `building/`, not `build/`, because PyPA's `build` takes
+that import name. The mogul stage is `mogul_scores.py` so it does not share a name with `building/moguls.py`. Each
+module is well under 600 lines (stage 6 is the biggest, about 300); see the PR list for the functions over 150.
 
 ### The stage interface
 
@@ -228,32 +241,49 @@ class Stage:
   its `writes`.
 - **Freeing by declaration**: before the run, the runner works out the last stage that reads each grid and drops the
   grid right after that stage. This replaces the hand-written `del`s; the peak is the same or lower, and the test
-  below catches a stage that reads something it did not declare (it is gone).
+  below catches a stage that reads something it did not declare (it is gone). It changes when memory is freed, so it
+  is its own PR after the moves (rule 11): the move PRs carry the `del`s as they are, as `grids.pop(...)`.
 - **Logging and timing**: the runner prints `[  t s] <name>` as today and, at the end, one line per stage with its
-  seconds and the pack bytes it wrote, kept in `meta.json` `build.stages` (`pack_report.py` and `build_resort.py` can
-  read it). Inside a stage, `log()` stays as it is.
+  seconds and the pack bytes it wrote. It also keeps them in `meta.json` as `buildStages`, added to
+  `publish_pack.STAMPS` in the same PR, so the content key leaves them out like the other build stamps (timings differ
+  on every build; inside the key they would make every rebuild publish). Not under `build`: that is a string the game
+  compares to tell a menu still from another build (FEAT-177). `pack_report.py` and `build_resort.py` can read it, the
+  game ignores it, and MapPacker's `docs/pack-format.md` lists it with the stamps. Inside a stage, `log()` stays as it
+  is.
 - **Order is data**: `build_pack.py` is a list of stages. A reorder is a list edit, and the runner refuses an order
   where a stage reads a grid no earlier stage writes. 9b to 13 declare files instead of grids (`trees/` before
   `cover/`), checked the same way.
 
-### PRs in order (each a pure move, FEAT-391)
+### PRs in order (P11.1 to P11.7, each a pure move, FEAT-391)
 
-Each PR proves nothing changed the same way: a fresh Vail build and the synth pack, byte-compared per folder with
-`main`'s (this card's `bytecmp` script, kept as `tools/pack_bytes.py`: everything identical but `meta.json`'s build
-stamp), and the build time within the run-to-run noise (measure it: two `main` builds back to back first).
+Each PR proves nothing changed with FEAT-390's move proof (rule 11): `python -m pytest pipeline/tests`, then synth and
+Vail built on Drew's PC from `main` and from the branch give the same `tools/ci/pack_content_key.py` key and the same
+file list and sizes, and the build time is within the run-to-run spread (two builds each). When a key differs, the
+per-folder compare (this card's `bytecmp` script, kept as `tools/pack_bytes.py`) says which folder and which file.
 
-1. `build/frame.py`, `build/stage.py`, and 9b to 13 as stages in `build/post.py` (they are already modules: the
-   smallest step, and it proves the runner, the timing line and the byte check). Stages 1 to 9 stay inline, run as one
-   stage.
-2. Stages 1 to 3 (`terrain.py`): raw heights only, no shared grids but `dem`.
-3. Stage 6 (`features.py`) and 6b with the mogul field from 7 (`moguls_stage.py`).
-4. Stage 7 (`masks.py`).
-5. Stage 8 (`trees.py`, `shrubs_rocks.py`): the riskiest for the bytes; trees, stands, shrubs, rocks compared.
-6. Stages 4 to 5c (`canopy_height.py`, `naip.py`, `landfire.py`).
-7. Stage 9 (`meta.py`); `build_pack.py` is now the list.
+1. P11.1: `frame.py`, `runner.py`, and 9b to 13 as stages in `post.py` (they are already modules: the smallest step,
+   and it proves the runner, the timing line and the byte check). Stages 1 to 9 stay inline, run as one stage.
+2. P11.2: stages 1 to 3 (`terrain.py`): raw heights only, no shared grids but `dem`.
+3. P11.3: stage 6 (`features.py`) and 6b with the mogul field from 7 (`mogul_scores.py`).
+4. P11.4: stage 7 (`masks.py`).
+5. P11.5: stage 8 (`trees.py`, `shrubs_rocks.py`): the riskiest for the bytes; trees, stands, shrubs, rocks compared.
+6. P11.6: stages 4 to 5c (`canopy_height.py`, `naip.py`, `landfire.py`).
+7. P11.7: stage 9 (`meta.py`); `build_pack.py` is now the list and `main()`.
+8. Then, not a move: the runner's freeing by declaration in place of the `del`s, proved by the same key and the peak
+   memory of a Vail build against `main`'s.
 
-Then the behaviour cards, each on its own: the rough traffic stage (a new entry in the list after `masks`), the
-mogul term, the tree line seeds.
+Ordering against FEAT-390's plan: P11.1 imports `shared/geom.to_local`, so P1 goes first; P11 runs beside P2, P3 and
+P4 otherwise (a stage imports its domain module by whatever path is current, and the later move updates the import).
+
+Functions: stages 5, 5b, 6 and 8 are 160 to 300 lines of module-level code each, past rule 4's 150. A move PR moves
+each section as one `run` function, as it is; breaking it along its own sub-steps turns shared locals into parameters,
+which is a second, still byte-proved PR per stage, not part of the move. The 116 card ids in `build_pack.py`'s comments
+move as they are too; `building/` gets a comment pass after P11, like FEAT-390's P12 to P16 for the other packages.
+
+Then the behaviour cards, each on its own: the rough traffic stage (`rough_traffic.py`, a new entry in the list after
+`masks`), the mogul term, the tree line seeds. They do not wait for the split: before it, each is one call after
+`write_mask_set`, as in the prototype. They touch `traffic.py`, `tree_lines.py` and `moguls.py`, so they do not run in
+parallel with P3 and P4, which move those files; whichever lands first, the other rebases.
 
 ### Reorder
 
@@ -334,21 +364,71 @@ Keep stages 1 to 13 where they are and add:
 
 The trees, stands, cover, canopy and far ring do not move: none of them reads the moguls, the tree lines or traffic.
 
+## Cross-repo
+
+What the recommendation changes in the game (SnowboardAnywhere), and what FEAT-390's plan there touches here.
+
+- **Links.** FEAT-390: game [#871](https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/871), this
+  repo's #259, [PR #875](https://github.com/drewkeriazes-personal/SnowboardAnywhere/pull/875) with
+  `docs/research/code-architecture.md`. FEAT-391 builds both documents: game
+  [#872](https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/872), this repo's #260. BUG-182, the
+  tree line check that fails on Vail: [game #878](https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/878).
+- **No pack format change.** The rough pass is never written: it lives in memory between stages 7 and 12. The candidate
+  changes the values of `moguls/`, `features.json`'s `mogulScore`, `treeLines.json` and `traffic/`, not their shape, so
+  `PACK_FORMAT` (game `game/src/pack/format.ts`) and `FORMAT_VERSION` stay at 1 and neither repo needs a format PR.
+  `buildStages` (Q5) is a new `meta.json` field the game does not read; it goes in `docs/pack-format.md` beside the
+  stamps.
+- **Old tracks (FEAT-380).** `game/src/terrain/oldTracks.ts` draws the tracks from `traffic/` (direction, coherence,
+  density per vertex) where the pack has it. On Vail 68 of 144 traffic tiles change because the final traffic follows
+  the moved tree lines, so the tracks in the trees follow the new lines. No game code changes.
+- **Moguls.** The game paints bumps from `moguls/` (39 of 144 Vail tiles change) and shows `mogulScore` on the resort
+  map (`ui/ResortMap.ts`). Steep and Deep's bumps get smaller (1.00 to 0.86), The Pump House and Cady's Cafe bigger.
+  `mogulcheck.mjs`'s Vail section compares the lines against the same pack's own field, so it should hold; a ride on
+  the changed runs was not checked.
+- **Tree lines and stems.** The game takes the baked lines as they are (`takeBaked`, FEAT-334) and grows its stand
+  stems out of their trenches (FEAT-333), so the near trees move with the lines although `trees/` and `stands/` are the
+  same bytes: the "trees byte-identical" proof does not cover what a rider sees in the glades, which is why the stills
+  above are from the ground. The trim and the reach over the lines (FEAT-303, FEAT-373) follow the lines too.
+- **Game checks on packs.** `treelinecheck.mjs` on the candidate keeps its Vail checks (3 deep lines, 2 cat track
+  entries, no trunk in a corridor); its pile check fails on both packs (BUG-182: 45 degrees on `main`, 47 on the
+  candidate), so BUG-182's fix is checked on a pack with the seeds too. CI runs the checks on synth, whose tree lines
+  change only if `synth_pack.py` also runs the rough pass (the seeds card decides; it should, so CI covers it). A synth
+  change republishes synth and moves the render budgets CI keys on its content key. Game PRs whose proof runs a check on
+  Vail (FEAT-390's G5, `treelinecheck`) compare before and after on one fixed Vail pack, since the seeds card moves
+  Vail's lines.
+- **Content key and republish.** The move PRs (P11, and FEAT-390's P1 to P16) leave every pack's content key unchanged,
+  so `publish_pack.py` publishes nothing. The three behaviour cards change the key of nearly every pack (any with runs and
+  forest), so nearly every published pack republishes once they are in.
+- **Refresh packs.** `refresh_packs.py --mode "needs updating"` picks a pack when any file under `pipeline/` (tests
+  and Markdown aside) changed since its stamp, so every pipeline code PR, moves included, puts all 19 resorts behind.
+  A run after a move PR rebuilds 18 in the cloud and Vail on Drew's PC (`runner.json`: too big; about 10 minutes) and
+  publishes nothing. So: no refresh after move PRs; one refresh after the three behaviour cards are all in, not one
+  per card.
+
 ## Follow-ups for Drew to pick from (none filed)
 
+Marked where FEAT-390's plan (#875) already covers one.
+
 1. Rough traffic at 7b, feeding the tree line seeds (the prototype's `seed`), behind a check that the trees and
-   cover stay byte-identical (this card's comparison as a test on the synth pack).
+   cover stay byte-identical (this card's comparison as a test on the synth pack). Not in FEAT-390 (a behaviour card).
 2. The mogul traffic term from the rough traffic in place of the lift-top flag, with a look at the ungroomed spread
-   (Steep and Deep at 0.86).
-3. The `build_pack.py` split, PR by PR as in Q5 (FEAT-391 builds it once FEAT-390's rules are agreed).
-4. One cat-track rule shared by `moguls.py` and `traffic.py` (name and geometry).
-5. Run stage 12 beside 9b / 10 / 11 (about 100 s off a Vail build), after the split and a memory check.
-6. Delete `piste_polys` and `snowfield` from `build_pack.py`.
-7. Fix `tree_lines.py`'s docstring ("after the canopy grid": it reads none of it).
+   (Steep and Deep at 0.86). Not in FEAT-390 (a behaviour card).
+3. The `build_pack.py` split, PR by PR as in Q5. **Covered**: FEAT-390's P11, built under FEAT-391.
+4. One cat-track rule shared by `moguls.py` and `traffic.py` (name and geometry). Not in FEAT-390: the two rules
+   differ, so sharing one changes output.
+5. Run stage 12 beside 9b / 10 / 11 (about 100 s off a Vail build), after the split and a memory check. Not in
+   FEAT-390.
+6. Delete `piste_polys` and `snowfield` from `build_pack.py`. Not in FEAT-390; a small PR before P11 so the move does
+   not carry dead code.
+7. Fix `tree_lines.py`'s docstring ("after the canopy grid": it reads none of it). **Covered**: FEAT-390's P13, the
+   `routes/` comment pass (its 54-line docstring is moved to `docs/` and cut).
 8. A pack byte-compare tool (`tools/pack_bytes.py`, this card's script) for every pipeline PR that should not change
-   the output, and two back-to-back `main` builds to know the build time noise.
+   the output, and two back-to-back `main` builds to know the build time noise. **Partly covered**: FEAT-390's move
+   proof uses the content key and two builds each; the per-folder compare stays as the tool that says where a key
+   differs.
 9. Game repo: `treelinecheck.mjs` fails "the piles ease up, never a wall" on Vail as built from `main` today (steepest
-   face 45 degrees; FEAT-381's side hits, #861). Not caused here; a bug card if Drew wants it.
+   face 45 degrees; FEAT-381's side hits, #861). Not caused here. **Filed**: BUG-182, game
+   [#878](https://github.com/drewkeriazes-personal/SnowboardAnywhere/issues/878).
 
 Not covered here: gaps opening in stands near busy runs. That would change `stands/` and `cover/` on purpose, so it is
 a look change for Drew to ask for first; the rough traffic at 7b would be there before stage 8 if he does.
