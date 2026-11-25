@@ -99,7 +99,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Snowbird
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v2) (latest) 123 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v3) (latest) 124 MB, 2026-11-25
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v2) 123 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/snowbird/v1) 122 MB, 2026-11-14
 
 ## Vail
