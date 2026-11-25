@@ -18,6 +18,9 @@ import numpy as np
 
 NO_MOGUL_NAME = re.compile(r"road|catwalk|cat track|traverse|cutoff|access|skiway", re.I)
 
+TRAFFIC_T = (0.8,)             # FEAT-389 prototype: the traffic term at no riders (1 at TRAFFIC_HI), the lift-top term's range
+TRAFFIC_LO, TRAFFIC_HI = 0.3, 0.7   # the scoring runs' density quartiles on Vail
+
 DIFFICULTY_TERM = {"expert": 1.0, "advanced": 0.9, "freeride": 0.8, "extreme": 0.6}
 
 
@@ -35,7 +38,7 @@ def slope_window(slope_deg):
 
 
 def run_mogul_score(run: dict, slope_hi: float, aspect_mean: float | None, groom_frac: float | None,
-                    mogul_tag: bool, near_lift_top: bool) -> float:
+                    mogul_tag: bool, near_lift_top: bool, traffic: float | None = None) -> float:
     """How likely this run carries a mogul field, 0..1.
 
     slope_hi: the 75th percentile slope (deg) along the centre line (a run's steep pitch, not its
@@ -76,6 +79,8 @@ def run_mogul_score(run: dict, slope_hi: float, aspect_mean: float | None, groom
         off_north = abs((aspect_mean + 180.0) % 360.0 - 180.0)
         a = 1.0 if off_north <= 60.0 else (0.7 if off_north >= 120.0 else 0.85)
     t = 1.0 if near_lift_top else 0.8
+    if traffic is not None:   # FEAT-389 prototype: the rough traffic's density along the line (75th percentile, 0..1)
+        t = TRAFFIC_T[0] + (1.0 - TRAFFIC_T[0]) * float(_smoothstep(TRAFFIC_LO, TRAFFIC_HI, traffic))
     return float(min(1.0, max(0.0, g * d * s * a * t)))
 
 

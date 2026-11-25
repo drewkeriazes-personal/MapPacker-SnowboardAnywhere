@@ -168,6 +168,13 @@ OPEN_D = 30.0        # m from any trunk: no forest
 STALL_M = 30.0
 SPACING_BAND = (3.0, 10.0)
 
+# FEAT-389 prototype: the rough traffic (traffic.density, no tree lines) as an input. SBA_TL_TRAFFIC "seed" keeps a seed
+# candidate with a chance from how busy its side of the run is (TR_FLOOR at none, 1 at the run's busiest), "cost" makes
+# a move cheaper where riders already go (1 / (1 + TR_COST_K density)), "both" does both; unset reads no traffic.
+TR_MODE = os.environ.get("SBA_TL_TRAFFIC", "")
+TR_FLOOR = float(os.environ.get("SBA_TL_TR_FLOOR", "0.15"))
+TR_COST_K = float(os.environ.get("SBA_TL_TR_COST", "1.5"))
+TR_EDGE = (0.0, 6.0, 12.0, 18.0)   # m off the centreline: where a seed's side of the run is read
 DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 
@@ -176,8 +183,9 @@ def eligible(r):
 
 
 class Planner:
-    def __init__(self, pack_dir, meta, features, log=print):
+    def __init__(self, pack_dir, meta, features, log=print, traffic=None):
         from scipy.spatial import cKDTree
+        self.traffic = traffic if TR_MODE else None   # (density 0..1, traffic.Grid)
         import cover
         self.log = log
         self.meta, self.runs = meta, features.get("runs", [])
@@ -259,7 +267,21 @@ class Planner:
                         de.line([px(a), px(b)], fill=255, width=wpx + 2)
         return np.asarray(walls) > 0, np.asarray(exits) > 0
 
-    def field(self, z, dist, walls, exits):
+    def traffic_at(self, x, y):
+        D, g = self.traffic
+        x, y = np.asarray(x, np.float64), np.asarray(y, np.float64)
+        rr, cc = g.cell(x, y)
+        ok = g.inside(rr, cc)
+        out = np.zeros(np.shape(x), np.float32)
+        out[ok] = D[rr[ok], cc[ok]]
+        return out
+
+    def traffic_window(self, x0, y1, w, h):
+        xs = x0 + (np.arange(w) + 0.5) * RES; ys = y1 - (np.arange(h) + 0.5) * RES
+        X, Y = np.meshgrid(xs, ys)
+        return self.traffic_at(X, Y)
+
+    def field(self, z, dist, walls, exits, tr=None):
         """the cost to get out from each cell (inf where there is no way), and the edge cost function's inputs"""
         from scipy import ndimage
         from scipy.sparse import csr_matrix
@@ -275,6 +297,8 @@ class Planner:
         ang_w = smooth(ANGLE_LO, ANGLE_HI, g)
         self.join_r = np.rint(JOIN + (JOIN_FLAT - JOIN) * (1 - smooth(STALL_TAN, FUNNEL_TAN, g))).astype(np.int64)
         tree = 1 + TREE_K * (1 - smooth(BLOCK, CLEAR, dist))
+        if tr is not None:
+            tree = tree / (1 + TR_COST_K * tr)
         if walls.any():
             tree = tree * (1 + EDGE_K * (1 - smooth(0, EDGE_M, ndimage.distance_transform_edt(~walls) * RES)))
         ok = np.isfinite(z) & (dist >= BLOCK) & (~walls | exits)
@@ -307,7 +331,7 @@ class Planner:
         trees = bool(r.get("gladed")) or r.get("difficulty") in TREE_RUN
         gap = SEED_GAP_TREES if trees else SEED_GAP
         rng = np.random.default_rng(int(r.get("osmId") or ri) & 0x7FFFFFFF)
-        cand = []
+        cand, edge = [], []
         n = int(SEEDS_MAX * 20)
         for _ in range(n):
             q = rng.uniform(0, s[-1] * SEED_SPAN)
@@ -316,6 +340,14 @@ class Planner:
             side = 1 if rng.uniform() < 0.5 else -1
             x, y, tx, ty = along(p, s, q)
             cand.append((x - ty * off * side, y + tx * off * side, 0.0))
+            if self.traffic is not None and TR_MODE in ("seed", "both"):
+                edge.append([(x - ty * e * side, y + tx * e * side) for e in TR_EDGE])
+        if edge:
+            e = np.asarray(edge)
+            busy = self.traffic_at(e[..., 0], e[..., 1]).max(axis=1)
+            wt = TR_FLOOR + (1 - TR_FLOOR) * busy / max(float(busy.max()), 1e-6)
+            u = np.random.default_rng((int(r.get("osmId") or ri) * 389) & 0x7FFFFFFF).uniform(size=len(cand))
+            cand = [c for c, k in zip(cand, u < wt) if k]
         keep = []
         for c in cand:
             if all((c[0] - k[0]) ** 2 + (c[1] - k[1]) ** 2 >= gap * gap for k in keep):
@@ -697,7 +729,8 @@ class Planner:
                 continue
             dist = self.trunk_dist(x0, y1, w, h)
             walls, exits = self.run_masks(ri, x0, y1, w, h, float(p[-1, 2]))
-            T, zs = self.field(z, dist, walls, exits)
+            tr = self.traffic_window(x0, y1, w, h) if self.traffic is not None and TR_MODE in ("cost", "both") else None
+            T, zs = self.field(z, dist, walls, exits, tr)
             self.rider_fields(T, z, dist, walls & ~exits, exits & np.isfinite(T), x0, y1)
             rng = np.random.default_rng((int(r.get("osmId") or ri) * 7919) & 0x7FFFFFFF)
             sd = self.seeds(ri, r, p, s)
@@ -893,11 +926,16 @@ def validate(lines, planner):
     return {"km": round(km, 1), "trunksInCorridor": inside, "stalls": stalls, "spacing": spacing}
 
 
-def build_tree_lines(pack_dir, meta, features=None, only=None, log=print):
+def build_tree_lines(pack_dir, meta, features=None, only=None, log=print, traffic=None):
     """write treeLines.json and return the meta entry (None when no run gets lines)"""
     if features is None:
         features = json.load(open(os.path.join(pack_dir, "features.json"), encoding="utf-8"))
-    pl = Planner(pack_dir, meta, features, log=log)
+    if TR_MODE and traffic is None:   # standalone: the rough pass on the pack as it is
+        import traffic as _tr
+        traffic = _tr.density(pack_dir, meta, features, log=log)
+    if TR_MODE:
+        log(f"  tree lines read the rough traffic ({TR_MODE}, floor {TR_FLOOR:g}, cost k {TR_COST_K:g})")
+    pl = Planner(pack_dir, meta, features, log=log, traffic=traffic)
     pl.plan(only=only)
     lines, st = pl.export()
     if not lines:

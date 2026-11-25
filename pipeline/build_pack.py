@@ -1031,6 +1031,7 @@ def line_cells(pts):
 # Grooming reports, difficulty, slope and aspect along the centre line, and lift-top traffic; see moguls.py.
 report_nights = len(reports)
 lift_tops = [(s[0], s[1]) for l in lifts for s in l["stations"]]
+MOG_IN = {}   # FEAT-389 prototype: each run's score inputs, rescored with the rough traffic at stage 7
 for r in runs:
     tag = r.pop("mogulTag", False)
     pts = [(p[0], p[1]) for p in r["points"]]
@@ -1048,6 +1049,7 @@ for r in runs:
     top = max(r["points"], key=lambda p: p[2])
     near_top = any(math.hypot(top[0] - lx, top[1] - ly) < 150.0 for lx, ly in lift_tops)
     r["mogulScore"] = round(run_mogul_score(r, slope_med, aspect, groom_frac, tag, near_top), 2)
+    MOG_IN[id(r)] = (slope_med, aspect, groom_frac, tag, near_top)
 del gx, gy
 scored = sorted((r for r in runs if r["mogulScore"] > 0), key=lambda r: -r["mogulScore"])
 log(f"  mogul runs: {sum(1 for r in runs if r['mogulScore'] >= 0.3)} of {len(runs)} score 0.3 or more; top: "
@@ -1165,6 +1167,26 @@ canopy_cover = ndimage.uniform_filter(canopy.astype(np.float32), 5)
 rgba = np.stack([rock_w * 255, scree_w * 255, np.clip(groomed, 0, 1) * 255, canopy_cover * 255], axis=-1).astype(np.uint8)
 mask_meta = write_mask_set(out, rgba, R2, X0 - OX, Y0 - OY)
 del rgba
+# FEAT-389 prototype: the rough traffic (traffic.py with no tree lines) as soon as the mask is on disk: the heights,
+# runs, lifts and the mask's groomed and canopy channels are all it reads. SBA_ROUGH_TRAFFIC=1 runs it (for the tree
+# line seeds at stage 12); SBA_MOGUL_TRAFFIC=1 also scores the moguls' traffic term from it instead of the lift tops.
+ROUGH = None
+if os.environ.get("SBA_ROUGH_TRAFFIC"):
+    import traffic as _traffic
+    _pm = {"bounds": {"minX": X0 - OX, "minY": Y0 - OY, "maxX": X1 - OX, "maxY": Y1 - OY},
+           "terrain": {"fine": fine_meta, "coarse": coarse_meta}, "mask": mask_meta}
+    ROUGH = _traffic.density(out, _pm, {"runs": runs, "lifts": lifts}, log=log)
+    if os.environ.get("SBA_MOGUL_TRAFFIC"):
+        for r in runs:
+            if id(r) in MOG_IN:
+                sm, asp, gf, tag, nt = MOG_IN[id(r)]
+                pts = np.asarray([(p[0], p[1]) for p in r["points"]], np.float64)
+                d = ROUGH[0][ROUGH[1].cell(pts[:, 0], pts[:, 1])[0].clip(0, ROUGH[1].H - 1), ROUGH[1].cell(pts[:, 0], pts[:, 1])[1].clip(0, ROUGH[1].W - 1)]
+                r["mogulScore"] = round(run_mogul_score(r, sm, asp, gf, tag, nt, traffic=float(np.percentile(d, 75))), 2)
+        scored = sorted((r for r in runs if r["mogulScore"] > 0), key=lambda r: -r["mogulScore"])
+        log(f"  mogul runs (traffic term): {sum(1 for r in runs if r['mogulScore'] >= 0.3)} of {len(runs)} score 0.3 or more; top: "
+            + ", ".join(f"{r['name'] or 'unnamed'} {r['mogulScore']:.2f}" for r in scored[:15]))
+        write_features(out, {"lifts": lifts, "runs": runs, "buildings": buildings, "roads": roads, "water": water, "peaks": peaks, "labels": labels})
 # piste direction (DATA-002): the groomed runs' axis per cell, for corduroy that follows the run
 dir_meta = write_mask_set(out, piste_direction(runs, groomed, R2, X0 - OX, Y1 - OY, log=log), R2, X0 - OX, Y0 - OY, kind="dir", pad=0)
 # baked sky visibility (FEAT-047): gullies, couloirs, cirques and cliff feet darken; same grid as the mask.
@@ -1565,7 +1587,7 @@ meta["canopy"] = build_canopy(out, meta, log=log)
 # ground and detected trunks (tree_lines.py); the game loads them in place of its own plan from the runs (FEAT-333)
 log("tree lines")
 from tree_lines import build_tree_lines
-tl_meta = build_tree_lines(out, meta, {"runs": runs}, log=log)
+tl_meta = build_tree_lines(out, meta, {"runs": runs}, log=log, traffic=ROUGH)
 if tl_meta:
     meta["treeLines"] = tl_meta
 

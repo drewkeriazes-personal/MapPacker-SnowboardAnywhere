@@ -251,7 +251,7 @@ def run_samples(runs, g, zs_slope):
 
 class Field:
     """the grids the riders read"""
-    def __init__(self, pack_dir, meta, features, log=print):
+    def __init__(self, pack_dir, meta, features, log=print, tree_lines=True):
         from scipy import ndimage
         g = self.g = Grid(meta)
         H, W = g.H, g.W
@@ -319,7 +319,9 @@ class Field:
             self.kinds = {k: round(float((kind == i).sum() * RES) / 1000, 1) for i, k in enumerate(("groomer", "track", "off"))}
         else:
             self.S = None
-        self.tree_lines(pack_dir, meta)
+        self.tl = self.pull = None
+        if tree_lines:
+            self.tree_lines(pack_dir, meta)
         self.lifts(features.get("lifts", []))
 
     def tree_lines(self, pack_dir, meta):
@@ -614,6 +616,21 @@ def write_tiles(pack_dir, g, rgb):
             Image.fromarray(padded[r0:r0 + TILE, tx * TILE:(tx + 1) * TILE], "RGB").save(p, optimize=True)
             size += os.path.getsize(p)
     return {"res": RES, "tileSize": TILE, "minX": g.x0, "minY": g.y0, "tilesX": tx_n, "tilesY": ty_n}, size
+
+
+def density(pack_dir, meta, features, tree_lines=False, log=print):
+    """FEAT-389 prototype: the encoded density (0..1, the B channel over 255) on the traffic grid and the grid, written
+    nowhere: the rough pass a build runs before the tree lines (no tree lines) for the moguls and the tree line seeds"""
+    t0 = time.time()
+    F = Field(pack_dir, meta, features, log=log, tree_lines=tree_lines)
+    dep, info = simulate(F)
+    if dep is None:
+        return None, F.g
+    C, VX, VY = accumulate(F, dep)
+    rgb, ref = encode(C, VX, VY)
+    log(f"  rough traffic: {info['riders']} riders, density ref {ref:.2f}, {(rgb[..., 2] > 0).mean() * 100:.1f}% of cells "
+        f"ridden, {time.time() - t0:.1f} s")
+    return rgb[..., 2].astype(np.float32) / 255, F.g
 
 
 def build_traffic(pack_dir, meta, features=None, log=print):
