@@ -9,7 +9,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Beaver Creek Resort (Arrowhead Mountain)
 
-- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v2) (latest) 183 MB, 2026-11-22
+- [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v3) (latest) 185 MB, 2026-11-25
+- [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v2) 183 MB, 2026-11-22
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/beaver-creek-resort-arrowhead-mountain/v1) 181 MB, 2026-11-14
 
 ## Big Sky
