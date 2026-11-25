@@ -2,7 +2,7 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-121 attempts logged, 65 failed. Recovered inline: 131 calls; job re-runs: 16; real failures: 45. Retried runs: 10, of them passed in the end: 1 (10%).
+122 attempts logged, 66 failed. Recovered inline: 131 calls; job re-runs: 17; real failures: 45. Retried runs: 10, of them passed in the end: 1 (10%).
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
@@ -21,14 +21,14 @@ Written by `tools/ci/build_failures.py record` on every Build pack attempt; the 
 
 | host | failures |
 |---|---|
-| (none) | 65 |
+| (none) | 66 |
 
 **By reason**
 
 | reason | failures |
 |---|---|
 | unknown (real) | 28 |
-| log-unreadable (transient) | 20 |
+| log-unreadable (transient) | 21 |
 | cancelled (real) | 17 |
 
 **By step**
@@ -37,7 +37,7 @@ Written by `tools/ci/build_failures.py record` on every Build pack attempt; the 
 |---|---|
 | build / fetch | 20 |
 | queue / wait for the builds started before this one | 17 |
-| build / build | 16 |
+| build / build | 17 |
 | probe / data hosts | 7 |
 | build / pc setup | 2 |
 | build / paths | 1 |
