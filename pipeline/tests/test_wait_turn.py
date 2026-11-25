@@ -22,6 +22,8 @@ def env(monkeypatch, own=40):
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     monkeypatch.setenv("GITHUB_RUN_ID", str(own))
     monkeypatch.delenv("BUILD_SLOTS", raising=False)
+    monkeypatch.delenv("BUILD_ON", raising=False)
+    monkeypatch.setattr(wait_turn, "gh_on_pc", lambda repo, i: False)
 
 
 def test_waits_until_the_earlier_run_completes(monkeypatch, capsys):
@@ -88,3 +90,28 @@ def test_slots_come_from_build_slots_and_an_unset_variable_is_one(monkeypatch):
         assert wait_turn.main(["--max-wait", "1"], list_runs=lambda: [run(30), run(40)], sleep=lambda s: None,
                               clock=lambda: next(t)) == 1
     assert wait_turn.slots_from(" 3 ") == 3
+
+
+def test_a_pc_run_takes_no_slot_and_never_waits(monkeypatch, capsys):
+    """Drew's PC runs one job at a time in GitHub's own queue, so a PC run does not wait here"""
+    env(monkeypatch)
+    monkeypatch.setenv("BUILD_ON", "pc")
+    assert wait_turn.main([], list_runs=lambda: 1 / 0, sleep=lambda s: 1 / 0) == 0
+    assert "no cloud slot" in capsys.readouterr().out
+
+
+def test_a_cloud_run_does_not_wait_for_runs_building_on_the_pc(monkeypatch):
+    """a PC build waiting for an offline PC holds no cloud build back; a run not yet known to be on the PC counts"""
+    env(monkeypatch)
+    asked = []
+
+    def on_pc(i):
+        asked.append(i)
+        return i == 10
+    assert wait_turn.main([], list_runs=lambda: [run(10), run(40)], sleep=lambda s: 1 / 0, on_pc=on_pc) == 0
+    views = iter([[run(10), run(20), run(40)], [run(10), run(20, "completed"), run(40)]])
+    asked.clear()
+    slept = []
+    assert wait_turn.main(["--poll", "5"], list_runs=lambda: next(views), sleep=slept.append, clock=lambda: 0,
+                          on_pc=on_pc) == 0
+    assert slept == [5] and asked.count(10) == 1, "a run found on the PC is not asked about again"

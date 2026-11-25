@@ -10,11 +10,18 @@ completed; with --slots N (FEAT-342, Refresh packs) it waits while N or more of 
 at a time, as before. The oldest run never waits, so the queue always moves. The workflow runs it again at the start of the
 build job, so "Re-run failed jobs", which skips a queue job that passed, still waits its turn. Reads the runs with `gh api` (GH_TOKEN; actions: read), for GITHUB_REPOSITORY and
 GITHUB_RUN_ID. Gives up after --max-wait minutes with exit 1 (a job may run 6 hours at most).
+
+Drew's PC (build_on pc, BUILD_ON in the environment) has no slot: the runner `sba-pc` is one machine and GitHub
+gives it one job at a time, holding the rest in its own queue (24 hours) while it is busy or offline, so a PC run
+never waits here, and a cloud run does not count the runs ahead of it whose build job is on the PC (its labels name
+sba-pc; a run whose build job does not exist yet, or whose jobs can't be read, counts). So a PC build waiting for
+an offline PC holds no cloud build back.
 """
 import argparse, json, os, subprocess, sys, time
 from typing import Callable
 
 ACTIVE = ("queued", "in_progress", "waiting", "requested", "pending")
+PC_LABEL = "sba-pc"
 
 
 def order(r: dict, own: dict | None = None) -> tuple:
@@ -62,12 +69,19 @@ def gh_runs(repo: str, workflow: str) -> list:
     return out
 
 
+def gh_on_pc(repo: str, run_id) -> bool:
+    """the run's build job is on Drew's PC (its labels); False when its jobs can't be read"""
+    p = subprocess.run(["gh", "api", f"repos/{repo}/actions/runs/{run_id}/jobs", "--jq", ".jobs[].labels[]"],
+                       capture_output=True, text=True)
+    return not p.returncode and PC_LABEL in p.stdout.split()
+
+
 def describe(r: dict) -> str:
     return f"#{r.get('run_number', '?')} ({r['status']}) {r.get('html_url', r['id'])}"
 
 
 def main(argv=None, list_runs: Callable | None = None, sleep: Callable = time.sleep,
-         clock: Callable = time.monotonic) -> int:
+         clock: Callable = time.monotonic, on_pc: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--workflow", default="build-pack.yml", help="workflow file name (default build-pack.yml)")
     ap.add_argument("--slots", default=None,
@@ -81,14 +95,22 @@ def main(argv=None, list_runs: Callable | None = None, sleep: Callable = time.sl
         print("GITHUB_REPOSITORY and GITHUB_RUN_ID must be set (this runs inside a workflow)")
         return 2
     own_id = int(own)
+    # FEAT-385
+    if (os.environ.get("BUILD_ON") or "").strip() == "pc":
+        print("Drew's PC: no cloud slot; its runner takes one build at a time", flush=True)
+        return 0
     slots = slots_from(a.slots if a.slots is not None else os.environ.get("BUILD_SLOTS"))
     if slots > 1:
         print(f"{slots} builds at a time", flush=True)
     list_runs = list_runs or (lambda: gh_runs(repo, a.workflow))
+    on_pc = on_pc or (lambda i: gh_on_pc(repo, i))
+    pc = set()            # a run whose build job is on the PC stays there
     t0 = clock()
     last = None
     while True:
         ahead = blocking(list_runs(), own_id)
+        pc |= {r["id"] for r in ahead if r["id"] not in pc and on_pc(r["id"])}
+        ahead = [r for r in ahead if r["id"] not in pc]
         if len(ahead) < slots:
             waited = clock() - t0
             print("my turn" + (f" after {waited / 60:.0f} min" if waited >= 60 else ""), flush=True)
