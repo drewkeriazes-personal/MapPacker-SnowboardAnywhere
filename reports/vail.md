@@ -1,8 +1,8 @@
 # Pack report: Vail (`vail`)
 
-Build `20261121T043434Z-18294f`, pipeline `c42de20`, format 1. Report 2026-11-21T04:36:46Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T165832Z-503a2e`, pipeline `fe446d9`, format 1. Report 2026-11-25T17:00:39Z by `pipeline/pack_report.py`.
 
-**Tier: gold** (FEAT-225: the weakest layer's)
+**Tier: gold** (the weakest layer's)
 
 | Layer | Source | Tier |
 |---|---|---|
@@ -10,7 +10,7 @@ Build `20261121T043434Z-18294f`, pipeline `c42de20`, format 1. Report 2026-11-21
 | trees | lidar crowns + stands | gold |
 | surface | NAIP | gold |
 
-**Playable**: every DATA-022 MVP line passes.
+**Playable**: every MVP line passes.
 
 | # | Item | | Detail |
 |---|---|---|---|
@@ -153,16 +153,16 @@ Build `20261121T043434Z-18294f`, pipeline `c42de20`, format 1. Report 2026-11-21
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 529 | 143.3 | 2026-11-21 |
-| mid heights | yes | 25 | 12.0 | 2026-11-21 |
-| far heights | yes | 16 | 2.8 | 2026-11-21 |
-| mask | yes | 144 | 11.8 | 2026-11-21 |
-| AO | yes | 144 | 9.3 | 2026-11-21 |
-| piste directions | yes | 144 | 0.5 | 2026-11-21 |
-| moguls | yes | 144 | 0.4 | 2026-11-21 |
-| cover | yes | 4 | 22.9 | 2026-11-21 |
-| trees (crowns) | yes | 144 | 12.5 | 2026-11-21 |
-| stands (stems) | yes | 144 | 22.0 | 2026-11-21 |
-| far tree ring | yes | 363 | 31.4 | 2026-11-21 |
-| shrubs | yes | 144 | 1.1 | 2026-11-21 |
-| rocks | yes | 140 | 0.7 | 2026-11-21 |
+| fine heights | yes | 529 | 143.3 | 2026-11-25 |
+| mid heights | yes | 25 | 12.0 | 2026-11-25 |
+| far heights | yes | 16 | 2.8 | 2026-11-25 |
+| mask | yes | 144 | 11.8 | 2026-11-25 |
+| AO | yes | 144 | 9.3 | 2026-11-25 |
+| piste directions | yes | 144 | 0.5 | 2026-11-25 |
+| moguls | yes | 144 | 0.4 | 2026-11-25 |
+| cover | yes | 4 | 22.9 | 2026-11-25 |
+| trees (crowns) | yes | 144 | 12.5 | 2026-11-25 |
+| stands (stems) | yes | 144 | 22.0 | 2026-11-25 |
+| far tree ring | yes | 363 | 31.4 | 2026-11-25 |
+| shrubs | yes | 144 | 1.1 | 2026-11-25 |
+| rocks | yes | 140 | 0.7 | 2026-11-25 |
