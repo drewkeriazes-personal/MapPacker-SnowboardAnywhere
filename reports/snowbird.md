@@ -1,6 +1,6 @@
 # Pack report: Snowbird (`snowbird`)
 
-Build `20261122T154337Z-4709b0`, pipeline `874dd77`, format 1. Report 2026-11-22T15:43:54Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T044530Z-fdca15`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:45:49Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: silver** (FEAT-225: the weakest layer's)
 
@@ -24,7 +24,7 @@ Build `20261122T154337Z-4709b0`, pipeline `874dd77`, format 1. Report 2026-11-22
 | 7 | Trees and shrubs with species | ⚠️ | 0.02 M crowns + 0.00 M stems = 0.4 k per km2 (1% of the reference) |
 | 8 | Far terrain: cover levels pack, mid, far | ✅ | three levels |
 | 8b | Far tree ring (crowns round the resort) | ✅ | 0.45 M crowns in 176 cells |
-| 9 | features.json | ✅ | 14 lifts, 256 runs, 233 buildings, 648 roads, 30 water, 662 peaks, 142 labels |
+| 9 | features.json | ✅ | 14 lifts, 256 runs, 233 buildings, 648 roads, 30 water, 668 peaks, 142 labels |
 | 10 | Default start on a run, on snow, clear of trees | ✅ | generated (gen_content.py) on Path To Paradise, top of Aerial Tram |
 | 11 | In the resort picker | ✅ | in packs/index.json, in the catalog |
 | 12 | Time trial courses | ✅ | 122 runs of 300 m and 60 m drop or more |
@@ -32,7 +32,7 @@ Build `20261122T154337Z-4709b0`, pipeline `874dd77`, format 1. Report 2026-11-22
 | 14 | Validated | ⚠️ | 12 advanced+ runs never over 15 deg; ride from the start and views from the top not checked here (shoot.mjs) |
 | | **Polish (not gated)** | | |
 | 15 | Grooming history | ❌ | 0% of runs with a grooming record, 0 reports in raw; 3% of the green and blue run length groomed (few groomers: a grooming source missing or its names not matched to OSM, FEAT-256) |
-| 16 | Place names | ✅ | GNIS UT, WY; 662 peaks, 142 town labels |
+| 16 | Place names | ✅ | GNIS UT, WY; 668 peaks, 142 town labels |
 | 17 | Main menu shot and ghosts | ⚠️ | generated (gen_content.py): 5 shots, no still of this build, 0 ghost takes (the game's tools/auto_attract.mjs makes them) |
 | 18 | Landmark | ❌ | none (optional: resorts/snowbird/landmarks.json) |
 | 19 | Compare spots against photos | ➖ | no SnowboardAnywhere checkout at /home/runner/work/MapPacker-SnowboardAnywhere/SnowboardAnywhere (--game-repo or SBA_GAME_REPO) |
@@ -94,16 +94,16 @@ Build `20261122T154337Z-4709b0`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 210 | 62.7 | 2026-11-22 |
-| mid heights | yes | 25 | 11.5 | 2026-11-22 |
-| far heights | yes | 16 | 2.2 | 2026-11-22 |
-| mask | yes | 56 | 9.0 | 2026-11-22 |
-| AO | yes | 56 | 4.5 | 2026-11-22 |
-| piste directions | yes | 56 | 0.0 | 2026-11-22 |
-| moguls | yes | 56 | 0.6 | 2026-11-22 |
-| cover | yes | 4 | 7.6 | 2026-11-22 |
-| trees (crowns) | yes | 51 | 0.4 | 2026-11-22 |
-| stands (stems) | yes | 36 | 1.7 | 2026-11-22 |
-| far tree ring | yes | 176 | 10.9 | 2026-11-22 |
-| shrubs | yes | 32 | 0.0 | 2026-11-22 |
-| rocks | yes | 64 | 3.3 | 2026-11-22 |
+| fine heights | yes | 210 | 62.7 | 2026-11-25 |
+| mid heights | yes | 25 | 11.5 | 2026-11-25 |
+| far heights | yes | 16 | 2.2 | 2026-11-25 |
+| mask | yes | 56 | 9.0 | 2026-11-25 |
+| AO | yes | 56 | 4.5 | 2026-11-25 |
+| piste directions | yes | 56 | 0.0 | 2026-11-25 |
+| moguls | yes | 56 | 0.6 | 2026-11-25 |
+| cover | yes | 4 | 7.6 | 2026-11-25 |
+| trees (crowns) | yes | 51 | 0.4 | 2026-11-25 |
+| stands (stems) | yes | 36 | 1.7 | 2026-11-25 |
+| far tree ring | yes | 176 | 10.9 | 2026-11-25 |
+| shrubs | yes | 32 | 0.0 | 2026-11-25 |
+| rocks | yes | 64 | 3.3 | 2026-11-25 |
