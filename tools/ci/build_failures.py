@@ -10,12 +10,15 @@ branch, rewrites that branch's README.md and `host-tuning.json` (the probe's tim
 timing out), and writes the verdict and the tables to the run summary. A transient failure on attempt 1 or 2 starts
 build-pack-retry.yml (a workflow_dispatch: the one event the workflow token may start), which waits until this run
 has finished, 5 minutes after attempt 1 and 15 after attempt 2, and re-runs the failed jobs (`gh run rerun --failed`;
-their dependents, this job among them, run again too). A real failure stops with its reason as an error annotation.
+their dependents, this job among them, run again too). A real failure stops with its reason as an error annotation,
+except on Drew's PC: a `build_on: pc` run whose first attempt fails for a real cause is re-run once the same way
+(outcome `pc retry`), unless the cause is one a re-run can't change (PC_FINAL).
 
 Rows: {time, run_id, pack, attempt, job, step, host, reason, transient, duration_s, outcome, inline}; outcome is
-passed, retrying, stopped (real) or gave up (transient, out of retries). The job re-run is the second layer: the probe
-and the fetch first retry a flaky call inline (pipeline/retry.json), and `inline` is what they logged this attempt
-({host: {calls, retried, recovered, failed}}, from the *.jsonl files in $INLINE_DIR: the jobs' SBA_RETRY_LOG).
+passed, retrying, pc retry (real, the PC's one free re-run), stopped (real) or gave up (transient, out of
+retries). The job re-run is the second layer: the probe and the fetch first retry a flaky call inline
+(pipeline/retry.json), and `inline` is what they logged this attempt ({host: {calls, retried, recovered, failed}},
+from the *.jsonl files in $INLINE_DIR: the jobs' SBA_RETRY_LOG).
 """
 import argparse, json, os, re, subprocess, sys, tempfile, time
 from collections import Counter
@@ -33,6 +36,15 @@ TUNING = "host-tuning.json"
 # probe_hosts.py defaults and the most the tuning may raise them to: never unlimited
 BASE = {"timeout": 60, "tries": inline.RULES["probe"]["tries"]}
 CAP = {"timeout": 180, "tries": 4}
+
+# FEAT-388
+# a build on Drew's PC takes hours and starts only when he starts it, so its first real failure gets one re-run too,
+# except the causes a re-run can't change: refused inputs or runner setup (pc-setup's Refused), the disk, a cancel,
+# the runner's job-started hook, and the 24 hour limit (a re-run would take another day to hit it again)
+PC_FINAL = {"bad-input", "out-of-disk", "cancelled", "pc-refused", "job-timeout"}
+RERUNS = ("retrying", "pc retry")
+# tools/pc-runner/job_started.ps1's refusal, anywhere in the log: it fails the job before any step runs
+PC_HOOK = r"takes only Build pack from main, dispatched by a maintainer"
 
 TAIL = 30                      # lines of the failed step's end that classify reads
 
@@ -81,6 +93,8 @@ def classify(step: str, log: str, conclusion: str = "failure") -> dict:
     decides; within a line, the first rule wins"""
     if conclusion == "cancelled":
         return {"reason": "cancelled", "transient": False, "host": ""}
+    if re.search(PC_HOOK, log):
+        return {"reason": "pc-refused", "transient": False, "host": ""}
     lines = [re.sub(r"^\S+Z ", "", l) for l in log.splitlines()]      # GitHub's timestamps
     ends = [i for i, l in enumerate(lines) if l.startswith("##[error]")]
     if ends:
@@ -201,7 +215,7 @@ def retry_stats(rows: list) -> tuple:
     by = {}
     for r in rows:
         by.setdefault(r["run_id"], []).append(r)
-    retried = [v for v in by.values() if any(r["outcome"] == "retrying" for r in v)]
+    retried = [v for v in by.values() if any(r["outcome"] in RERUNS for r in v)]
     passed = [v for v in retried if max(v, key=lambda r: r["attempt"])["outcome"] == "passed"]
     return len(retried), len(passed)
 
@@ -235,10 +249,11 @@ def summary_md(rows: list, tune: dict) -> str:
             a = hosts.setdefault(h, {"calls": 0, "retried": 0, "recovered": 0, "failed": 0})
             for k in a:
                 a[k] += t.get(k, 0)
+    count = Counter(r["outcome"] for r in rows)
     out = (f"{len(rows)} attempts logged, {len(fails)} failed. Recovered inline: "
-           f"{sum(t['recovered'] for t in hosts.values())} calls; job re-runs: "
-           f"{sum(1 for r in rows if r['outcome'] == 'retrying')}; real failures: "
-           f"{sum(1 for r in rows if r['outcome'] == 'stopped')}. Retried runs: {n}, of them passed in the end: {ok}"
+           f"{sum(t['recovered'] for t in hosts.values())} calls; job re-runs: {count['retrying'] + count['pc retry']}"
+           + (f" (the PC's free retry: {count['pc retry']})" if count["pc retry"] else "")
+           + f"; real failures: {count['stopped'] + count['pc retry']}. Retried runs: {n}, of them passed in the end: {ok}"
            + (f" ({100 * ok // n}%)" if n else "") + ".\n\n")
     worse = sorted(((h, t) for h, t in hosts.items() if t["retried"]), key=lambda x: -x[1]["retried"])[:10]
     if worse:
@@ -323,10 +338,13 @@ def record(save=save_row, jobs=None, log_of=None, dispatch=None) -> int:
     own = os.environ.get("OWN_JOB", "outcome")
     jobs = jobs if jobs is not None else attempt_jobs(repo, run_id, attempt)
     v = verdict(jobs, own, log_of or (lambda j: job_log(repo, j["id"])))
+    pc = os.environ.get("BUILD_ON", "").strip() == "pc"
     if v.pop("ok"):
         outcome = "passed"
     elif v["transient"]:
         outcome = "retrying" if attempt < MAX_ATTEMPTS else "gave up"
+    elif pc and attempt == 1 and v["reason"] not in PC_FINAL:
+        outcome = "pc retry"
     else:
         outcome = "stopped"
     row = {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "run_id": int(run_id), "pack": pack_name(),
@@ -335,19 +353,22 @@ def record(save=save_row, jobs=None, log_of=None, dispatch=None) -> int:
             "retrying": f"**{v['reason']}** (transient) at {v['job']} / {v['step']}"
                         + (f", host `{v['host']}`" if v["host"] else "")
                         + f": re-running the failed jobs in {WAITS.get(attempt)} min (attempt {attempt + 1} of {MAX_ATTEMPTS})",
+            "pc retry": f"**{v['reason']}** at {v['job']} / {v['step']}: a real failure, but a build on Drew's PC "
+                        f"gets one re-run whatever the cause: re-running the failed jobs in {WAITS[1]} min (attempt 2)",
             "gave up": f"**{v['reason']}** (transient) at {v['job']} / {v['step']}"
                        + (f", host `{v['host']}`" if v["host"] else "") + f": still failing after {attempt} attempts; "
                        "no more retries",
             "stopped": f"**{v['reason']}** at {v['job']} / {v['step']}: a real failure, not retried. Fix the cause "
                        "and run it again"}[outcome]
     write_summary(f"### Outcome\n\n{head}.\n\n{inline.caps_md()} Job re-runs: at most "  # FEAT-314
-                  f"{MAX_ATTEMPTS - 1}, after {' then '.join(str(w) for w in WAITS.values())} min.\n")
+                  f"{MAX_ATTEMPTS - 1}, after {' then '.join(str(w) for w in WAITS.values())} min"
+                  + ("; a build on Drew's PC also gets one for a real cause on its first attempt" if pc else "") + ".\n")
     try:
         rows, tune = save(row)
         write_summary("### Build failures so far\n\n" + summary_md(rows, tune))
     except Exception as e:      # the metrics are a record, never the reason a retry does not happen
         print(f"::warning::metrics not saved: {e}")
-    if outcome == "retrying":
+    if outcome in RERUNS:
         (dispatch or (lambda: gh("workflow", "run", "build-pack-retry.yml", "-f", f"run_id={run_id}",
                                  "-f", f"attempt={attempt}")))()
     elif outcome in ("stopped", "gave up"):

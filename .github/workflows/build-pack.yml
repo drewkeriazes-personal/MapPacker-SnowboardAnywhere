@@ -34,7 +34,8 @@
 #   outcome  every attempt, pass or fail (FEAT-314): tools/ci/build_failures.py record sorts a failure into a reason
 #            code, logs the attempt on the `metrics` branch (build-failures.jsonl, README.md, host-tuning.json) and,
 #            for a transient cause on attempt 1 or 2, starts build-pack-retry.yml, which re-runs the failed jobs
-#            after 5, then 15 minutes. A real cause stops with its reason. Never fails the run itself.
+#            after 5, then 15 minutes. A real cause stops with its reason, except a build_on: pc run's first
+#            attempt, re-run once for any cause a re-run can change (FEAT-388). Never fails the run itself.
 #
 # Security: the inputs are untrusted text. They reach steps only as environment variables, never in a `run:`
 # line (pipeline/tests/test_workflows.py checks), and build_pack_ci.py inputs refuses any outside their shapes
