@@ -1,6 +1,6 @@
 # Pack report: Breckenridge (`breckenridge`)
 
-Build `20261122T154313Z-28aa89`, pipeline `874dd77`, format 1. Report 2026-11-22T15:43:33Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T044721Z-4c9b5f`, pipeline `0352c25`, format 1. Report 2026-11-25T04:48:00Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: gold** (FEAT-225: the weakest layer's)
 
@@ -105,16 +105,16 @@ Build `20261122T154313Z-28aa89`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 420 | 108.4 | 2026-11-22 |
-| mid heights | yes | 25 | 11.6 | 2026-11-22 |
-| far heights | yes | 16 | 2.7 | 2026-11-22 |
-| mask | yes | 110 | 10.5 | 2026-11-22 |
-| AO | yes | 110 | 7.7 | 2026-11-22 |
-| piste directions | yes | 110 | 0.4 | 2026-11-22 |
-| moguls | yes | 110 | 0.5 | 2026-11-22 |
-| cover | yes | 4 | 17.9 | 2026-11-22 |
-| trees (crowns) | yes | 120 | 7.6 | 2026-11-22 |
-| stands (stems) | yes | 111 | 12.5 | 2026-11-22 |
-| far tree ring | yes | 332 | 24.3 | 2026-11-22 |
-| shrubs | yes | 120 | 0.6 | 2026-11-22 |
-| rocks | yes | 111 | 1.5 | 2026-11-22 |
+| fine heights | yes | 420 | 108.4 | 2026-11-25 |
+| mid heights | yes | 25 | 11.6 | 2026-11-25 |
+| far heights | yes | 16 | 2.7 | 2026-11-25 |
+| mask | yes | 110 | 10.5 | 2026-11-25 |
+| AO | yes | 110 | 7.7 | 2026-11-25 |
+| piste directions | yes | 110 | 0.4 | 2026-11-25 |
+| moguls | yes | 110 | 0.5 | 2026-11-25 |
+| cover | yes | 4 | 17.9 | 2026-11-25 |
+| trees (crowns) | yes | 120 | 7.6 | 2026-11-25 |
+| stands (stems) | yes | 111 | 12.5 | 2026-11-25 |
+| far tree ring | yes | 332 | 24.3 | 2026-11-25 |
+| shrubs | yes | 120 | 0.6 | 2026-11-25 |
+| rocks | yes | 111 | 1.5 | 2026-11-25 |
