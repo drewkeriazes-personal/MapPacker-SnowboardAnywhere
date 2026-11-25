@@ -116,7 +116,7 @@ def landcover_grid(raw, to_ll, x0, y_top, res, w, h, block=2_000_000):
     wc_p = sorted(glob.glob(os.path.join(lc, "worldcover", "*.tif")))
     eth_p = sorted(glob.glob(os.path.join(lc, "eth_canopy", "*.tif")))
     if not wc_p or not eth_p:
-        raise SystemExit(f"no WorldCover or ETH canopy height in {lc}: a pack without lidar or NAIP (FEAT-225 Silver "
+        raise SystemExit(f"no WorldCover or ETH canopy height in {lc}: a pack without lidar or NAIP (Silver "  # FEAT-225
                          "and Bronze) builds its trees and masks from them; fetch them (landcover.enabled)")
     xs = [x0, x0 + w * res / 2, x0 + w * res]; ys = [y_top - h * res, y_top - h * res / 2, y_top]
     lo, la = to_ll.transform([x for x in xs for _ in ys], [y for _ in xs for y in ys])

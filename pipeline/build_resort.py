@@ -155,7 +155,7 @@ MOVED = {"from": "SnowboardAnywhere 2a0b12f",
          "game_code": "80d9391a499fed00",
          "code": "1df239f500ce0922",
          "same": ("1cdddd3bff92c566", "16675d25ca2bb68f")}
-MOVED_WHY = "built before the move to MapPacker (FEAT-238), inputs unchanged"
+MOVED_WHY = "built before the move to MapPacker, inputs unchanged"  # FEAT-238
 
 
 def run(cmd, cwd=REPO, env=None):
@@ -418,7 +418,7 @@ def check_raw(r):
     need = raw_need(r.cfg)
     osm_need = list(OSM_NEED)
     if not (r.cfg.get("lidar") and r.cfg.get("naip")) and not (r.cfg.get("landcover") or {}).get("enabled", True):
-        raise Failed("the config has no lidar or no NAIP, so its trees or masks come from the land cover (FEAT-225), "
+        raise Failed("the config has no lidar or no NAIP, so its trees or masks come from the land cover, "  # FEAT-225
                      "but landcover.enabled is false: turn it on and run again with --force manifest")
     if (r.cfg.get("landcover") or {}).get("enabled", True):
         need["WorldCover land cover"] = (os.path.join("landcover", "worldcover"), None)
@@ -746,7 +746,7 @@ def report_run(r, ctx):
     cmd = [sys.executable, os.path.join(HERE, "pack_report.py"), r.out, "--raw", r.raw, "--config", r.cfg_path]
     code = ctx.run(cmd + (["--gate"] if ctx.gate else []))
     if code and ctx.gate:
-        raise Failed("the DATA-022 report has MVP lines that do not pass (report.md in the pack): the pack is preview")
+        raise Failed("the pack report has MVP lines that do not pass (report.md in the pack): the pack is preview")  # DATA-022
     if code:
         raise Failed(f"pack_report.py exited {code}")
 
@@ -849,7 +849,7 @@ def main(argv=None):
     ap.add_argument("--stop-after", dest="last", choices=STAGES, help="stop after this stage")
     ap.add_argument("--force", action="append", default=[], choices=STAGES + ["all"], help="run a stage even if done")
     ap.add_argument("--email", help="email for the LANDFIRE service (or LANDFIRE_EMAIL)")
-    ap.add_argument("--gate", action="store_true", help="fail unless every DATA-022 MVP line passes")
+    ap.add_argument("--gate", action="store_true", help="fail unless every MVP line of the pack report passes")  # DATA-022
     ap.add_argument("--dry-run", action="store_true", help="print what would run and why")
     a = ap.parse_args(argv)
     if not os.path.isfile(paths.config_path(a.slug)):

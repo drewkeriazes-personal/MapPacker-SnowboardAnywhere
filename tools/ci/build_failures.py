@@ -298,7 +298,7 @@ def save_row(row: dict, repo_dir: str = ROOT) -> tuple:
         with open(os.path.join(d, TUNING), "w", encoding="utf-8") as f:
             json.dump(tune, f, indent=2)
         with open(os.path.join(d, "README.md"), "w", encoding="utf-8") as f:
-            f.write("# Build pack failures (FEAT-314)\n\nWritten by `tools/ci/build_failures.py record` on every Build "
+            f.write("# Build pack failures\n\nWritten by `tools/ci/build_failures.py record` on every Build "  # FEAT-314
                     f"pack attempt; the rows are in `{LOG}`.\n\n" + summary_md(rows, tune))
         git("add", LOG, TUNING, "README.md", cwd=d)
         git("-c", "user.name=github-actions[bot]", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
@@ -360,7 +360,7 @@ def record(save=save_row, jobs=None, log_of=None, dispatch=None) -> int:
                        "no more retries",
             "stopped": f"**{v['reason']}** at {v['job']} / {v['step']}: a real failure, not retried. Fix the cause "
                        "and run it again"}[outcome]
-    write_summary(f"### Outcome (FEAT-314)\n\n{head}.\n\n{inline.caps_md()} Job re-runs: at most "
+    write_summary(f"### Outcome\n\n{head}.\n\n{inline.caps_md()} Job re-runs: at most "  # FEAT-314
                   f"{MAX_ATTEMPTS - 1}, after {' then '.join(str(w) for w in WAITS.values())} min"
                   + ("; a build on Drew's PC also gets one for a real cause on its first attempt" if pc else "") + ".\n")
     try:

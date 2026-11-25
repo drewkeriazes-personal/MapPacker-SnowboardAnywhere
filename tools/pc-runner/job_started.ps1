@@ -34,7 +34,7 @@ if (-not $actor -or ($trusted -cnotcontains $actor)) { $why += "actor '$actor' i
 if ($by -cne $actor -and $by -cne $retryBot -and ($trusted -cnotcontains $by)) { $why += "'$by' (who re-ran it) is not a maintainer" }
 
 if ($why.Count -gt 0) {
-    Write-Output "::error::This runner (Drew's PC, FEAT-344) takes only Build pack from main, dispatched by a maintainer. Refused:"
+    Write-Output "::error::This runner (Drew's PC) takes only Build pack from main, dispatched by a maintainer. Refused:"
     $why | ForEach-Object { Write-Output "  - $_" }
     exit 1
 }

@@ -73,7 +73,7 @@ on:
   workflow_dispatch:
     inputs:
       rebuild:
-        description: Rebuild a published pack (FEAT-297). Leave the first entry to build from the slug typed below
+        description: Rebuild a published pack. Leave the first entry to build from the slug typed below  # FEAT-297
         required: false
         type: choice
         default: '(new resort: type the slug below)'
@@ -112,11 +112,11 @@ on:
         required: false
         type: string
       requested_by:
-        description: The game account that asked (FEAT-273), written into the publish PR
+        description: The game account that asked, written into the publish PR  # FEAT-273
         required: false
         type: string
       build_on:
-        description: "Where the build runs (FEAT-344): cloud, the free runner; pc, Drew's PC (big packs, the GPU menu still). pc runs only from main, started by a maintainer"
+        description: "Where the build runs: cloud, the free runner; pc, Drew's PC (big packs, the GPU menu still). pc runs only from main, started by a maintainer"  # FEAT-344
         required: false
         type: choice
         default: cloud
@@ -124,11 +124,11 @@ on:
           - cloud
           - pc
       refresh_run:
-        description: The Refresh packs run that started this build (FEAT-342); set by refresh-packs.yml, leave empty
+        description: The Refresh packs run that started this build; set by refresh-packs.yml, leave empty  # FEAT-342
         required: false
         type: string
       fresh_data:
-        description: "Download all the raw data again (FEAT-346): skips the free runner's raw-data cache; the build then saves what it fetched"
+        description: "Download all the raw data again: skips the free runner's raw-data cache; the build then saves what it fetched"  # FEAT-346
         required: false
         type: boolean
         default: false
@@ -402,7 +402,7 @@ jobs:
           [ -n "$APP_KEY" ] || missing="$missing secret:PUBLISH_APP_KEY"
           [ -n "$APP_LOGIN" ] || missing="$missing variable:PUBLISH_APP_LOGIN"
           if [ -n "$missing" ]; then
-            echo "::error::Publishing needs the GitHub App (FEAT-272). Missing:$missing. See the top of .github/workflows/publish-merge.yml."
+            echo "::error::Publishing needs the GitHub App. Missing:$missing. See the top of .github/workflows/publish-merge.yml."  # FEAT-272
             exit 1
           fi
       - id: app

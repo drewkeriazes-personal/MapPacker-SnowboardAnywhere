@@ -375,7 +375,7 @@ jobs:
               echo '<!-- ci-stills -->'
               echo '## Shader compile and scene budgets (synthetic pack)'
               echo
-              echo "This PR builds the same synthetic pack as \`main\` (content \`$CONTENT\`), so the game's \`main\` at $game would draw the same scene on both sides: nothing to compare, not drawn in CI (FEAT-251). Add the \`stills\` label to draw it anyway."
+              echo "This PR builds the same synthetic pack as \`main\` (content \`$CONTENT\`), so the game's \`main\` at $game would draw the same scene on both sides: nothing to compare, not drawn in CI. Add the \`stills\` label to draw it anyway."
             } > "$OUT/report/report.md"
             echo "::notice::the PR builds the same synthetic pack as main ($CONTENT): render-budgets not drawn"
           elif [ "$HIT" = true ] && [ -f "$OUT/report/report.md" ] && [ -f "$OUT/report/source.txt" ]; then
@@ -383,7 +383,7 @@ jobs:
             read -r src_run src_sha < "$OUT/report/source.txt"
             {
               echo
-              echo "reused in CI at $HEAD_SHA: the same synthetic packs, game commit and tools as $src_sha, which passed ([run]($src_run)); the numbers above are from that run (FEAT-251)."
+              echo "reused in CI at $HEAD_SHA: the same synthetic packs, game commit and tools as $src_sha, which passed ([run]($src_run)); the numbers above are from that run."
             } >> "$OUT/report/report.md"
             echo "::notice::reused the passing result of $src_sha ($src_run): render-budgets not drawn"
           else
@@ -602,7 +602,7 @@ jobs:
           python tools/ci/rebuild_choices.py && exit 0
           fix="run python tools/ci/rebuild_choices.py --write and commit build-pack.yml in a PR of its own"
           case "$HEAD_REF" in
-            publish/*) echo "::warning::Build pack's rebuild list differs from catalog.json. After this merges, $fix (BUG-166)"; exit 0 ;;
+            publish/*) echo "::warning::Build pack's rebuild list differs from catalog.json. After this merges, $fix"; exit 0 ;;  # BUG-166
           esac
-          echo "::error::Build pack's rebuild list differs from catalog.json: $fix (BUG-166)"
+          echo "::error::Build pack's rebuild list differs from catalog.json: $fix"  # BUG-166
           exit 1

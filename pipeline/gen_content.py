@@ -55,6 +55,8 @@ from packwriter import decode_terrarium, write_meta  # noqa: E402
 from PIL import Image  # noqa: E402
 from osm_filter import is_downhill  # noqa: E402
 
+# written into each generated menu shot's note (attract/shots.json): pack data in the content key, so it keeps
+# its old text and a rebuild with nothing else changed gives the same pack
 GENERATOR = "gen_content.py (FEAT-175)"
 # start
 START_FROM_TOP_M = 15.0        # the walk down the run starts this far from the top station

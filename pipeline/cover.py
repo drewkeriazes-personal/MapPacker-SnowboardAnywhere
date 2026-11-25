@@ -292,7 +292,7 @@ def pack_level(pack_dir, meta, runs, log=print):
         stands = forest * closed_stand(ndimage.gaussian_filter(test, CROWN_SIGMA / PACK_RES))
         forest *= np.clip(ndimage.gaussian_filter(test, FAR_SIGMA / PACK_RES) / (CROWN_FULL * DETECTED_OF_DRAWN), 0, 1)   # BUG-120
         log(f"  drawn trees keep {forest.sum() / max(before, 1) * 100:.1f}% of the forest from far off, "
-            f"closed stands {stands.sum() / max(before, 1) * 100:.1f}% from near (BUG-069)")
+            f"closed stands {stands.sum() / max(before, 1) * 100:.1f}% from near")  # BUG-069
     height = tree_heights(pack_dir, meta, 16.0, w, h)
     lv = write_level(pack_dir, "pack", to_rgba(forest, height, rock, np.zeros_like(forest)), PACK_RES, b["minX"], b["minY"])
     if stands is not None:
@@ -417,7 +417,7 @@ def calibrate(forest, built, south, res, truth, name, log=print):
         if not sel.any():
             return f"{what} none"
         return f"{what} {forest[sel].mean():.3f} -> {out[sel].mean():.3f} (lidar {p[sel].mean():.3f})"
-    log(f"  {name} calibrated on {ok.sum()} cells (BUG-081): {part(ok, 'forest where both')}; "
+    log(f"  {name} calibrated on {ok.sum()} cells: {part(ok, 'forest where both')}; "  # BUG-081
         f"{part(ok & (south < -0.3), 'north-facing')}, {part(ok & (south > 0.3), 'south-facing')}; "
         f"whole level {forest.mean():.3f} -> {out.mean():.3f}")
     return out
@@ -466,7 +466,7 @@ def ring_forest(pack_dir, meta, res, min_x, max_y, w, h, south, pack_truth, name
     dx = np.minimum(cx - box_l[0], box_l[2] - cx); dy = np.minimum(cy - box_l[1], box_l[3] - cy)
     wgt = np.outer(smoothstep(0, BLEND_M, dy), smoothstep(0, BLEND_M, dx)).astype(np.float32)
     sel = wgt > 0.99
-    log(f"  {name} far tree ring (BUG-081): forest {forest[sel].mean() if sel.any() else 0:.3f} over "
+    log(f"  {name} far tree ring: forest {forest[sel].mean() if sel.any() else 0:.3f} over "  # BUG-081
         f"{sel.sum() * res * res / 1e6:.0f} km2 from {fn.sum():.0f} far crowns, fitted on {inside.sum()} pack cells "
         f"(pack {p[inside].mean():.3f}, its crowns mapped {apply_calibration(lut, t_own[inside], south[inside]).mean():.3f})")
     return forest, hgt, wgt

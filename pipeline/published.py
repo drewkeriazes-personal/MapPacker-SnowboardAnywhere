@@ -773,7 +773,7 @@ def main(argv=None):
     ap.add_argument("--raw", help="the resort's raw folder, for the trail list in grooming/ (default <raw root>/<slug>)")
     ap.add_argument("--cache", help="folder of the cached OpenSkiData index (default _index/ in the raw root)")
     ap.add_argument("--resorts", help="the folder holding every resort's folder (default resorts/)")
-    ap.add_argument("--grow", action="store_true", help="FEAT-296: grow the config's box to take in the resort's own "
+    ap.add_argument("--grow", action="store_true", help="grow the config's box to take in the resort's own "  # FEAT-296
                     "runs and lifts found outside it; then resort.py plan and build_resort.py fetch and build the rest")
     a = ap.parse_args(argv)
     with open(paths.config_path(a.slug, a.resorts), encoding="utf-8") as f:

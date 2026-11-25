@@ -466,7 +466,7 @@ if NAIP:
         grown = canopy | crown
         grown |= ndimage.binary_closing(grown, iterations=2) & (ndvi2 > NT["canopy.grow_ndvi"]) & have2
         canopy_grown = grown & ~canopy
-        log(f"  canopy {canopy.mean()*100:.1f}% from the lidar and NAIP rule, {canopy_grown.mean()*100:.1f}% more from 5 m+ returns over grey crowns and closed gaps (BUG-028)")
+        log(f"  canopy {canopy.mean()*100:.1f}% from the lidar and NAIP rule, {canopy_grown.mean()*100:.1f}% more from 5 m+ returns over grey crowns and closed gaps")  # BUG-028
         canopy |= canopy_grown
         del crown, grown
     else:
@@ -1384,7 +1384,7 @@ if LIDAR and len(rows):
         f"per 1 km cell {q10 * 100:.0f} / {q50 * 100:.0f} / {q90 * 100:.0f}% (10th / median / 90th); "
         f"{(p4 >= 0.999).sum() / max((p4 > 0).sum(), 1) * 100:.0f}% of the stem cells are full (one stem per 4 m cell)")
     if not 0.9 <= ratio <= 1.05:
-        log(f"  WARNING: drawn crown cover is {ratio * 100:.0f}% of the lidar canopy share (BUG-131: expected 90 to 105%)")
+        log(f"  WARNING: drawn crown cover is {ratio * 100:.0f}% of the lidar canopy share (expected 90 to 105%)")  # BUG-131
     del share4, deta4, ok4, cr4
 else:
     p4 = stands.stem_chance(canopy4, h4, sp4, det4)
@@ -1407,7 +1407,7 @@ if widths.enabled(cfg) and len(rows):
         ch = m["drawn"] / max(m["before"], 1e-6) - 1
         log(f"  crown cover {rad:.0f} m round {name}: drawn {m['drawn']:.3f}, at the species radii {m['before']:.3f} ({ch * 100:+.0f}%)"
             + (f", lidar canopy {m['lidar']:.3f}" if "lidar" in m else "")
-            + ("  WARNING: the widths changed the canopy by over 10% (FEAT-298)" if abs(ch) > 0.10 else ""))
+            + ("  WARNING: the widths changed the canopy by over 10%" if abs(ch) > 0.10 else ""))  # FEAT-298
     del drawn4, fields
 elif not widths.enabled(cfg):
     log("  crown widths off (crown_widths: false): every tree at its species radius")

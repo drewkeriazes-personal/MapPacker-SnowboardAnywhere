@@ -240,7 +240,7 @@ def save_one(folder: str, raw: str) -> str:
             gh("release", "view", tag(folder), "--json", "isDraft")
         except RuntimeError:
             gh("release", "create", tag(folder), "--draft", "--title", f"Raw data cache: {folder}",
-               "--notes", "FEAT-346: the free runner's raw-data cache (tools/ci/raw_cache.py). A draft on purpose: "
+               "--notes", "The free runner's raw-data cache (tools/ci/raw_cache.py). A draft on purpose: "
                "never publish it.")
 
     def upload(path):

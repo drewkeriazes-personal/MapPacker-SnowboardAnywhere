@@ -1093,7 +1093,7 @@ def plan(stub, hosts, walk_nodes=True, log=print):
     facts["layers"]["trees"] = "gold" if lidar_cover >= COVERED else "silver"
     if not picked:
         facts["notes"].append("no EPT lidar over the box: the trees are stands from the ETH canopy height and "
-                              "WorldCover (Silver trees), no crowns, the far tree ring generated on them (FEAT-257)")
+                              "WorldCover (Silver trees), no crowns, the far tree ring generated on them")  # FEAT-257
     else:
         far_depth, far_spacing = ept_depth(hosts.ept(lidar["ept"] + "ept.json"), cy, FAR_SPACING_M)
         far_depth = min(far_depth, lidar["max_depth_resort"])
@@ -1214,7 +1214,7 @@ def plan_md(cfg, facts, walked=True):
     """the data plan Drew reads before the fetch"""
     m = facts["manifest"]
     L = [f"# {cfg['name']}: data plan", "",
-         f"Planned {datetime.date.today().isoformat()} by `pipeline/resort.py plan {cfg['slug']}` (FEAT-223). "
+         f"Planned {datetime.date.today().isoformat()} by `pipeline/resort.py plan {cfg['slug']}`. "  # FEAT-223
          f"{cfg['crs']} ({cfg['utm_zone']}), origin {cfg['origin'][0]}, {cfg['origin'][1]}. Ski area "
          f"{facts['diagonal_m'] / 1000:.1f} km across, buffer {cfg['buffer_m']} m, box "
          f"{(cfg['utm_bbox'][2] - cfg['utm_bbox'][0]) / 1000:.1f} x {(cfg['utm_bbox'][3] - cfg['utm_bbox'][1]) / 1000:.1f} km, "
@@ -1280,7 +1280,7 @@ def plan_md(cfg, facts, walked=True):
     if cfg.get("exclude"):
         L += ["", "## Left out", ""] + [f"- {e['name']}: {len(e.get('osm_ways', []))} run and lift ways by OSM id"
                                        for e in cfg["exclude"]]
-    L += ["", "## Next", "", "- `start_run` is empty: FEAT-175 step 4 picks it after the build.",
+    L += ["", "## Next", "", "- `start_run` is empty: it is picked after the build.",  # FEAT-175
           f"- `python pipeline/gen_manifest.py {cfg['slug']}`, then `pipeline/fetch.ps1 -Slug {cfg['slug']} -RawDir <dir>` "
           "on Drew's PC."]
     return "\n".join(L) + "\n"
@@ -1757,7 +1757,7 @@ def cmd_add(a, hosts, publish=None, br=None):
         return 1
     if set(todo) & {"report", "ride", "publish"} and os.path.isfile(os.path.join(out, "report.json")):
         ok, bad = gate_lines(out)
-        print("\nDATA-022 gate: " + ("every MVP line passes, playable" if ok else "preview, held back by:"))
+        print("\nPack report gate: " + ("every MVP line passes, playable" if ok else "preview, held back by:"))  # DATA-022
         for i, item, detail in bad:
             print(f"  {i} {item}: {detail}")
     if "ride" in todo:
@@ -1800,8 +1800,7 @@ def main(argv=None):
     r.add_argument("name")
     r.add_argument("--id", help="OpenSkiData ski area id, when several match")
     r.add_argument("--osm", help="the OSM way or relation the ski area is built from (123, way/123 or relation/123), "
-                   "or its Skimap.org id when OpenSkiData has no OSM outline (skimap/497), instead of a name search "
-                   "(FEAT-245, FEAT-286)")
+                   "or its Skimap.org id when OpenSkiData has no OSM outline (skimap/497), instead of a name search")  # FEAT-245, FEAT-286
     r.add_argument("--with", dest="with_", action="append", help="a neighbour to build into the same pack")
     r.add_argument("--alone", action="store_true", help="leave the neighbours' runs and lifts out")
     r.add_argument("--slug", help="slug to write (default from the name)")
@@ -1812,18 +1811,17 @@ def main(argv=None):
     p.add_argument("--force", action="store_true", help="re-plan a hand-written config (its hand fields are kept)")
     c = sub.add_parser("compare", help="plan a hand-written config again and list the differences")
     c.add_argument("slug")
-    s_ = sub.add_parser("search", help="the ski areas a name finds, read-only (FEAT-279; --json for the game)")
+    s_ = sub.add_parser("search", help="the ski areas a name finds, read-only (--json for the game)")  # FEAT-279
     s_.add_argument("query")
     s_.add_argument("--json", action="store_true", help="print one JSON object (the game's Find a resort box)")
     s_.add_argument("--limit", type=int, default=SEARCH_LIMIT,
                     help=f"at most this many matches (default {SEARCH_LIMIT})")
     import build_resort
-    d = sub.add_parser("add", help="resolve, plan, fetch, build, report and publish; the ride with --ride (FEAT-224)")
+    d = sub.add_parser("add", help="resolve, plan, fetch, build, report and publish; the ride with --ride")  # FEAT-224
     d.add_argument("name")
     d.add_argument("--id", help="OpenSkiData ski area id, when several match")
     d.add_argument("--osm", help="the OSM way or relation the ski area is built from (123, way/123 or relation/123), "
-                   "or its Skimap.org id when OpenSkiData has no OSM outline (skimap/497), instead of a name search "
-                   "(FEAT-245, FEAT-286)")
+                   "or its Skimap.org id when OpenSkiData has no OSM outline (skimap/497), instead of a name search")  # FEAT-245, FEAT-286
     d.add_argument("--with", dest="with_", action="append", help="a neighbour to build into the same pack")
     d.add_argument("--alone", action="store_true", help="leave the neighbours' runs and lifts out")
     d.add_argument("--slug", help="slug (default from the name)")
