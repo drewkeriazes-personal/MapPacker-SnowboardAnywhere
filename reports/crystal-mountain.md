@@ -1,6 +1,6 @@
 # Pack report: Crystal Mountain (`crystal-mountain`)
 
-Build `20261122T153115Z-65919a`, pipeline `874dd77`, format 1. Report 2026-11-22T15:31:26Z by `pipeline/pack_report.py` (FEAT-175).
+Build `20261125T043558Z-bff98c`, pipeline `3a50d0c`, format 1. Report 2026-11-25T04:36:09Z by `pipeline/pack_report.py` (FEAT-175).
 
 **Tier: silver** (FEAT-225: the weakest layer's)
 
@@ -90,16 +90,16 @@ Build `20261122T153115Z-65919a`, pipeline `874dd77`, format 1. Report 2026-11-22
 
 | Layer | In meta | Files | MB | Modified |
 |---|---|---:|---:|---|
-| fine heights | yes | 165 | 45.7 | 2026-11-22 |
-| mid heights | yes | 25 | 12.2 | 2026-11-22 |
-| far heights | yes | 16 | 2.6 | 2026-11-22 |
-| mask | yes | 48 | 3.0 | 2026-11-22 |
-| AO | yes | 48 | 2.7 | 2026-11-22 |
-| piste directions | yes | 48 | 0.0 | 2026-11-22 |
-| moguls | yes | 48 | 0.3 | 2026-11-22 |
-| cover | yes | 4 | 8.6 | 2026-11-22 |
-| trees (crowns) | yes | 20 | 0.7 | 2026-11-22 |
-| stands (stems) | yes | 20 | 1.4 | 2026-11-22 |
-| far tree ring | yes | 131 | 11.3 | 2026-11-22 |
-| shrubs | yes | 46 | 0.2 | 2026-11-22 |
-| rocks | yes | 48 | 1.0 | 2026-11-22 |
+| fine heights | yes | 165 | 45.7 | 2026-11-25 |
+| mid heights | yes | 25 | 12.2 | 2026-11-25 |
+| far heights | yes | 16 | 2.6 | 2026-11-25 |
+| mask | yes | 48 | 3.0 | 2026-11-25 |
+| AO | yes | 48 | 2.7 | 2026-11-25 |
+| piste directions | yes | 48 | 0.0 | 2026-11-25 |
+| moguls | yes | 48 | 0.3 | 2026-11-25 |
+| cover | yes | 4 | 8.6 | 2026-11-25 |
+| trees (crowns) | yes | 20 | 0.7 | 2026-11-25 |
+| stands (stems) | yes | 20 | 1.4 | 2026-11-25 |
+| far tree ring | yes | 131 | 11.3 | 2026-11-25 |
+| shrubs | yes | 46 | 0.2 | 2026-11-25 |
+| rocks | yes | 48 | 1.0 | 2026-11-25 |
