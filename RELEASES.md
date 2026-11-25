@@ -15,7 +15,8 @@ Every published pack, grouped by resort, newest version first. The game download
 
 ## Big Sky
 
-- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v4) (latest) 254 MB, 2026-11-22
+- [v5](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v5) (latest) 257 MB, 2026-11-25
+- [v4](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v4) 254 MB, 2026-11-22
 - [v3](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v3) 252 MB, 2026-11-14
 - [v2](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v2) 252 MB, 2026-11-12
 - [v1](https://github.com/drewkeriazes-personal/MapPacker-SnowboardAnywhere/releases/tag/bigsky/v1) 224 MB, 2026-11-11
