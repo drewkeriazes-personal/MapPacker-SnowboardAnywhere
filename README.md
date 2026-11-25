@@ -2,18 +2,18 @@
 
 Written by `tools/ci/build_failures.py record` on every Build pack attempt; the rows are in `build-failures.jsonl`.
 
-79 attempts logged, 47 failed. Recovered inline: 80 calls; job re-runs: 2; real failures: 45. Retried runs: 2, of them passed in the end: 0 (0%).
+80 attempts logged, 47 failed. Recovered inline: 80 calls; job re-runs: 2; real failures: 45. Retried runs: 2, of them passed in the end: 0 (0%).
 
 **Inline retries by host** (a host that needs more and more of them is getting worse)
 
 | host | calls | retried | recovered | failed |
 |---|---|---|---|---|
-| overpass-api.de | 224 | 76 | 57 | 19 |
-| elevation.nationalmap.gov | 1077 | 21 | 21 | 0 |
-| download.geofabrik.de | 53 | 8 | 0 | 8 |
+| overpass-api.de | 225 | 76 | 57 | 19 |
+| elevation.nationalmap.gov | 1078 | 21 | 21 | 0 |
+| download.geofabrik.de | 54 | 8 | 0 | 8 |
 | overpass.private.coffee | 7 | 7 | 1 | 6 |
 | lz4.overpass-api.de | 6 | 6 | 0 | 6 |
-| libdrive.ethz.ch | 153 | 1 | 1 | 0 |
+| libdrive.ethz.ch | 154 | 1 | 1 | 0 |
 
 **By host**
 
